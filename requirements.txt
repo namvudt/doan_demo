@@ -1,0 +1,7 @@
+# Thư viện cho Hệ thống Multi-Agent VQA Di tích Lịch sử & Văn hóa Nghệ thuật
+streamlit>=1.35.0
+google-genai>=2.0.0
+openai>=1.40.0
+pillow>=10.0.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
