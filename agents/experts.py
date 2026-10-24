@@ -16,7 +16,6 @@ YÊU CẦU PHÂN TÍCH:
    - Bố cục & Góc máy: Toàn cảnh, cận cảnh, ánh sáng, cảnh quan xung quanh (hồ nước, cây đa, sân gạch...).
 3. Bằng chứng thị giác trực tiếp (Visual Evidences): Chỉ ra chính xác các chi tiết nhìn thấy bằng mắt thường trong ảnh để trả lời cho câu hỏi cụ thể của người dùng.
 4. Phát hiện chữ viết/văn bản: Báo cáo xem có nhìn thấy chữ Hán, chữ Nôm, hoành phi, câu đối, biển bảng nào trong ảnh hay không.
-
 Trình bày mạch lạc bằng Markdown với tiêu đề rõ ràng, ngôn từ chuẩn xác về mặt mỹ thuật học cổ truyền."""
 
 class VisualAgent:

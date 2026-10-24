@@ -80,7 +80,11 @@ class LLMManager:
     def _get_openai_client(self):
         if not self._openai_client and self.openai_api_key:
             from openai import OpenAI
-            self._openai_client = OpenAI(api_key=self.openai_api_key)
+            base_url = os.getenv("OPENAI_BASE_URL", "").strip() or None
+            kwargs = {"api_key": self.openai_api_key}
+            if base_url:
+                kwargs["base_url"] = base_url
+            self._openai_client = OpenAI(**kwargs)
         return self._openai_client
 
     def call_llm(
@@ -149,6 +153,9 @@ class LLMManager:
         temperature: float,
         json_output: bool
     ) -> str:
+        from utils.logger import log_api_call, log_api_success, log_error
+        import time
+
         client = self._get_gemini_client()
         from google.genai import types
 
@@ -168,12 +175,25 @@ class LLMManager:
             contents.append(image)
         contents.append(prompt)
 
-        response = client.models.generate_content(
-            model=self.gemini_model,
-            contents=contents,
-            config=config
-        )
-        return response.text or ""
+        log_api_call("Gemini", self.gemini_model, has_image=(image is not None), prompt_len=len(prompt))
+        t0 = time.time()
+        try:
+            response = client.models.generate_content(
+                model=self.gemini_model,
+                contents=contents,
+                config=config
+            )
+            res_text = response.text or ""
+            dur = time.time() - t0
+            log_api_success("Gemini", self.gemini_model, dur, len(res_text))
+            return res_text
+        except Exception as e:
+            log_error(
+                caller_name="LLMManager._call_gemini",
+                error=e,
+                details=f"Model: {self.gemini_model} | Has Image: {image is not None} | JSON Mode: {json_output}"
+            )
+            raise e
 
     def _call_openai(
         self,
@@ -183,6 +203,9 @@ class LLMManager:
         temperature: float,
         json_output: bool
     ) -> str:
+        from utils.logger import log_api_call, log_api_success, log_error
+        import time
+
         client = self._get_openai_client()
 
         messages = []
@@ -212,8 +235,21 @@ class LLMManager:
         if json_output:
             kwargs["response_format"] = {"type": "json_object"}
 
-        response = client.chat.completions.create(**kwargs)
-        return response.choices[0].message.content or ""
+        log_api_call("OpenAI", self.openai_model, has_image=(image is not None), prompt_len=len(prompt))
+        t0 = time.time()
+        try:
+            response = client.chat.completions.create(**kwargs)
+            res_text = response.choices[0].message.content or ""
+            dur = time.time() - t0
+            log_api_success("OpenAI", self.openai_model, dur, len(res_text))
+            return res_text
+        except Exception as e:
+            log_error(
+                caller_name="LLMManager._call_openai",
+                error=e,
+                details=f"Model: {self.openai_model} | Has Image: {image is not None} | JSON Mode: {json_output}"
+            )
+            raise e
 
 
 def safe_extract_json(text: str) -> Dict[str, Any]:
