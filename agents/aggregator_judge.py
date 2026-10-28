@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, Generator
 from utils.llm_clients import LLMManager, safe_extract_json
 
 # ==============================================================================
@@ -10,9 +10,9 @@ Nhiệm vụ của bạn là tiếp nhận kết quả nghiên cứu độc lậ
 
 CẤU TRÚC BẢN DỰ THẢO BẮT BUỘC:
 1. Phần 1: Câu Trả Lời Trực Diện & Chính Xác cho câu hỏi/yêu cầu của người dùng.
-2. Phần 2: Bằng Chứng Thị Giác & Giải Thích Chi Tiết (chỉ rõ những chi tiết cụ thể nào trong ảnh dẫn đến câu trả lời: hoa văn, mái ngói, kết cấu, chữ viết...).
+2. Phần 2: Bằng Chứng Thị Giác & Giải Thích Chi Tiết (chỉ rõ những chi tiết cụ thể nào trong ảnh dẫn đến câu trả lời: hoa văn, mái ngói, kết cấu, chất liệu...).
 3. Phần 3: Góc Mở Rộng Văn Hóa & Lịch Sử (giới thiệu giá trị lịch sử, niên đại, triều đại, ý nghĩa biểu tượng và các sự kiện, lễ hội văn hóa gắn liền).
-4. Phần 4 (Nếu có): Tác phẩm Sáng tác Nghệ thuật / Bản dịch Hán Nôm chi tiết.
+4. Phần 4 (Nếu có): Tác phẩm Sáng tác Nghệ thuật / Bình phẩm Mỹ thuật so sánh.
 
 Hãy viết bằng phong cách uyên bác, trang nhã, giàu bản sắc văn hóa Việt Nam."""
 
@@ -25,7 +25,6 @@ class AggregatorAgent:
         self,
         query: str,
         visual_findings: str,
-        ocr_findings: Optional[str] = None,
         knowledge_findings: Optional[str] = None,
         generation_findings: Optional[str] = None
     ) -> Tuple[str, Dict[str, Any]]:
@@ -36,9 +35,6 @@ class AggregatorAgent:
 
 [OUTPUT TỪ VISUAL EXPERT]:
 {visual_findings}
-
-[OUTPUT TỪ OCR & VĂN TỰ EXPERT (NẾU CÓ)]:
-{ocr_findings or "Không kích hoạt hoặc không có văn tự."}
 
 [OUTPUT TỪ KNOWLEDGE EXPERT (NẾU CÓ)]:
 {knowledge_findings or "Không kích hoạt."}
@@ -57,6 +53,39 @@ Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown
         )
         return response_text, meta
 
+    def aggregate_stream(
+        self,
+        query: str,
+        visual_findings: str,
+        knowledge_findings: Optional[str] = None,
+        generation_findings: Optional[str] = None,
+        typing_delay: float = 0.025
+    ) -> Generator[str, None, None]:
+        prompt = f"""Hãy tổng hợp dữ liệu từ các chuyên gia thành Bản dự thảo phản hồi hoàn chỉnh cho người dùng:
+
+[CÂU HỎI / YÊU CẦU CỦA NGƯỜI DÙNG]:
+"{query}"
+
+[OUTPUT TỪ VISUAL EXPERT]:
+{visual_findings}
+
+[OUTPUT TỪ KNOWLEDGE EXPERT (NẾU CÓ)]:
+{knowledge_findings or "Không kích hoạt."}
+
+[OUTPUT TỪ CREATIVE / GENERATION EXPERT (NẾU CÓ)]:
+{generation_findings or "Không kích hoạt."}
+
+Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown đầy đủ, chuẩn xác và hấp dẫn."""
+
+        return self.llm.stream_llm(
+            prompt=prompt,
+            system_instruction=AGGREGATOR_SYSTEM_PROMPT,
+            image=None,
+            preferred_provider="gemini",
+            temperature=0.3,
+            typing_delay=typing_delay
+        )
+
 
 # ==============================================================================
 # 2. JUDGE AGENT (Kiểm chứng & Thẩm định Chất lượng)
@@ -66,7 +95,7 @@ Nhiệm vụ của bạn là giám sát, rà soát tính trung thực và chất
 
 BẠN PHẢI KIỂM ĐỊNH NGHIÊM NGẶT THEO 3 TIÊU CHÍ:
 1. visual_fidelity (Bám sát thực tế ảnh & Chống Hallucination):
-   - So sánh với dữ liệu gốc của Visual Agent và OCR Agent: Bản nháp có bịa đặt chi tiết nào không xuất hiện trong ảnh không?
+   - So sánh với dữ liệu gốc của Visual Agent: Bản nháp có bịa đặt chi tiết nào không xuất hiện trong ảnh không?
    - Mọi suy đoán phải dựa trên bằng chứng thị giác xác thực.
 2. relevance (Đáp ứng trọng tâm câu hỏi):
    - Bản nháp đã trả lời trúng đích, thỏa đáng câu hỏi và yêu cầu ban đầu của người dùng chưa?
@@ -112,8 +141,7 @@ class JudgeAgent:
         self,
         query: str,
         draft_response: str,
-        visual_findings: str,
-        ocr_findings: Optional[str] = None
+        visual_findings: str
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         prompt = f"""Hãy thẩm định và hoàn thiện bản dự thảo sau đây:
 
@@ -122,9 +150,6 @@ class JudgeAgent:
 
 [BẰNG CHỨNG GỐC TỪ VISUAL AGENT]:
 {visual_findings}
-
-[BẰNG CHỨNG GỐC TỪ OCR AGENT (NẾU CÓ)]:
-{ocr_findings or "Không có văn bản."}
 
 [BẢN DỰ THẢO TỪ AGGREGATOR CẦN THẨM ĐỊNH]:
 {draft_response}

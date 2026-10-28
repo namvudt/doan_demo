@@ -10,6 +10,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
 from dotenv import load_dotenv
 
@@ -20,7 +21,7 @@ from utils.llm_clients import LLMManager
 from utils.logger import log_error
 from baselines.vanilla_vlm import VanillaVLMBaseline
 from baselines.generic_tool_agent import GenericToolAgentBaseline
-from agents import CoordinatorAgent, VisualAgent, OCRAgent, KnowledgeAgent, GenerationAgent, AggregatorAgent, JudgeAgent
+from agents import CoordinatorAgent, VisualAgent, KnowledgeAgent, GenerationAgent, AggregatorAgent, JudgeAgent
 
 def run_benchmark(image_path: str, query: str):
     try:
@@ -62,45 +63,62 @@ def _execute_benchmark(image_path: str, query: str):
     # --------------------------------------------------------------------------
     # 3. PROPOSED METHOD: HETEROGENEOUS MULTI-AGENT SYSTEM
     # --------------------------------------------------------------------------
-    print("\n[3/3] Đang chạy Proposed: Heterogeneous Multi-Agent Architecture...")
+    print("\n[3/3] Đang chạy Proposed: Heterogeneous Multi-Agent Architecture (Parallel Experts)...")
     t0_prop = time.time()
     
     # 3.1 Coordinator
     coord = CoordinatorAgent(llm)
     plan, _ = coord.plan(image, query)
     selected = plan.get("selected_agents", ["visual_agent"])
+    monument_hint = plan.get("identified_monument", "")
     
-    # 3.2 Experts
+    # 3.2 Parallel Experts Layer (Cách 3: Chạy song song tầng chuyên gia)
     vis_res = ""
-    ocr_res = None
     know_res = None
     gen_res = None
 
-    if "visual_agent" in selected:
-        vis = VisualAgent(llm)
-        vis_res, _ = vis.analyze(image, query)
-    
-    if "ocr_agent" in selected:
-        ocr = OCRAgent(llm)
-        ocr_res, _ = ocr.extract_and_translate(image, query)
-        
-    if "knowledge_agent" in selected:
-        know = KnowledgeAgent(llm)
-        know_res, _ = know.retrieve(vis_res, ocr_res, query)
+    def task_vis():
+        v = VisualAgent(llm)
+        r, _ = v.analyze(image, query)
+        return "visual", r
 
-    if "tool_gen_agent" in selected:
-        gen = GenerationAgent(llm)
-        gen_res, _ = gen.generate(query, vis_res, know_res or "")
+    def task_know():
+        k = KnowledgeAgent(llm)
+        r, _ = k.retrieve(query=query, monument_hint=monument_hint)
+        return "knowledge", r
+
+    def task_gen():
+        g = GenerationAgent(llm)
+        r, _ = g.generate(query=query, monument_hint=monument_hint)
+        return "generation", r
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_map = {}
+        if "visual_agent" in selected:
+            f_map[executor.submit(task_vis)] = "visual"
+        if "knowledge_agent" in selected:
+            f_map[executor.submit(task_know)] = "knowledge"
+        if "tool_gen_agent" in selected:
+            f_map[executor.submit(task_gen)] = "generation"
+
+        for f in as_completed(f_map):
+            k, r = f.result()
+            if k == "visual":
+                vis_res = r
+            elif k == "knowledge":
+                know_res = r
+            elif k == "generation":
+                gen_res = r
 
     # 3.3 Aggregator
     agg = AggregatorAgent(llm)
-    draft_res, _ = agg.aggregate(query, vis_res, ocr_res, know_res, gen_res)
+    draft_res, _ = agg.aggregate(query, vis_res, know_res, gen_res)
 
     # 3.4 Judge Refine
-    judge_eval, _ = judge.evaluate_and_refine(query, draft_res, vis_res, ocr_res)
+    judge_eval, _ = judge.evaluate_and_refine(query, draft_res, vis_res)
     prop_res = judge_eval.get("final_response", draft_res)
     prop_duration = round(time.time() - t0_prop, 2)
-    print(f"      Hoàn thành sau {prop_duration}s (Đã kích hoạt {len(selected)} Tác tử + Thẩm định)")
+    print(f"      Hoàn thành sau {prop_duration}s (Đã kích hoạt {len(selected)} Tác tử song song + Thẩm định)")
 
     # --------------------------------------------------------------------------
     # ĐÁNH GIÁ ĐỐI CHỨNG BẰNG LLM-AS-A-JUDGE (THEO CHUẨN OWLViz)
@@ -109,11 +127,11 @@ def _execute_benchmark(image_path: str, query: str):
     print("Đang tiến hành chấm điểm độc lập (LLM-as-a-Judge Evaluation)...")
     
     # Đánh giá Baseline 1
-    eval_b1, _ = judge.evaluate_and_refine(query, b1_res, vis_res, ocr_res)
+    eval_b1, _ = judge.evaluate_and_refine(query, b1_res, vis_res)
     crit_b1 = eval_b1.get("criteria_evaluation", {})
 
     # Đánh giá Baseline 2
-    eval_b2, _ = judge.evaluate_and_refine(query, b2_res, vis_res, ocr_res)
+    eval_b2, _ = judge.evaluate_and_refine(query, b2_res, vis_res)
     crit_b2 = eval_b2.get("criteria_evaluation", {})
 
     # Đánh giá Proposed

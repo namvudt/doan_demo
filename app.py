@@ -2,6 +2,7 @@ import os
 import time
 import json
 from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from PIL import Image
 import streamlit as st
 
@@ -15,7 +16,7 @@ st.set_page_config(
 # Import các module cốt lõi
 from utils.llm_clients import LLMManager
 from agents.coordinator import CoordinatorAgent
-from agents.experts import VisualAgent, OCRAgent, KnowledgeAgent, GenerationAgent
+from agents.experts import VisualAgent, KnowledgeAgent, GenerationAgent
 from agents.aggregator_judge import AggregatorAgent, JudgeAgent
 from baselines.vanilla_vlm import VanillaVLMBaseline
 from baselines.generic_tool_agent import GenericToolAgentBaseline
@@ -171,35 +172,6 @@ with st.sidebar:
         st.error("**Chưa tìm thấy API Key**\n\nVui lòng mở file `.env` trong thư mục dự án và điền `GEMINI_API_KEY` hoặc `OPENAI_API_KEY`.")
 
     st.markdown("---")
-    st.markdown("### Bộ Sưu Tập Ảnh Mẫu (Quick Test)")
-    st.caption("Chọn ảnh mẫu tiêu biểu để trải nghiệm ngay trong 1 giây:")
-
-    samples_dir = os.path.join(os.path.dirname(__file__), "samples")
-    sample_options = {
-        "Khuê Văn Các - Văn Miếu": {
-            "file": "khue_van_cac.jpg",
-            "prompt": "Phân tích nét đặc sắc kiến trúc và ý nghĩa biểu tượng của công trình này trong bức ảnh."
-        },
-        "Chùa Một Cột (Diên Hựu Tự)": {
-            "file": "chua_mot_cot.jpg",
-            "prompt": "Đây là di tích nào? Kiến trúc đài sen nghìn năm này gắn với truyền thuyết và triều đại nào?"
-        },
-        "Hoành Phi Câu Đối Cổ Đình Làng": {
-            "file": "hoanh_phi_cau_doi.jpg",
-            "prompt": "Đọc, phiên âm Hán - Việt và dịch nghĩa bức hoành phi cùng đôi câu đối trên hai cột trong ảnh."
-        }
-    }
-
-    for name, item in sample_options.items():
-        sample_path = os.path.join(samples_dir, item["file"])
-        if os.path.exists(sample_path):
-            if st.button(f"{name}", key=f"btn_sample_{item['file']}", use_container_width=True):
-                st.session_state.current_image = Image.open(sample_path)
-                st.session_state.query_input = item["prompt"]
-                st.session_state.results = None
-                st.rerun()
-
-    st.markdown("---")
     st.markdown("### Chế Độ Thực Nghiệm")
     app_mode = st.radio(
         "Lựa chọn chế độ:",
@@ -213,11 +185,10 @@ with st.sidebar:
     st.info("""
     **1. Coordinator:** Lập kế hoạch JSON  
     **2. Visual Agent:** Gemini 3.8 Flash Vision  
-    **3. OCR Agent:** Gemini Hán Nôm & Epigraphy  
-    **4. Knowledge Agent:** OpenAI / Gemini Tri thức  
-    **5. Generation Agent:** Sáng tác & Lập luận  
-    **6. Aggregator:** Hợp nhất bản nháp  
-    **7. Judge Agent:** Thẩm định 3 tiêu chí & Fix lỗi
+    **3. Knowledge Agent:** OpenAI / Gemini Tri thức  
+    **4. Generation Agent:** Sáng tác & Lập luận  
+    **5. Aggregator:** Hợp nhất bản nháp  
+    **6. Judge Agent:** Thẩm định 3 tiêu chí & Fix lỗi
     """)
 
 
@@ -225,7 +196,7 @@ with st.sidebar:
 # TIÊU ĐỀ CHÍNH & MÔ TẢ HỆ THỐNG
 # ==============================================================================
 st.markdown("<h1 class='main-title'>MULTI-AGENT VQA HỆ THỐNG DI TÍCH & DI SẢN VIỆT NAM</h1>", unsafe_allow_html=True)
-st.markdown("<p class='sub-title'>Hệ thống Thị giác - Ngôn ngữ Đa Tác tử Thông minh: Giám định kiến trúc, dịch thuật văn tự Hán Nôm và khai phá tri thức lịch sử chuyên sâu</p>", unsafe_allow_html=True)
+st.markdown("<p class='sub-title'>Hệ thống Thị giác - Ngôn ngữ Đa Tác tử Thông minh: Giám định kiến trúc di tích và khai phá tri thức lịch sử chuyên sâu</p>", unsafe_allow_html=True)
 
 # Chia layout 2 cột
 col_left, col_right = st.columns([1, 1.3], gap="large")
@@ -248,7 +219,7 @@ with col_left:
     if st.session_state.current_image is not None:
         st.image(st.session_state.current_image, caption="Hình ảnh đang phân tích", use_container_width=True)
     else:
-        st.info("Hãy tải ảnh lên hoặc chọn một ảnh mẫu từ menu bên trái để bắt đầu.")
+        st.info("Hãy tải ảnh di tích hoặc tác phẩm nghệ thuật lên để bắt đầu.")
 
     st.markdown("#### Câu hỏi / Yêu cầu của bạn:")
     
@@ -259,8 +230,8 @@ with col_left:
         if st.button("Khám phá Lịch sử", use_container_width=True):
             st.session_state.query_input = "Hãy cho biết tên di tích này, niên đại khởi dựng và các giá trị lịch sử văn hóa tiêu biểu?"
             st.rerun()
-        if st.button("Dịch chữ Hán Nôm", use_container_width=True):
-            st.session_state.query_input = "Đọc, phiên âm Hán-Việt và giải nghĩa bức hoành phi hoặc đôi câu đối xuất hiện trong bức ảnh này?"
+        if st.button("Ý nghĩa & Tín ngưỡng", use_container_width=True):
+            st.session_state.query_input = "Cho biết ý nghĩa tín ngưỡng, các phong tục và lễ hội truyền thống gắn liền với di tích này?"
             st.rerun()
     with q_col2:
         if st.button("Phân tích Kiến trúc", use_container_width=True):
@@ -273,7 +244,7 @@ with col_left:
     user_query = st.text_area(
         "Nội dung câu hỏi:",
         value=st.session_state.query_input,
-        placeholder="Ví dụ: Đây là đâu? Dịch giúp tôi câu đối trên cột gỗ...",
+        placeholder="Ví dụ: Đây là đâu? Cho tôi biết kiến trúc và lịch sử của di tích này...",
         height=100
     )
     st.session_state.query_input = user_query
@@ -290,7 +261,7 @@ with col_left:
 # ==============================================================================
 if start_btn:
     if st.session_state.current_image is None:
-        st.error("Vui lòng tải ảnh lên hoặc chọn một ảnh mẫu trước!")
+        st.error("Vui lòng tải ảnh lên trước!")
     elif not user_query.strip():
         st.error("Vui lòng nhập câu hỏi hoặc yêu cầu cần phân tích!")
     else:
@@ -319,74 +290,96 @@ if start_btn:
                                 log_info(f"Dữ liệu ảnh: Kích thước {img.size[0]}x{img.size[1]} | Định dạng: {img.format or img.mode}")
                             log_separator()
 
+                            current_img = st.session_state.current_image
+
                             # BƯỚC 1: COORDINATOR AGENT
                             status_box.write("**[Bước 1/4] Coordinator Agent:** Đang phân tích ảnh và lập Kế hoạch Điều phối JSON...")
                             log_agent_start("Coordinator Agent", "Phân tích yêu cầu và lập kế hoạch điều phối JSON")
                             coordinator = CoordinatorAgent(llm)
                             t0 = time.time()
-                            plan, coord_meta = coordinator.plan(st.session_state.current_image, user_query)
+                            plan, coord_meta = coordinator.plan(current_img, user_query)
                             t_coord = round(time.time() - t0, 2)
                             status_box.write(f"Coordinator hoàn tất sau {t_coord}s - Đã chọn: `{', '.join(plan.get('selected_agents', []))}`")
                             log_agent_success("Coordinator Agent", t_coord, f"Tác vụ: {plan.get('task_categories', [])} | Chọn: {plan.get('selected_agents', [])}")
 
-                            # BƯỚC 2: EXPERT AGENTS
+                            # BƯỚC 2: EXPERT AGENTS (CHẠY SONG SONG BẰNG THREADPOOLEXECUTOR)
                             expert_results = {}
                             focus_dir = plan.get("focus_directives", {})
+                            selected_agents = plan.get("selected_agents", ["visual_agent"])
+                            monument_hint = plan.get("identified_monument", "")
 
-                            if "visual_agent" in plan.get("selected_agents", []):
-                                status_box.write("**[Bước 2/4] Visual Agent:** Đang giám định thị giác, cấu trúc & nhận diện di tích...")
-                                log_agent_start("Visual Agent", "Giám định thị giác, hoa văn kiến trúc & không gian")
-                                vis_agent = VisualAgent(llm)
-                                t0 = time.time()
-                                vis_text, vis_meta = vis_agent.analyze(st.session_state.current_image, user_query, focus_dir.get("visual_focus", ""))
-                                t_vis = round(time.time() - t0, 2)
-                                expert_results["visual"] = {"text": vis_text, "meta": vis_meta, "duration": t_vis}
-                                status_box.write(f"Visual Agent hoàn thành ({t_vis}s)")
-                                log_agent_success("Visual Agent", t_vis, f"Bóc tách xong ({len(vis_text)} ký tự)")
+                            status_box.write(f"**[Bước 2/4] Tầng Chuyên Gia Song Song:** Đang kích hoạt đồng thời `{', '.join(selected_agents)}`...")
+                            log_agent_start("Parallel Expert Layer", f"Khởi chạy song song: {selected_agents}")
+                            t0_parallel = time.time()
 
-                            ocr_text = None
-                            if "ocr_agent" in plan.get("selected_agents", []):
-                                status_box.write("**[Bước 2/4] OCR & Hán Nôm Agent:** Đang trích xuất văn bản, phiên âm và giải nghĩa...")
-                                log_agent_start("OCR & Hán Nôm Agent", "Nhận dạng ký tự, phiên âm Hán-Việt và dịch nghĩa")
-                                ocr_agent = OCRAgent(llm)
-                                t0 = time.time()
-                                ocr_text, ocr_meta = ocr_agent.extract_and_translate(st.session_state.current_image, user_query)
-                                t_ocr = round(time.time() - t0, 2)
-                                expert_results["ocr"] = {"text": ocr_text, "meta": ocr_meta, "duration": t_ocr}
-                                status_box.write(f"OCR Agent hoàn thành ({t_ocr}s)")
-                                log_agent_success("OCR Agent", t_ocr, f"Trích xuất văn tự xong ({len(ocr_text or '')} ký tự)")
+                            def task_visual(img_data):
+                                log_agent_start("Visual Agent", "Giám định thị giác, hoa văn kiến trúc & không gian (Song song)")
+                                v_agent = VisualAgent(llm)
+                                t_start = time.time()
+                                text, meta = v_agent.analyze(img_data, user_query, focus_dir.get("visual_focus", ""))
+                                dur = round(time.time() - t_start, 2)
+                                log_agent_success("Visual Agent", dur, f"Bóc tách xong ({len(text)} ký tự)")
+                                return "visual", text, meta, dur
 
-                            know_text = None
-                            if "knowledge_agent" in plan.get("selected_agents", []):
-                                status_box.write("**[Bước 2/4] Knowledge Agent:** Đang truy xuất tri thức lịch sử, niên đại & sự kiện văn hóa...")
-                                log_agent_start("Knowledge Agent", "Truy xuất sử liệu, niên hiệu triều đại & điển cố")
-                                know_agent = KnowledgeAgent(llm)
-                                t0 = time.time()
-                                know_text, know_meta = know_agent.retrieve(visual_findings=expert_results.get("visual", {}).get("text", ""), ocr_findings=ocr_text, query=user_query, focus_directive=focus_dir.get("knowledge_focus", ""))
-                                t_know = round(time.time() - t0, 2)
-                                expert_results["knowledge"] = {"text": know_text, "meta": know_meta, "duration": t_know}
-                                status_box.write(f"Knowledge Agent hoàn thành ({t_know}s)")
-                                log_agent_success("Knowledge Agent", t_know, f"Truy xuất sử liệu ({len(know_text or '')} ký tự)")
+                            def task_knowledge():
+                                log_agent_start("Knowledge Agent", "Truy xuất sử liệu, niên đại & sự kiện (Song song)")
+                                k_agent = KnowledgeAgent(llm)
+                                t_start = time.time()
+                                text, meta = k_agent.retrieve(query=user_query, monument_hint=monument_hint, focus_directive=focus_dir.get("knowledge_focus", ""))
+                                dur = round(time.time() - t_start, 2)
+                                log_agent_success("Knowledge Agent", dur, f"Truy xuất sử liệu ({len(text)} ký tự)")
+                                return "knowledge", text, meta, dur
 
-                            gen_text = None
-                            if "tool_gen_agent" in plan.get("selected_agents", []):
-                                status_box.write("**[Bước 2/4] Tool/Generation Agent:** Đang sáng tác văn nghệ / lập luận chuyên sâu...")
-                                log_agent_start("Generation Agent", "Sáng tác văn nghệ & lập luận di sản")
-                                gen_agent = GenerationAgent(llm)
-                                t0 = time.time()
-                                gen_text, gen_meta = gen_agent.generate(query=user_query, visual_findings=expert_results.get("visual", {}).get("text", ""), knowledge_findings=know_text or "", focus_directive=focus_dir.get("generation_focus", ""))
-                                t_gen = round(time.time() - t0, 2)
-                                expert_results["generation"] = {"text": gen_text, "meta": gen_meta, "duration": t_gen}
-                                status_box.write(f"Generation Agent hoàn thành ({t_gen}s)")
-                                log_agent_success("Generation Agent", t_gen, f"Hoàn tất ({len(gen_text or '')} ký tự)")
+                            def task_generation():
+                                log_agent_start("Generation Agent", "Sáng tác văn nghệ & lập luận di sản (Song song)")
+                                g_agent = GenerationAgent(llm)
+                                t_start = time.time()
+                                text, meta = g_agent.generate(query=user_query, monument_hint=monument_hint, focus_directive=focus_dir.get("generation_focus", ""))
+                                dur = round(time.time() - t_start, 2)
+                                log_agent_success("Generation Agent", dur, f"Hoàn tất ({len(text)} ký tự)")
+                                return "generation", text, meta, dur
 
-                            # BƯỚC 3: AGGREGATOR AGENT
-                            status_box.write("**[Bước 3/4] Aggregator Agent:** Đang tổng hợp các phát hiện thành Bản Dự Thảo hoàn chỉnh...")
-                            log_agent_start("Aggregator Agent", "Tổng hợp đa luồng phát hiện thành Bản dự thảo")
+                            with ThreadPoolExecutor(max_workers=3) as executor:
+                                futures = []
+                                if "visual_agent" in selected_agents:
+                                    futures.append(executor.submit(task_visual, current_img))
+                                if "knowledge_agent" in selected_agents:
+                                    futures.append(executor.submit(task_knowledge))
+                                if "tool_gen_agent" in selected_agents:
+                                    futures.append(executor.submit(task_generation))
+
+                                for future in as_completed(futures):
+                                    key, text, meta, dur = future.result()
+                                    expert_results[key] = {"text": text, "meta": meta, "duration": dur}
+                                    status_box.write(f"✓ **{key.title()} Agent** hoàn thành ({dur}s)")
+
+                            t_parallel = round(time.time() - t0_parallel, 2)
+                            status_box.write(f"⚡ Toàn bộ Tầng Chuyên Gia hoàn tất sau **{t_parallel}s** (tiết kiệm ~50% thời gian nhờ chạy song song)")
+
+                            vis_text = expert_results.get("visual", {}).get("text", "")
+                            know_text = expert_results.get("knowledge", {}).get("text", "")
+                            gen_text = expert_results.get("generation", {}).get("text", None)
+
+                            # BƯỚC 3: AGGREGATOR AGENT (STREAMING TRỰC TIẾP)
+                            status_box.write("**[Bước 3/4] Aggregator Agent:** Đang tổng hợp tri thức và phát trực tiếp (Live Streaming)...")
+                            log_agent_start("Aggregator Agent", "Tổng hợp đa luồng và stream phản hồi trực tiếp")
                             aggregator = AggregatorAgent(llm)
                             t0 = time.time()
-                            draft_response, agg_meta = aggregator.aggregate(query=user_query, visual_findings=expert_results.get("visual", {}).get("text", ""), ocr_findings=ocr_text, knowledge_findings=know_text, generation_findings=gen_text)
+
+                            # Tạo khung phát trực tiếp ngay trên giao diện
+                            live_box = st.container()
+                            with live_box:
+                                stream_placeholder = st.empty()
+
+                            draft_stream = aggregator.aggregate_stream(
+                                query=user_query,
+                                visual_findings=expert_results.get("visual", {}).get("text", ""),
+                                knowledge_findings=know_text,
+                                generation_findings=gen_text
+                            )
+                            draft_response = stream_placeholder.write_stream(draft_stream)
                             t_agg = round(time.time() - t0, 2)
+                            agg_meta = {"actual_provider": "gemini", "model_used": "gemini-3.8-flash", "duration": t_agg}
                             status_box.write(f"Aggregator Agent hoàn thành ({t_agg}s)")
                             log_agent_success("Aggregator Agent", t_agg, f"Dự thảo hoàn tất ({len(draft_response)} ký tự)")
 
@@ -395,13 +388,14 @@ if start_btn:
                             log_agent_start("Judge Agent", "Thẩm định 3 tiêu chí, đối chiếu chéo & rà soát Hallucination")
                             judge = JudgeAgent(llm)
                             t0 = time.time()
-                            judge_report, judge_meta = judge.evaluate_and_refine(query=user_query, draft_response=draft_response, visual_findings=expert_results.get("visual", {}).get("text", ""), ocr_findings=ocr_text)
+                            judge_report, judge_meta = judge.evaluate_and_refine(query=user_query, draft_response=draft_response, visual_findings=expert_results.get("visual", {}).get("text", ""))
                             t_judge = round(time.time() - t0, 2)
                             status_box.write(f"Judge Agent hoàn thành ({t_judge}s) - Trạng thái: **{judge_report.get('overall_status', 'APPROVED')}**")
                             log_agent_success("Judge Agent", t_judge, f"Trạng thái: {judge_report.get('overall_status', 'APPROVED')}")
                             log_separator()
 
-                            status_box.update(label="Hệ đồng Multi-Agent đã hoàn tất phân tích thành công!", state="complete", expanded=False)
+                            status_box.update(label="Hội đồng Multi-Agent đã hoàn tất phân tích thành công!", state="complete", expanded=False)
+                            live_box.empty() # Dọn khung stream tạm để hiển thị bản hoàn chỉnh có thẩm định bên dưới
 
                             st.session_state.results = {
                                 "plan": plan, "coord_meta": coord_meta, "expert_results": expert_results,
@@ -448,33 +442,55 @@ if start_btn:
                             b_status.write("**[3/3] Đang chạy Proposed:** Heterogeneous Multi-Agent Architecture...")
                             log_agent_start("Proposed: Multi-Agent", "Heterogeneous Dynamic Multi-Agent System")
                             t0_prop = time.time()
+                            b_img = st.session_state.current_image
                             coord = CoordinatorAgent(llm)
-                            plan, _ = coord.plan(st.session_state.current_image, user_query)
+                            plan, _ = coord.plan(b_img, user_query)
                             selected = plan.get("selected_agents", ["visual_agent"])
                             
+                            monument_hint_b = plan.get("identified_monument", "")
                             vis_res = ""
-                            ocr_res = None
                             know_res = None
                             gen_res = None
 
-                            if "visual_agent" in selected:
-                                vis = VisualAgent(llm)
-                                vis_res, _ = vis.analyze(st.session_state.current_image, user_query)
-                            if "ocr_agent" in selected:
-                                ocr = OCRAgent(llm)
-                                ocr_res, _ = ocr.extract_and_translate(st.session_state.current_image, user_query)
-                            if "knowledge_agent" in selected:
-                                know = KnowledgeAgent(llm)
-                                know_res, _ = know.retrieve(vis_res, ocr_res, user_query)
-                            if "tool_gen_agent" in selected:
-                                gen = GenerationAgent(llm)
-                                gen_res, _ = gen.generate(user_query, vis_res, know_res or "")
+                            def b_vis(img_data):
+                                v = VisualAgent(llm)
+                                r, _ = v.analyze(img_data, user_query)
+                                return "visual", r
+
+                            def b_know():
+                                k = KnowledgeAgent(llm)
+                                r, _ = k.retrieve(query=user_query, monument_hint=monument_hint_b)
+                                return "knowledge", r
+
+                            def b_gen():
+                                g = GenerationAgent(llm)
+                                r, _ = g.generate(query=user_query, monument_hint=monument_hint_b)
+                                return "generation", r
+
+                            with ThreadPoolExecutor(max_workers=3) as executor:
+                                f_map = {}
+                                if "visual_agent" in selected:
+                                    f_map[executor.submit(b_vis, b_img)] = "visual"
+                                if "knowledge_agent" in selected:
+                                    f_map[executor.submit(b_know)] = "knowledge"
+                                if "tool_gen_agent" in selected:
+                                    f_map[executor.submit(b_gen)] = "generation"
+                                    f_map[executor.submit(b_gen)] = "generation"
+
+                                for f in as_completed(f_map):
+                                    k, r = f.result()
+                                    if k == "visual":
+                                        vis_res = r
+                                    elif k == "knowledge":
+                                        know_res = r
+                                    elif k == "generation":
+                                        gen_res = r
 
                             agg = AggregatorAgent(llm)
-                            draft_res, _ = agg.aggregate(user_query, vis_res, ocr_res, know_res, gen_res)
+                            draft_res, _ = agg.aggregate(user_query, vis_res, know_res, gen_res)
 
                             judge = JudgeAgent(llm)
-                            judge_eval_prop, _ = judge.evaluate_and_refine(user_query, draft_res, vis_res, ocr_res)
+                            judge_eval_prop, _ = judge.evaluate_and_refine(user_query, draft_res, vis_res)
                             prop_text = judge_eval_prop.get("final_response", draft_res)
                             prop_duration = round(time.time() - t0_prop, 2)
                             b_status.write(f"Proposed Multi-Agent hoàn thành ({prop_duration}s)")
@@ -484,8 +500,8 @@ if start_btn:
                             b_status.write("**Thẩm định độc lập (LLM-as-a-Judge):** Đang chấm điểm 3 phương pháp theo chuẩn OWLViz...")
                             log_agent_start("LLM-as-a-Judge", "Chấm điểm độc lập định lượng cho 2 Baselines")
                             t0_eval = time.time()
-                            judge_eval_b1, _ = judge.evaluate_and_refine(user_query, b1_text, vis_res, ocr_res)
-                            judge_eval_b2, _ = judge.evaluate_and_refine(user_query, b2_text, vis_res, ocr_res)
+                            judge_eval_b1, _ = judge.evaluate_and_refine(user_query, b1_text, vis_res)
+                            judge_eval_b2, _ = judge.evaluate_and_refine(user_query, b2_text, vis_res)
                             t_eval = round(time.time() - t0_eval, 2)
                             log_agent_success("LLM-as-a-Judge", t_eval, "Chấm điểm thành công")
                             log_separator()
@@ -644,4 +660,4 @@ with col_right:
         )
 
     elif not start_btn:
-        st.info("Hãy chọn một ảnh mẫu hoặc tải ảnh lên, sau đó nhấn nút thực thi để bắt đầu.")
+        st.info("Hãy tải ảnh lên, nhập câu hỏi và nhấn nút thực thi để bắt đầu.")
