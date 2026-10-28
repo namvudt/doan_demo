@@ -117,6 +117,26 @@ st.markdown("""
         font-weight: 600;
         transition: all 0.3s ease;
     }
+
+    .final-response-container {
+        background: rgba(197, 155, 39, 0.08);
+        border: 1px solid #d4af37;
+        padding: 24px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        line-height: 1.7;
+        margin-bottom: 15px;
+    }
+    .final-response-container a {
+        color: #f1c40f !important;
+        text-decoration: underline;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .final-response-container a:hover {
+        color: #ffffff !important;
+        text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -170,6 +190,13 @@ with st.sidebar:
         st.warning(f"**{status['mode']}**\n\n{status['description']}")
     else:
         st.error("**Chưa tìm thấy API Key**\n\nVui lòng mở file `.env` trong thư mục dự án và điền `GEMINI_API_KEY` hoặc `OPENAI_API_KEY`.")
+
+    # Hiển thị Bể API Key theo từng Agent
+    with st.expander(f"🔑 Bể API Từng Agent ({status.get('dedicated_keys_count', 0)}/6 Khóa Riêng)", expanded=(status.get('dedicated_keys_count', 0) > 0)):
+        for role, item in status.get("agent_keys_status", {}).items():
+            icon = "🟢" if item["has_custom"] else "⚪"
+            st.markdown(f"{icon} **{item['label']}**  \n`{item['status']}`")
+        st.caption("💡 Bạn có thể điền dần từng API Key vào file `.env` để chia tải độc lập cho từng con Agent.")
 
     st.markdown("---")
     st.markdown("### Chế Độ Thực Nghiệm")
@@ -388,7 +415,13 @@ if start_btn:
                             log_agent_start("Judge Agent", "Thẩm định 3 tiêu chí, đối chiếu chéo & rà soát Hallucination")
                             judge = JudgeAgent(llm)
                             t0 = time.time()
-                            judge_report, judge_meta = judge.evaluate_and_refine(query=user_query, draft_response=draft_response, visual_findings=expert_results.get("visual", {}).get("text", ""))
+                            live_sources = expert_results.get("knowledge", {}).get("meta", {}).get("live_search_sources", [])
+                            judge_report, judge_meta = judge.evaluate_and_refine(
+                                query=user_query,
+                                draft_response=draft_response,
+                                visual_findings=expert_results.get("visual", {}).get("text", ""),
+                                search_sources=live_sources
+                            )
                             t_judge = round(time.time() - t0, 2)
                             status_box.write(f"Judge Agent hoàn thành ({t_judge}s) - Trạng thái: **{judge_report.get('overall_status', 'APPROVED')}**")
                             log_agent_success("Judge Agent", t_judge, f"Trạng thái: {judge_report.get('overall_status', 'APPROVED')}")
@@ -452,6 +485,7 @@ if start_btn:
                             know_res = None
                             gen_res = None
 
+                            know_sources_b = []
                             def b_vis(img_data):
                                 v = VisualAgent(llm)
                                 r, _ = v.analyze(img_data, user_query)
@@ -459,8 +493,8 @@ if start_btn:
 
                             def b_know():
                                 k = KnowledgeAgent(llm)
-                                r, _ = k.retrieve(query=user_query, monument_hint=monument_hint_b)
-                                return "knowledge", r
+                                r, m = k.retrieve(query=user_query, monument_hint=monument_hint_b)
+                                return "knowledge", r, m.get("live_search_sources", [])
 
                             def b_gen():
                                 g = GenerationAgent(llm)
@@ -475,22 +509,23 @@ if start_btn:
                                     f_map[executor.submit(b_know)] = "knowledge"
                                 if "tool_gen_agent" in selected:
                                     f_map[executor.submit(b_gen)] = "generation"
-                                    f_map[executor.submit(b_gen)] = "generation"
 
                                 for f in as_completed(f_map):
-                                    k, r = f.result()
+                                    item = f.result()
+                                    k = item[0]
                                     if k == "visual":
-                                        vis_res = r
+                                        vis_res = item[1]
                                     elif k == "knowledge":
-                                        know_res = r
+                                        know_res = item[1]
+                                        know_sources_b = item[2]
                                     elif k == "generation":
-                                        gen_res = r
+                                        gen_res = item[1]
 
                             agg = AggregatorAgent(llm)
                             draft_res, _ = agg.aggregate(user_query, vis_res, know_res, gen_res)
 
                             judge = JudgeAgent(llm)
-                            judge_eval_prop, _ = judge.evaluate_and_refine(user_query, draft_res, vis_res)
+                            judge_eval_prop, _ = judge.evaluate_and_refine(user_query, draft_res, vis_res, search_sources=know_sources_b)
                             prop_text = judge_eval_prop.get("final_response", draft_res)
                             prop_duration = round(time.time() - t0_prop, 2)
                             b_status.write(f"Proposed Multi-Agent hoàn thành ({prop_duration}s)")
@@ -560,6 +595,19 @@ with col_right:
         with tab_prop:
             st.markdown(f"**Thời gian:** `{b_res['prop_duration']}s` | **Trạng thái Thẩm định:** `{b_res['eval_prop'].get('overall_status', 'APPROVED')}`")
             st.info(f"**Ghi chú kiểm soát Hallucination:** {b_res['eval_prop'].get('hallucination_notes', 'Không phát hiện sai lệch')}")
+            
+            p_sources = b_res['eval_prop'].get("sources", [])
+            if p_sources:
+                valid_p = [s for s in p_sources if s.get("url")]
+                if valid_p:
+                    p_cols = st.columns(min(len(valid_p), 3))
+                    for idx, src in enumerate(valid_p):
+                        with p_cols[idx % min(len(valid_p), 3)]:
+                            st.link_button(
+                                label=src.get("title", "Mở liên kết"),
+                                url=src.get("url", "#"),
+                                use_container_width=True
+                            )
             st.markdown(b_res["prop_text"])
 
         with tab_b1:
@@ -645,11 +693,27 @@ with col_right:
         st.markdown("---")
         st.markdown("### KẾT QUẢ PHÂN TÍCH CUỐI CÙNG (FINAL RESPONSE)")
         final_content = judge_report.get("final_response", res["draft_response"])
-        st.markdown(f"""
-        <div style="background: rgba(197, 155, 39, 0.08); border: 1px solid #d4af37; padding: 22px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
-        {final_content}
-        </div>
-        """, unsafe_allow_html=True)
+
+        # Hiển thị các nút truy cập nguồn/bản đồ trực tiếp
+        sources = judge_report.get("sources", [])
+        if sources:
+            st.markdown("##### 🔗 Nguồn Tham Chiếu & Khám Phá Nhanh:")
+            valid_sources = [s for s in sources if s.get("url")]
+            if valid_sources:
+                btn_cols = st.columns(min(len(valid_sources), 3))
+                for idx, src in enumerate(valid_sources):
+                    with btn_cols[idx % min(len(valid_sources), 3)]:
+                        st.link_button(
+                            label=src.get("title", "Mở liên kết"),
+                            url=src.get("url", "#"),
+                            use_container_width=True
+                        )
+
+        # Khung hiển thị nội dung Markdown hoàn chỉnh
+        with st.container():
+            st.markdown("<div class='final-response-container'>", unsafe_allow_html=True)
+            st.markdown(final_content)
+            st.markdown("</div>", unsafe_allow_html=True)
 
         st.write("")
         st.download_button(

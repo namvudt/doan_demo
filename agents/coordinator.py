@@ -55,7 +55,8 @@ Hãy quan sát ảnh kỹ lưỡng, định danh sơ bộ di tích/công trình 
             image=image,
             preferred_provider="gemini", # Multimodal quan sát ảnh để định tuyến
             temperature=0.2,
-            json_output=True
+            json_output=True,
+            agent_role="coordinator"
         )
 
         plan = safe_extract_json(raw_response)

@@ -20,21 +20,43 @@ class LLMManager:
         self.gemini_api_key = (gemini_api_key or os.getenv("GEMINI_API_KEY", "")).strip()
         self.openai_api_key = (openai_api_key or os.getenv("OPENAI_API_KEY", "")).strip()
         
-        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         
         self._gemini_client = None
         self._openai_client = None
+
+        # Bể chứa API Key riêng cho từng Agent (Agent Key Pool)
+        self.agent_keys = {
+            "coordinator": os.getenv("COORDINATOR_API_KEY", "").strip(),
+            "visual": os.getenv("VISUAL_API_KEY", "").strip(),
+            "knowledge": os.getenv("KNOWLEDGE_API_KEY", "").strip(),
+            "generation": os.getenv("GENERATION_API_KEY", "").strip(),
+            "aggregator": os.getenv("AGGREGATOR_API_KEY", "").strip(),
+            "judge": os.getenv("JUDGE_API_KEY", "").strip(),
+        }
+        self._agent_clients: Dict[str, Any] = {}
 
     def reload_env(self):
         """Tự động nạp lại các biến môi trường từ file .env."""
         load_dotenv(override=True)
         self.gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
         self.openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
-        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+        self.gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         self._gemini_client = None
         self._openai_client = None
+
+        # Tải lại bể API key cho từng agent
+        self.agent_keys = {
+            "coordinator": os.getenv("COORDINATOR_API_KEY", "").strip(),
+            "visual": os.getenv("VISUAL_API_KEY", "").strip(),
+            "knowledge": os.getenv("KNOWLEDGE_API_KEY", "").strip(),
+            "generation": os.getenv("GENERATION_API_KEY", "").strip(),
+            "aggregator": os.getenv("AGGREGATOR_API_KEY", "").strip(),
+            "judge": os.getenv("JUDGE_API_KEY", "").strip(),
+        }
+        self._agent_clients.clear()
 
     def update_keys(self, gemini_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
         """Cập nhật API Key từ giao diện người dùng hoặc mã nguồn."""
@@ -49,6 +71,9 @@ class LLMManager:
         """Kiểm tra trạng thái sẵn sàng của các API và kiến trúc hoạt động."""
         has_gemini = bool(self.gemini_api_key)
         has_openai = bool(self.openai_api_key)
+
+        # Đếm số lượng Agent đã có key riêng
+        dedicated_count = sum(1 for k in self.agent_keys.values() if k)
         
         if has_gemini and has_openai:
             mode = "Heterogeneous (Gemini Multimodal + OpenAI Reasoning)"
@@ -63,13 +88,33 @@ class LLMManager:
             mode = "Missing API Keys"
             description = "Chưa cung cấp API Key. Vui lòng nhập Gemini hoặc OpenAI API Key để kích hoạt."
 
+        # Thống kê chi tiết bể khóa từng Agent
+        agent_status = {}
+        role_labels = {
+            "coordinator": "Coordinator (Điều phối)",
+            "visual": "Visual (Thị giác)",
+            "knowledge": "Knowledge (Sử liệu)",
+            "generation": "Generation (Sáng tác)",
+            "aggregator": "Aggregator (Tổng hợp)",
+            "judge": "Judge (Thẩm định)"
+        }
+        for role, label in role_labels.items():
+            k = self.agent_keys.get(role, "")
+            if k:
+                prov = "xKiro/OpenAI" if k.startswith("sk-") else "Gemini"
+                agent_status[role] = {"label": label, "status": f"Khóa riêng ({prov})", "has_custom": True}
+            else:
+                agent_status[role] = {"label": label, "status": "Dùng khóa mặc định chung", "has_custom": False}
+
         return {
             "has_gemini": has_gemini,
             "has_openai": has_openai,
             "mode": mode,
             "description": description,
             "gemini_model": self.gemini_model,
-            "openai_model": self.openai_model
+            "openai_model": self.openai_model,
+            "dedicated_keys_count": dedicated_count,
+            "agent_keys_status": agent_status
         }
 
     def _get_gemini_client(self):
@@ -88,6 +133,52 @@ class LLMManager:
             self._openai_client = OpenAI(**kwargs)
         return self._openai_client
 
+    def _resolve_agent_client(self, agent_role: Optional[str], preferred_provider: str) -> Tuple[str, Any, str, bool]:
+        """
+        Xác định Client và Model tương ứng cho Agent cụ thể.
+        Nếu Agent có API Key riêng trong agent_keys -> Dùng key riêng đó.
+        Nếu không -> Dùng khóa mặc định của hệ thống theo preferred_provider hoặc fallback.
+        Trả về: (actual_provider, client_instance, model_name, is_dedicated)
+        """
+        role = (agent_role or "").lower().strip()
+        custom_key = self.agent_keys.get(role, "")
+
+        if custom_key:
+            if custom_key.startswith("sk-"):
+                if role not in self._agent_clients:
+                    from openai import OpenAI
+                    base_url = os.getenv("OPENAI_BASE_URL", "").strip() or None
+                    kwargs = {"api_key": custom_key}
+                    if base_url:
+                        kwargs["base_url"] = base_url
+                    self._agent_clients[role] = OpenAI(**kwargs)
+                return "openai", self._agent_clients[role], self.openai_model, True
+            else:
+                if role not in self._agent_clients:
+                    from google import genai
+                    self._agent_clients[role] = genai.Client(api_key=custom_key)
+                return "gemini", self._agent_clients[role], self.gemini_model, True
+
+        # Fallback về cấu hình chung
+        actual_provider = preferred_provider
+        if preferred_provider == "gemini":
+            if not self.gemini_api_key and self.openai_api_key:
+                actual_provider = "openai"
+        elif preferred_provider == "openai":
+            if not self.openai_api_key and self.gemini_api_key:
+                actual_provider = "gemini"
+
+        if actual_provider == "gemini":
+            client = self._get_gemini_client()
+            if not client:
+                raise ValueError("Thiếu Gemini API Key. Vui lòng cấu hình GEMINI_API_KEY.")
+            return "gemini", client, self.gemini_model, False
+        else:
+            client = self._get_openai_client()
+            if not client:
+                raise ValueError("Thiếu OpenAI API Key. Vui lòng cấu hình OPENAI_API_KEY.")
+            return "openai", client, self.openai_model, False
+
     def call_llm(
         self,
         prompt: str,
@@ -95,36 +186,21 @@ class LLMManager:
         image: Optional[Image.Image] = None,
         preferred_provider: str = "gemini",
         temperature: float = 0.4,
-        json_output: bool = False
+        json_output: bool = False,
+        agent_role: Optional[str] = None
     ) -> Tuple[str, Dict[str, Any]]:
         """
-        Gọi LLM với cơ chế fallback tự động.
+        Gọi LLM với cơ chế phân bổ API Key chuyên biệt theo Agent hoặc Fallback tự động.
         Trả về: (response_text, metadata_info)
         """
-        # Xác định provider thực tế sẽ chạy
-        actual_provider = preferred_provider
-        fallback_used = False
-
-        if preferred_provider == "gemini":
-            if not self.gemini_api_key and self.openai_api_key:
-                actual_provider = "openai"
-                fallback_used = True
-        elif preferred_provider == "openai":
-            if not self.openai_api_key and self.gemini_api_key:
-                actual_provider = "gemini"
-                fallback_used = True
-
-        # Kiểm tra xem có key nào dùng được không
-        if actual_provider == "gemini" and not self.gemini_api_key:
-            raise ValueError("Thiếu Gemini API Key. Vui lòng cấu hình GEMINI_API_KEY hoặc OPENAI_API_KEY.")
-        if actual_provider == "openai" and not self.openai_api_key:
-            raise ValueError("Thiếu OpenAI API Key. Vui lòng cấu hình OPENAI_API_KEY hoặc GEMINI_API_KEY.")
+        actual_provider, client, model_name, is_dedicated = self._resolve_agent_client(agent_role, preferred_provider)
 
         meta = {
+            "agent_role": agent_role or "general",
             "requested_provider": preferred_provider,
             "actual_provider": actual_provider,
-            "fallback_used": fallback_used,
-            "model_used": self.gemini_model if actual_provider == "gemini" else self.openai_model
+            "dedicated_key": is_dedicated,
+            "model_used": model_name
         }
 
         if actual_provider == "gemini":
@@ -133,7 +209,9 @@ class LLMManager:
                 system_instruction=system_instruction,
                 image=image,
                 temperature=temperature,
-                json_output=json_output
+                json_output=json_output,
+                client=client,
+                model_name=model_name
             )
         else:
             res_text = self._call_openai(
@@ -141,7 +219,9 @@ class LLMManager:
                 system_instruction=system_instruction,
                 image=image,
                 temperature=temperature,
-                json_output=json_output
+                json_output=json_output,
+                client=client,
+                model_name=model_name
             )
 
         return res_text, meta
@@ -153,22 +233,16 @@ class LLMManager:
         image: Optional[Image.Image] = None,
         preferred_provider: str = "gemini",
         temperature: float = 0.3,
-        typing_delay: float = 0.025
+        typing_delay: float = 0.025,
+        agent_role: Optional[str] = None
     ) -> Generator[str, None, None]:
         """
         Gọi LLM và phát trực tiếp (Stream) từng token/chunk nội dung.
-        Có độ trễ nhẹ typing_delay giữa các từ để tạo hiệu ứng gõ chữ mượt mà, tự nhiên.
+        Hỗ trợ phân bổ API Key chuyên biệt cho từng Agent nếu có.
         """
-        actual_provider = preferred_provider
-        if preferred_provider == "gemini":
-            if not self.gemini_api_key and self.openai_api_key:
-                actual_provider = "openai"
-        elif preferred_provider == "openai":
-            if not self.openai_api_key and self.gemini_api_key:
-                actual_provider = "gemini"
+        actual_provider, client, model_name, is_dedicated = self._resolve_agent_client(agent_role, preferred_provider)
 
         if actual_provider == "gemini":
-            client = self._get_gemini_client()
             from google.genai import types
             config_args = {"temperature": temperature}
             if system_instruction:
@@ -184,13 +258,12 @@ class LLMManager:
 
             try:
                 response = client.models.generate_content_stream(
-                    model=self.gemini_model,
+                    model=model_name,
                     contents=contents,
                     config=config
                 )
                 for chunk in response:
                     if chunk.text:
-                        # Chia nhỏ thành các từ và khoảng trắng để gõ nhịp nhàng tự nhiên
                         tokens = re.split(r'(\s+)', chunk.text)
                         for token in tokens:
                             if token:
@@ -204,7 +277,8 @@ class LLMManager:
                     system_instruction=system_instruction,
                     image=image,
                     preferred_provider=actual_provider,
-                    temperature=temperature
+                    temperature=temperature,
+                    agent_role=agent_role
                 )
                 tokens = re.split(r'(\s+)', res_text)
                 for token in tokens:
@@ -213,7 +287,6 @@ class LLMManager:
                         if typing_delay > 0:
                             time.sleep(typing_delay)
         else:
-            client = self._get_openai_client()
             messages = []
             if system_instruction:
                 messages.append({"role": "system", "content": system_instruction})
@@ -233,7 +306,7 @@ class LLMManager:
 
             try:
                 response = client.chat.completions.create(
-                    model=self.openai_model,
+                    model=model_name,
                     messages=messages,
                     temperature=temperature,
                     stream=True
@@ -252,7 +325,8 @@ class LLMManager:
                     system_instruction=system_instruction,
                     image=image,
                     preferred_provider=actual_provider,
-                    temperature=temperature
+                    temperature=temperature,
+                    agent_role=agent_role
                 )
                 tokens = re.split(r'(\s+)', res_text)
                 for token in tokens:
@@ -267,12 +341,15 @@ class LLMManager:
         system_instruction: Optional[str],
         image: Optional[Image.Image],
         temperature: float,
-        json_output: bool
+        json_output: bool,
+        client: Optional[Any] = None,
+        model_name: Optional[str] = None
     ) -> str:
         from utils.logger import log_api_call, log_api_success, log_error
         import time
 
-        client = self._get_gemini_client()
+        gemini_client = client or self._get_gemini_client()
+        active_model = model_name or self.gemini_model
         from google.genai import types
 
         config_args = {"temperature": temperature}
@@ -285,29 +362,43 @@ class LLMManager:
 
         contents = []
         if image is not None:
-            # Chuyển ảnh RGB nếu là RGBA hoặc P để tương thích
             if image.mode not in ("RGB", "L"):
                 image = image.convert("RGB")
             contents.append(image)
         contents.append(prompt)
 
-        log_api_call("Gemini", self.gemini_model, has_image=(image is not None), prompt_len=len(prompt))
+        log_api_call("Gemini", active_model, has_image=(image is not None), prompt_len=len(prompt))
         t0 = time.time()
         try:
-            response = client.models.generate_content(
-                model=self.gemini_model,
+            response = gemini_client.models.generate_content(
+                model=active_model,
                 contents=contents,
                 config=config
             )
             res_text = response.text or ""
             dur = time.time() - t0
-            log_api_success("Gemini", self.gemini_model, dur, len(res_text))
+            log_api_success("Gemini", active_model, dur, len(res_text))
             return res_text
         except Exception as e:
+            # Tự động Fallback sang OpenAI/xKiro nếu Gemini gặp sự cố (quá tải 503/429)
+            if self.openai_api_key:
+                from utils.logger import log_warning
+                log_warning(f"Gemini API gặp lỗi ({type(e).__name__}), tự động kích hoạt OpenAI/xKiro Fallback...")
+                try:
+                    return self._call_openai(
+                        prompt=prompt,
+                        system_instruction=system_instruction,
+                        image=image,
+                        temperature=temperature,
+                        json_output=json_output
+                    )
+                except Exception:
+                    pass
+
             log_error(
                 caller_name="LLMManager._call_gemini",
                 error=e,
-                details=f"Model: {self.gemini_model} | Has Image: {image is not None} | JSON Mode: {json_output}"
+                details=f"Model: {active_model} | Has Image: {image is not None} | JSON Mode: {json_output}"
             )
             raise e
 
@@ -317,12 +408,15 @@ class LLMManager:
         system_instruction: Optional[str],
         image: Optional[Image.Image],
         temperature: float,
-        json_output: bool
+        json_output: bool,
+        client: Optional[Any] = None,
+        model_name: Optional[str] = None
     ) -> str:
         from utils.logger import log_api_call, log_api_success, log_error
         import time
 
-        client = self._get_openai_client()
+        openai_client = client or self._get_openai_client()
+        active_model = model_name or self.openai_model
 
         messages = []
         if system_instruction:
@@ -344,26 +438,26 @@ class LLMManager:
         messages.append({"role": "user", "content": user_content if image is not None else prompt})
 
         kwargs = {
-            "model": self.openai_model,
+            "model": active_model,
             "messages": messages,
             "temperature": temperature
         }
         if json_output:
             kwargs["response_format"] = {"type": "json_object"}
 
-        log_api_call("OpenAI", self.openai_model, has_image=(image is not None), prompt_len=len(prompt))
+        log_api_call("OpenAI", active_model, has_image=(image is not None), prompt_len=len(prompt))
         t0 = time.time()
         try:
-            response = client.chat.completions.create(**kwargs)
+            response = openai_client.chat.completions.create(**kwargs)
             res_text = response.choices[0].message.content or ""
             dur = time.time() - t0
-            log_api_success("OpenAI", self.openai_model, dur, len(res_text))
+            log_api_success("OpenAI", active_model, dur, len(res_text))
             return res_text
         except Exception as e:
             log_error(
                 caller_name="LLMManager._call_openai",
                 error=e,
-                details=f"Model: {self.openai_model} | Has Image: {image is not None} | JSON Mode: {json_output}"
+                details=f"Model: {active_model} | Has Image: {image is not None} | JSON Mode: {json_output}"
             )
             raise e
 

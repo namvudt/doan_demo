@@ -34,7 +34,8 @@ Hãy bóc tách toàn bộ đặc điểm thị giác, nhận diện công trìn
             system_instruction=VISUAL_SYSTEM_PROMPT,
             image=image,
             preferred_provider="gemini", # Ưu tiên Gemini Multimodal
-            temperature=0.3
+            temperature=0.3,
+            agent_role="visual"
         )
         return response_text, meta
 
@@ -54,12 +55,19 @@ YÊU CẦU CUNG CẤP TRI THỨC:
    - Giá trị biểu tượng tinh thần trong tâm thức người Việt Nam.
 3. Các Sự kiện Văn hóa, Lễ hội & Hoạt động thực tế:
    - Lễ hội truyền thống diễn ra vào thời gian nào (ngày âm lịch/dương lịch)? Các nghi thức độc đáo (rước kiệu, tế lễ, diễn xướng dân gian...).
-   - Các hoạt động văn hóa, triển lãm hoặc tour đêm, sự kiện hiện đại thường được tổ chức tại di tích này ngày nay."""
+   - Các hoạt động văn hóa, triển lãm hoặc tour đêm, sự kiện hiện đại thường được tổ chức tại di tích này ngày nay.
+4. Nguồn Tư Liệu & Địa Danh Tham Chiếu:
+   - Trích dẫn rõ tên các bộ sử tịch cổ liên quan (Đại Việt Sử Ký Toàn Thư, Khâm Định Việt Sử Thông Giám Cương Mục, Văn bia trùng tu...).
+   - Địa chỉ hành chính cụ thể và từ khóa chuẩn để định vị bản đồ vệ tinh.
+   - Các cổng thông tin nghiên cứu uy tín (Wikipedia, Cục Di sản Văn hóa, Bảo tàng Lịch sử Quốc gia...)."""
+
+from utils.heritage_search import HeritageSearchEngine
 
 class KnowledgeAgent:
     def __init__(self, llm_manager: LLMManager):
         self.llm = llm_manager
         self.name = "Cultural Knowledge Expert Agent"
+        self.search_engine = HeritageSearchEngine()
 
     def retrieve(
         self,
@@ -68,6 +76,9 @@ class KnowledgeAgent:
         visual_findings: str = "",
         focus_directive: str = ""
     ) -> Tuple[str, Dict[str, Any]]:
+        # Kích hoạt Cơ chế tìm kiếm trực tiếp (Live Direct Search Grounding)
+        search_data = self.search_engine.search_heritage(monument_hint=monument_hint, query=query)
+
         prompt = f"""Dựa trên di tích/công trình được nhận diện dưới đây, hãy truy xuất tri thức chuyên sâu:
 
 [DI TÍCH / TÁC PHẨM NHẬN DIỆN]:
@@ -76,21 +87,26 @@ class KnowledgeAgent:
 [ĐẶC ĐIỂM THỊ GIÁC (NẾU CÓ)]:
 {visual_findings or 'Đang được giám định song song bởi Visual Expert'}
 
+[DỮ LIỆU TÌM KIẾM TRỰC TIẾP TỪ NGUỒN CHÍNH THỐNG (LIVE GROUNDING)]:
+{search_data['context_text']}
+
 [CÂU HỎI CỦA NGƯỜI DÙNG]:
 "{query}"
 
 [CHỈ THỊ TRỌNG TÂM]:
 "{focus_directive or 'Cung cấp niên đại, sự tích, giá trị lịch sử và các sự kiện/lễ hội văn hóa liên quan'}"
 
-Hãy tổng hợp nguồn tri thức văn hóa, lịch sử và sự kiện chuẩn xác nhất của Việt Nam."""
+Hãy kết hợp tri thức sử liệu uyên bác cùng dữ liệu tìm kiếm trực tiếp trên để cung cấp thông tin chuẩn xác nhất, có trích dẫn nguồn cụ thể."""
 
         response_text, meta = self.llm.call_llm(
             prompt=prompt,
             system_instruction=KNOWLEDGE_SYSTEM_PROMPT,
             image=None, # Text reasoning
             preferred_provider="openai", # Heterogeneous agent: gọi OpenAI
-            temperature=0.3
+            temperature=0.3,
+            agent_role="knowledge"
         )
+        meta["live_search_sources"] = search_data.get("sources", [])
         return response_text, meta
 
 
@@ -141,6 +157,7 @@ Hãy thể hiện phong cách văn chương xuất sắc hoặc phân tích chuy
             system_instruction=GENERATION_SYSTEM_PROMPT,
             image=None,
             preferred_provider="openai", # Heterogeneous agent: gọi OpenAI
-            temperature=0.7 # Độ bay bổng nghệ thuật
+            temperature=0.7, # Độ bay bổng nghệ thuật
+            agent_role="generation"
         )
         return response_text, meta

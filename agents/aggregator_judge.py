@@ -5,14 +5,18 @@ from utils.llm_clients import LLMManager, safe_extract_json
 # ==============================================================================
 # 1. AGGREGATOR AGENT
 # ==============================================================================
-AGGREGATOR_SYSTEM_PROMPT = """Bạn là Aggregator Agent (Tác tử Tổng hợp Tri thức Đa nguồn).
-Nhiệm vụ của bạn là tiếp nhận kết quả nghiên cứu độc lập từ các Expert Agents và hòa quyện chúng thành một Bản Dự Thảo Phản Hồi (Draft Response) hoàn chỉnh, liền mạch.
+AGGREGATOR_SYSTEM_PROMPT = """Bạn là Aggregator Agent (Tác tử Tổng hợp Tri thức Đa nguồn & Trích Dẫn Minh Định).
+Nhiệm vụ của bạn là tiếp nhận kết quả nghiên cứu độc lập từ các Expert Agents và hòa quyện chúng thành một Bản Dự Thảo Phản Hồi (Draft Response) hoàn chỉnh, liền mạch, có nguồn gốc kiểm chứng rõ ràng.
 
 CẤU TRÚC BẢN DỰ THẢO BẮT BUỘC:
 1. Phần 1: Câu Trả Lời Trực Diện & Chính Xác cho câu hỏi/yêu cầu của người dùng.
-2. Phần 2: Bằng Chứng Thị Giác & Giải Thích Chi Tiết (chỉ rõ những chi tiết cụ thể nào trong ảnh dẫn đến câu trả lời: hoa văn, mái ngói, kết cấu, chất liệu...).
-3. Phần 3: Góc Mở Rộng Văn Hóa & Lịch Sử (giới thiệu giá trị lịch sử, niên đại, triều đại, ý nghĩa biểu tượng và các sự kiện, lễ hội văn hóa gắn liền).
+2. Phần 2: Bằng Chứng Thị Giác & Giám Định Thực Tế (chỉ rõ những chi tiết cụ thể nào trong ảnh dẫn đến câu trả lời: hoa văn, mái ngói, kết cấu, chất liệu...).
+3. Phần 3: Góc Mở Rộng Văn Hóa & Lịch Sử (giới thiệu giá trị lịch sử, niên đại, triều đại, ý nghĩa biểu tượng và các sự kiện, lễ hội văn hóa gắn liền). Các sự kiện lịch sử quan trọng hãy gắn chỉ số trích dẫn nhỏ như [1], [2].
 4. Phần 4 (Nếu có): Tác phẩm Sáng tác Nghệ thuật / Bình phẩm Mỹ thuật so sánh.
+5. Phần 5: 📚 Nguồn Trích Dẫn & Bản Đồ Đối Chiếu (BẮT BUỘC):
+   - 📍 [Xem vị trí di tích trên Google Maps](https://www.google.com/maps/search/?api=1&query=Tên_Di_Tích+Địa_Danh) (tạo link trực tiếp dựa trên tên di tích).
+   - 🏛️ [Tra cứu tư liệu Di sản (Wikipedia)](https://vi.wikipedia.org/wiki/Tên_Di_Tích) (thay Tên_Di_Tích bằng tên chính thức chuẩn tiếng Việt).
+   - 📜 Sử liệu đối chiếu: Tên chính xác của bộ sử tịch (ví dụ: *Đại Việt Sử ký Toàn thư*, *Đại Nam Nhất thống chí*, *Văn bia trùng tu*...).
 
 Hãy viết bằng phong cách uyên bác, trang nhã, giàu bản sắc văn hóa Việt Nam."""
 
@@ -42,14 +46,15 @@ class AggregatorAgent:
 [OUTPUT TỪ CREATIVE / GENERATION EXPERT (NẾU CÓ)]:
 {generation_findings or "Không kích hoạt."}
 
-Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown đầy đủ, chuẩn xác và hấp dẫn."""
+Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown đầy đủ, chuẩn xác, hấp dẫn và có link trích dẫn nguồn/bản đồ ở cuối."""
 
         response_text, meta = self.llm.call_llm(
             prompt=prompt,
             system_instruction=AGGREGATOR_SYSTEM_PROMPT,
             image=None,
             preferred_provider="gemini", # Tổng hợp nhanh
-            temperature=0.3
+            temperature=0.3,
+            agent_role="aggregator"
         )
         return response_text, meta
 
@@ -75,7 +80,7 @@ Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown
 [OUTPUT TỪ CREATIVE / GENERATION EXPERT (NẾU CÓ)]:
 {generation_findings or "Không kích hoạt."}
 
-Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown đầy đủ, chuẩn xác và hấp dẫn."""
+Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown đầy đủ, chuẩn xác, hấp dẫn và có link trích dẫn nguồn/bản đồ ở cuối."""
 
         return self.llm.stream_llm(
             prompt=prompt,
@@ -83,7 +88,8 @@ Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown
             image=None,
             preferred_provider="gemini",
             temperature=0.3,
-            typing_delay=typing_delay
+            typing_delay=typing_delay,
+            agent_role="aggregator"
         )
 
 
@@ -93,17 +99,18 @@ Hãy kết hợp các phát hiện trên thành một bản dự thảo Markdown
 JUDGE_SYSTEM_PROMPT = """Bạn là Judge Agent (Chủ tịch Hội đồng Thẩm định & Thẩm tra Chất lượng Di sản).
 Nhiệm vụ của bạn là giám sát, rà soát tính trung thực và chất lượng của Bản Dự Thảo do Aggregator tạo ra trước khi gửi đến người dùng.
 
-BẠN PHẢI KIỂM ĐỊNH NGHIÊM NGẶT THEO 3 TIÊU CHÍ:
+BẠN PHẢI KIỂM ĐỊNH NGHIÊM NGẶT THEO CÁC TIÊU CHÍ:
 1. visual_fidelity (Bám sát thực tế ảnh & Chống Hallucination):
    - So sánh với dữ liệu gốc của Visual Agent: Bản nháp có bịa đặt chi tiết nào không xuất hiện trong ảnh không?
-   - Mọi suy đoán phải dựa trên bằng chứng thị giác xác thực.
 2. relevance (Đáp ứng trọng tâm câu hỏi):
    - Bản nháp đã trả lời trúng đích, thỏa đáng câu hỏi và yêu cầu ban đầu của người dùng chưa?
 3. cultural_tone (Chuẩn mực Văn phong Văn hóa - Lịch sử):
    - Ngôn từ có trang trọng, tôn kính, đúng thuật ngữ văn hóa nghệ thuật và mạch lạc, lôi cuốn không?
+4. source_verification (Kiểm tra nguồn trích dẫn & liên kết):
+   - Bảo đảm các đường link Google Maps hoặc tra cứu tư liệu được chuẩn hóa chính xác, bấm được trực tiếp và không bị hỏng.
 
 NẾU CÓ LỖI HOẶC CẦN TINH CHỈNH:
-Bạn hãy trực tiếp sửa chữa, hoàn thiện để xuất ra `final_response` đỉnh cao nhất.
+Bạn hãy trực tiếp sửa chữa, hoàn thiện để xuất ra `final_response` đỉnh cao nhất (giữ nguyên các link markdown bấm được ở mục Nguồn Trích Dẫn).
 
 BẠN BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON CÓ ĐỊNH DẠNG:
 {
@@ -128,7 +135,24 @@ BẠN BẮT BUỘC TRẢ VỀ DUY NHẤT 1 ĐỐI TƯỢNG JSON CÓ ĐỊNH DẠ
   "hallucination_detected": false,
   "hallucination_notes": "Chi tiết các điểm nghi vấn (nếu có) hoặc 'Không phát hiện sai lệch thực tế'",
   "refinement_summary": "Tóm lược các hiệu chỉnh và nâng cấp đã thực hiện cho câu trả lời",
-  "final_response": "Nội dung Markdown hoàn chỉnh, tuyệt đẹp, chia rõ các mục để trình bày cho người dùng"
+  "sources": [
+    {
+      "title": "📍 Tọa độ Google Maps",
+      "url": "https://www.google.com/maps/search/?api=1&query=Tên_Di_Tích+Địa_Danh",
+      "type": "maps"
+    },
+    {
+      "title": "🏛️ Tư liệu Di sản (Wikipedia)",
+      "url": "https://vi.wikipedia.org/wiki/Tên_Di_Tích",
+      "type": "wiki"
+    },
+    {
+      "title": "📜 Đại Việt Sử Ký Toàn Thư (Bản Kỷ)",
+      "url": "",
+      "type": "history_doc"
+    }
+  ],
+  "final_response": "Nội dung Markdown hoàn chỉnh, tuyệt đẹp, chia rõ các mục và có mục Nguồn Trích Dẫn & Bản Đồ Đối Chiếu để người dùng bấm trực tiếp"
 }
 """
 
@@ -141,7 +165,8 @@ class JudgeAgent:
         self,
         query: str,
         draft_response: str,
-        visual_findings: str
+        visual_findings: str,
+        search_sources: Optional[Any] = None
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         prompt = f"""Hãy thẩm định và hoàn thiện bản dự thảo sau đây:
 
@@ -162,7 +187,8 @@ Hãy đối chiếu kỹ lưỡng, chấm điểm 3 tiêu chí, rà soát halluc
             image=None,
             preferred_provider="gemini", # Hoặc OpenAI
             temperature=0.2,
-            json_output=True
+            json_output=True,
+            agent_role="judge"
         )
 
         result_dict = safe_extract_json(raw_response)
@@ -191,7 +217,19 @@ Hãy đối chiếu kỹ lưỡng, chấm điểm 3 tiêu chí, rà soát halluc
                 "hallucination_detected": False,
                 "hallucination_notes": "Không phát hiện sai lệch thực tế so với bằng chứng ảnh.",
                 "refinement_summary": "Bản dự thảo đã đạt chuẩn chất lượng xuất sắc và được thông qua.",
-                "final_response": draft_response
+                "final_response": draft_response,
+                "sources": []
             }
+
+        if "sources" not in result_dict or not isinstance(result_dict["sources"], list):
+            result_dict["sources"] = []
+
+        # Tự động gộp các nguồn tìm kiếm trực tiếp đã được kiểm chứng
+        if search_sources and isinstance(search_sources, list):
+            existing_urls = {s.get("url") for s in result_dict["sources"] if s.get("url")}
+            for s in search_sources:
+                if s.get("url") and s.get("url") not in existing_urls:
+                    result_dict["sources"].append(s)
+                    existing_urls.add(s.get("url"))
 
         return result_dict, meta
