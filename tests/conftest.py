@@ -31,6 +31,10 @@ def no_network(monkeypatch):
         "HERITAGE_CONFIG",
         "GEMINI_MODEL",
         "OPENAI_MODEL",
+        "LANGSMITH_API_KEY",
+        "LANGSMITH_PROJECT",
+        "LANGSMITH_ENDPOINT",
+        "LANGSMITH_WORKSPACE_ID",
         *[
             f"{role.upper()}_{suffix}"
             for role in ROLES

@@ -8,6 +8,7 @@ import streamlit as st
 
 from core.gateway import LLMManager
 from core.images import validate_image
+from core.observability import TraceSettings
 from workflow.comparison import compare
 from workflow.service import RunService
 
@@ -40,6 +41,10 @@ def main():
                 )
             st.caption(status["description"])
             st.caption(f"Workflow: {config.workflow_version}")
+            tracing = TraceSettings.from_env()
+            st.caption(
+                f"LangSmith: {'bật' if tracing.enabled else 'tắt'} · Project: {tracing.project}"
+            )
     uploaded = st.file_uploader("Chụp hoặc tải ảnh công trình", type=["jpg", "jpeg", "png", "webp"])
     sample_paths = sorted(
         p
@@ -161,6 +166,7 @@ def main():
             mime="application/json",
         )
         with st.expander("Thông tin nghiên cứu của lượt xử lý"):
+            st.caption(f"Mã lượt xử lý / LangSmith root run ID: {result['run_id']}")
             st.json({k: v for k, v in result.items() if k != "draft_response"})
     comparison = st.session_state.get("comparison")
     if comparison:

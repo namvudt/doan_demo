@@ -11,6 +11,7 @@ from io import BytesIO
 from dotenv import load_dotenv
 
 from core.config import AppConfig, load_config
+from core.observability import token_usage, trace_operation
 
 
 class BudgetExceeded(RuntimeError):
@@ -250,18 +251,36 @@ class LLMManager:
                     "usage": None,
                 }
                 try:
-                    client = self._client(provider, model, key)
-                    text, usage, finish = self._provider_call(
-                        provider,
-                        client,
-                        model,
-                        prompt,
-                        system_instruction,
-                        image,
-                        temperature,
-                        json_output,
-                        response_schema,
-                    )
+                    with trace_operation(
+                        f"model.{agent_role or 'general'}",
+                        "llm",
+                        metadata={
+                            "agent_role": agent_role or "general",
+                            "actual_provider": provider,
+                            "ls_provider": "google_genai" if provider == "gemini" else "openai",
+                            "ls_model_name": model,
+                            "ls_model_type": "chat",
+                            "attempt": attempt,
+                            "retry": retry,
+                            "fallback_used": provider != requested,
+                        },
+                    ) as span:
+                        client = self._client(provider, model, key)
+                        text, usage, finish = self._provider_call(
+                            provider,
+                            client,
+                            model,
+                            prompt,
+                            system_instruction,
+                            image,
+                            temperature,
+                            json_output,
+                            response_schema,
+                        )
+                        span.outputs = {
+                            "status": "success",
+                            "usage_metadata": token_usage(usage, provider),
+                        }
                     record.update(
                         status="success",
                         usage=usage,
@@ -327,53 +346,72 @@ class LLMManager:
             "model_used": model,
             "usage": None,
         }
-        try:
-            client = self._client(provider, model, key)
-            from google.genai import types
+        with trace_operation(
+            f"model.{agent_role or 'general'}.stream",
+            "llm",
+            metadata={
+                "agent_role": agent_role or "general",
+                "actual_provider": provider,
+                "ls_provider": "google_genai",
+                "ls_model_name": model,
+                "ls_model_type": "chat",
+                "attempt": attempt,
+            },
+        ) as span:
+            try:
+                client = self._client(provider, model, key)
+                from google.genai import types
 
-            response = client.models.generate_content_stream(
-                model=model,
-                contents=[image.convert("RGB"), prompt] if image else [prompt],
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    temperature=temperature,
-                    max_output_tokens=self.config.budget.max_output_tokens,
-                    http_options=types.HttpOptions(
-                        timeout=max(
-                            1,
-                            int(
-                                min(
-                                    self.remaining_seconds(),
-                                    self.config.budget.request_timeout_seconds,
-                                )
-                                * 1000
-                            ),
-                        )
+                response = client.models.generate_content_stream(
+                    model=model,
+                    contents=[image.convert("RGB"), prompt] if image else [prompt],
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_instruction,
+                        temperature=temperature,
+                        max_output_tokens=self.config.budget.max_output_tokens,
+                        http_options=types.HttpOptions(
+                            timeout=max(
+                                1,
+                                int(
+                                    min(
+                                        self.remaining_seconds(),
+                                        self.config.budget.request_timeout_seconds,
+                                    )
+                                    * 1000
+                                ),
+                            )
+                        ),
                     ),
-                ),
-            )
-            for chunk in response:
-                if chunk.text:
-                    emitted = True
-                    yield chunk.text
-                if getattr(chunk, "usage_metadata", None):
-                    record["usage"] = chunk.usage_metadata.model_dump(mode="json")
-                candidates = getattr(chunk, "candidates", [])
-                if candidates and candidates[0].finish_reason:
-                    record["finish_reason"] = str(candidates[0].finish_reason)
-            if not emitted:
-                raise ValueError("Stream không trả nội dung.")
-            if record.get("finish_reason") not in {None, "STOP", "FinishReason.STOP", "stop"}:
-                raise ValueError("Stream kết thúc chưa hoàn chỉnh.")
-            record["status"] = "success"
-        except Exception as exc:
-            record.update(status="error", error_type=type(exc).__name__)
-            if emitted:
-                raise StreamInterrupted("Stream gián đoạn; bỏ bản nháp trước khi thử lại.") from exc
-            raise
-        finally:
-            record["duration"] = time.monotonic() - start
-            self._record(record)
+                )
+                for chunk in response:
+                    if chunk.text:
+                        emitted = True
+                        yield chunk.text
+                    if getattr(chunk, "usage_metadata", None):
+                        record["usage"] = chunk.usage_metadata.model_dump(mode="json")
+                    candidates = getattr(chunk, "candidates", [])
+                    if candidates and candidates[0].finish_reason:
+                        record["finish_reason"] = str(candidates[0].finish_reason)
+                if not emitted:
+                    raise ValueError("Stream không trả nội dung.")
+                if record.get("finish_reason") not in {None, "STOP", "FinishReason.STOP", "stop"}:
+                    raise ValueError("Stream kết thúc chưa hoàn chỉnh.")
+                record["status"] = "success"
+            except Exception as exc:
+                record.update(status="error", error_type=type(exc).__name__)
+                if emitted:
+                    raise StreamInterrupted(
+                        "Stream gián đoạn; bỏ bản nháp trước khi thử lại."
+                    ) from exc
+                raise
+            finally:
+                record["duration"] = time.monotonic() - start
+                record.setdefault("status", "cancelled")
+                self._record(record)
+                span.outputs = {
+                    "status": record["status"],
+                    "usage_metadata": token_usage(record["usage"], provider),
+                }
 
 
 def safe_extract_json(text: str) -> dict:

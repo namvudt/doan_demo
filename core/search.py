@@ -6,6 +6,7 @@ from urllib.parse import quote, quote_plus
 
 import requests
 
+from core.observability import trace_operation
 from core.schemas import SourceRecord
 
 
@@ -87,6 +88,15 @@ class HeritageSearchEngine:
         }
 
     def search_heritage(self, monument_hint, query):
+        with trace_operation("search.wikipedia", "retriever") as span:
+            result = self._search_heritage(monument_hint, query)
+            span.outputs = {"status": result["status"], "source_count": len(result["sources"])}
+            if result["error"]:
+                span.error = result["error"]
+                span.metadata["error_type"] = result["error"]
+            return result
+
+    def _search_heritage(self, monument_hint, query):
         keyword = (monument_hint or query).strip()
         navigation = [self.generate_maps_link(keyword)] if monument_hint.strip() else []
         try:

@@ -25,6 +25,7 @@ from agents import (
 from core.config import AppConfig
 from core.gateway import LLMManager
 from core.images import fingerprint, validate_image
+from core.observability import record_node_outcome, trace_operation
 from core.schemas import RunEvent, RunResult
 
 
@@ -58,6 +59,8 @@ def build_graph(llm, config, checkpointer=None):
             try:
                 update = function(state)
                 metadata = update.pop("_meta", {})
+                caught_error = next(iter(update.get("errors", [])), {}).get("error_type")
+                record_node_outcome("failed" if caught_error else "completed", caught_error)
                 return {
                     **update,
                     "node_metadata": {
@@ -69,6 +72,7 @@ def build_graph(llm, config, checkpointer=None):
                     },
                 }
             except Exception as exc:
+                record_node_outcome("failed", type(exc).__name__)
                 update = {
                     "errors": [{"node": name, "error_type": type(exc).__name__}],
                     "node_metadata": {
@@ -234,52 +238,77 @@ class RunService:
         }
         graph = build_graph(llm, self.config, self.checkpointer)
         try:
-            for mode, update in graph.stream(
-                state,
-                config={
-                    "configurable": {"thread_id": run_id},
-                    "max_concurrency": self.config.parallel_workers,
-                    "recursion_limit": 20,
-                },
-                stream_mode=["updates", "values"],
-            ):
-                if mode == "values":
-                    state = update
-                else:
-                    for node in update:
-                        yield RunEvent(kind="node", node=node)
-            report = state.get("judge_report", {})
-            status = "unverified"
-            if state.get("out_of_scope"):
-                status = "out_of_scope"
-            elif state.get("fatal") or "visual" not in state["expert_results"]:
-                status = "failed"
-            elif report.get("overall_status") == "INSUFFICIENT_EVIDENCE":
-                status = "insufficient_evidence"
-            elif report.get("verification_status") == "reviewed":
-                status = "reviewed"
-            result = RunResult(
+            with trace_operation(
+                "heritage-vqa.run",
                 run_id=run_id,
-                fingerprint=fingerprint(normalized, query, audience, snapshot["config_hash"]),
-                query=query,
-                audience=audience,
-                status=status,
-                final_response=report.get("final_response")
-                if status in {"reviewed", "insufficient_evidence"}
-                else None,
-                draft_response=state.get("draft_response"),
-                plan=state.get("plan", {}),
-                expert_results=state["expert_results"],
-                judge_report=report,
-                errors=state["errors"],
-                node_metadata=state["node_metadata"],
-                config_snapshot=snapshot,
-                calls=sorted(llm.calls, key=lambda call: call["attempt"]),
-                duration=time.monotonic() - started,
-            )
-            yield RunEvent(kind="completed", node="finish", result=result)
+                metadata={
+                    "app_run_id": run_id,
+                    "workflow_version": self.config.workflow_version,
+                    "config_hash": snapshot["config_hash"],
+                    "audience": audience,
+                    "benchmark": self.benchmark,
+                },
+            ) as span:
+                yield from self._stream_graph(graph, state, llm, snapshot, started, run_id, span)
         finally:
             llm.close()
+
+    def _stream_graph(self, graph, state, llm, snapshot, started, run_id, span):
+        normalized, query, audience = state["image_data"], state["query"], state["audience"]
+        for mode, update in graph.stream(
+            state,
+            config={
+                "configurable": {"thread_id": run_id},
+                "max_concurrency": self.config.parallel_workers,
+                "recursion_limit": 20,
+                "run_name": "heritage-vqa.graph",
+            },
+            stream_mode=["updates", "values"],
+        ):
+            if mode == "values":
+                state = update
+            else:
+                for node in update:
+                    yield RunEvent(kind="node", node=node)
+        report = state.get("judge_report", {})
+        status = "unverified"
+        if state.get("out_of_scope"):
+            status = "out_of_scope"
+        elif state.get("fatal") or "visual" not in state["expert_results"]:
+            status = "failed"
+        elif report.get("overall_status") == "INSUFFICIENT_EVIDENCE":
+            status = "insufficient_evidence"
+        elif report.get("verification_status") == "reviewed":
+            status = "reviewed"
+        result = RunResult(
+            run_id=run_id,
+            fingerprint=fingerprint(normalized, query, audience, snapshot["config_hash"]),
+            query=query,
+            audience=audience,
+            status=status,
+            final_response=report.get("final_response")
+            if status in {"reviewed", "insufficient_evidence"}
+            else None,
+            draft_response=state.get("draft_response"),
+            plan=state.get("plan", {}),
+            expert_results=state["expert_results"],
+            judge_report=report,
+            errors=state["errors"],
+            node_metadata=state["node_metadata"],
+            config_snapshot=snapshot,
+            calls=sorted(llm.calls, key=lambda call: call["attempt"]),
+            duration=time.monotonic() - started,
+        )
+        span.metadata = {"result_status": status, "error_count": len(result.errors)}
+        span.outputs = {
+            "status": status,
+            "call_count": len(result.calls),
+            "error_count": len(result.errors),
+            "duration": result.duration,
+        }
+        if status == "failed":
+            span.error = "WorkflowFailed"
+        yield RunEvent(kind="completed", node="finish", result=result)
 
     def run(self, image_data, query, audience="tourist"):
         result = None

@@ -47,6 +47,14 @@ Cấu hình runtime là [config/default.yaml](config/default.yaml). `HERITAGE_CO
 
 Các YAML ở thư mục thiết kế của workspace là tài liệu đề xuất rộng hơn, không thay thế trực tiếp schema runtime này.
 
+## Theo dõi LangSmith
+
+Bật `LANGSMITH_TRACING=true`, điền `LANGSMITH_API_KEY` và chọn `LANGSMITH_PROJECT`
+trong `.env`, rồi khởi động lại ứng dụng. Trace gồm workflow/node, từng attempt gọi
+model và search; giữ thời gian, token thực, provider/model và trạng thái. Nội dung
+ảnh/câu hỏi/phản hồi/nguồn được ẩn. Hướng dẫn và lệnh kiểm tra kết nối:
+[docs/langsmith.md](docs/langsmith.md).
+
 ## CLI và so sánh
 
 ```powershell

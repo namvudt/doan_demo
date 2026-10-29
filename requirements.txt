@@ -103,7 +103,9 @@ langgraph-prebuilt==1.1.1
 langgraph-sdk==0.4.10
     # via langgraph
 langsmith==0.14.14
-    # via langchain-core
+    # via
+    #   heritage-vqa
+    #   langchain-core
 markupsafe==3.0.4
     # via jinja2
 narwhals==2.28.0

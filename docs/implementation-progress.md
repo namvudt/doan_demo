@@ -17,12 +17,18 @@ Luồng chạy thực nằm ở [workflow/service.py](../workflow/service.py), �
 | UI | Các mốc xử lý thực, không stream draft công khai, không giữ kết quả khi đầu vào/cấu hình đổi |
 | So sánh | Chỉ trình bày đầu ra, thời gian, calls và lỗi; chưa chấm correctness hoặc kết luận thắng |
 | Môi trường | Python 3.12, pyproject/uv.lock, requirements xuất từ lock, suite offline và workflow CI Windows/Linux |
+| LangSmith | Root trace theo run ID, graph/node song song, model attempts/retry/fallback/token thực và search spans; lọc nội dung trước khi gửi, không chặn workflow khi telemetry lỗi |
 
 Các lỗi FIX-01/02/03/05/06/07 đã có regression tương ứng. FIX-04 có routing, readiness và metadata nhưng chưa có thao tác preflight model/capability qua API thật. FIX-08 có lockfile, CI definition và kiểm tra local; chưa chạy CI trên GitHub. CORE-02/03/08 đã có phần nền, cần tiếp tục các tiêu chí còn lại của kế hoạch.
 
 ## Kiểm tra
 
-Kết quả local ngày 29/10/2026: **54 tests passed**, Ruff check/format, `uv lock --check`, `uv pip check`, CLI help và import legacy smoke đều đạt. Chưa chạy workflow CI trên GitHub hoặc live model smoke.
+Kết quả local ngày 29/10/2026 sau khi thêm LangSmith: **68 tests passed**, Ruff check/format, `uv lock --check`, `uv pip check`, CLI help và import legacy smoke đều đạt. Chưa chạy workflow CI trên GitHub hoặc live model smoke.
+
+LangSmith đã xác thực HTTP 200 và gửi/đọc lại trace graph tổng hợp thành công trong
+project `heritage-vqa-dev`, xác nhận nội dung input/output mẫu đã được che. Lần kiểm
+tra này không gọi model. Cấu hình key chỉ nằm trong `.env` bị Git bỏ qua.
+Xem [langsmith.md](langsmith.md) để bật/tắt, đổi project/region và chạy lại smoke.
 
 ```powershell
 uv sync --locked --group dev
