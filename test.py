@@ -1,17 +1,6 @@
-import os
-from openai import OpenAI
+"""Legacy smoke entry point; importing this module never contacts a provider."""
 
-os.environ.pop("OPENAI_BASE_URL", None)
-os.environ.pop("OPENAI_API_BASE", None)
+from scripts.live_api_smoke import main
 
-client = OpenAI(
-    base_url="https://models.github.ai/inference",
-    api_key="",  
-)
-
-response = client.chat.completions.create(
-    messages=[{"role": "user", "content": "Xin chào!"}],
-    model="openai/gpt-4o-mini",
-)
-
-print(response.choices[0].message.content)
+if __name__ == "__main__":
+    raise SystemExit(main())

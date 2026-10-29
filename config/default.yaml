@@ -1,0 +1,34 @@
+# Loaded by core.config; secrets are environment references, never key values.
+schema_version: 1
+workflow_version: langgraph-v1
+providers:
+  gemini:
+    model: gemini-3.8-flash
+    api_key_env: GEMINI_API_KEY
+  openai:
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    base_url_env: OPENAI_BASE_URL
+  gpu:
+    model: local-vlm
+    api_key_env: LOCAL_INFERENCE_API_KEY
+    base_url_env: LOCAL_INFERENCE_URL
+roles:
+  coordinator: {provider: gemini}
+  visual: {provider: gemini}
+  knowledge: {provider: gemini}
+  generation: {provider: gemini}
+  aggregator: {provider: gemini}
+  judge: {provider: gemini}
+# Cross-provider fallback is opt-in. Benchmarks always disable it.
+fallback_providers: []
+budget:
+  max_llm_calls: 12
+  deadline_seconds: 120
+  request_timeout_seconds: 30
+  max_output_tokens: 2048
+  transient_retries: 1
+parallel_workers: 3
+enable_generation: false
+max_image_bytes: 10000000
+max_image_pixels: 20000000

@@ -1,7 +1,8 @@
 """Agents package for Multi-Agent VQA System."""
-from .coordinator import CoordinatorAgent
-from .experts import VisualAgent, KnowledgeAgent, GenerationAgent
+
 from .aggregator_judge import AggregatorAgent, JudgeAgent
+from .coordinator import CoordinatorAgent
+from .experts import GenerationAgent, KnowledgeAgent, VisualAgent
 
 __all__ = [
     "CoordinatorAgent",
@@ -9,5 +10,5 @@ __all__ = [
     "KnowledgeAgent",
     "GenerationAgent",
     "AggregatorAgent",
-    "JudgeAgent"
+    "JudgeAgent",
 ]
