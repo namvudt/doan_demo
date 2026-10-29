@@ -131,6 +131,11 @@ class JudgeAgent:
             available = {source.source_id: source for source in records}
             if set(result.cited_source_ids) - available.keys():
                 raise ValueError("UnknownCitation")
+            inline_ids = set(
+                re.findall(r"\[(wiki_[A-Za-z0-9_-]+|web_[A-Za-z0-9_-]+)\]", result.final_response)
+            )
+            if inline_ids - set(result.cited_source_ids):
+                raise ValueError("UnregisteredInlineCitation")
             if require_sources and not result.cited_source_ids:
                 raise ValueError("MissingCitation")
             if re.search(r"https?://", result.final_response):

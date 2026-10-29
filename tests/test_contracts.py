@@ -77,6 +77,15 @@ def test_unknown_citation_is_not_approved(source):
     assert report["overall_status"] == "UNVERIFIED"
 
 
+def test_unknown_inline_citation_is_not_approved(source):
+    review = valid_review()
+    review["final_response"] += " Claim [wiki_invented]"
+    report, _ = JudgeAgent(FakeLLM(lambda *args: json.dumps(review))).evaluate_and_refine(
+        "q", "draft", "visual", [source], image=Image.new("RGB", (10, 10))
+    )
+    assert report["verification_status"] == "unverified"
+
+
 def test_missing_image_or_source_does_not_call_model(source):
     llm = FakeLLM()
     report, _ = JudgeAgent(llm).evaluate_and_refine("q", "draft", "visual", [source])

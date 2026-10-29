@@ -76,9 +76,12 @@ class KnowledgeAgent:
         monument_hint: str = "",
         visual_findings: str = "",
         focus_directive: str = "",
+        on_sources=None,
     ) -> Tuple[str, Dict[str, Any]]:
         # Kích hoạt Cơ chế tìm kiếm trực tiếp (Live Direct Search Grounding)
         search_data = self.search_engine.search_heritage(monument_hint=monument_hint, query=query)
+        if on_sources:
+            on_sources(search_data)
         if search_data["status"] != "success":
             return "Chưa có đoạn nguồn để trả lời dữ kiện lịch sử.", {
                 "actual_provider": None,

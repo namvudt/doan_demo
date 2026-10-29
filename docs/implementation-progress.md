@@ -1,5 +1,21 @@
 # Đợt 1: LangGraph và sửa các lỗi ưu tiên cao
 
+## Bổ sung giao diện và trải nghiệm — 29/10/2026
+
+- Giao diện khám phá với theme, nhập ảnh mẫu/upload/camera, xoay ảnh, câu hỏi gợi
+  ý và câu hỏi tiếp theo; cache ảnh riêng theo phiên.
+- RunEvent có lifecycle và artifact thật; nguồn được phát trước khi Knowledge
+  gọi model, được giữ khi model lỗi. Thẻ tiến độ, chi tiết từng giai đoạn, bản
+  nháp opt-in, thư viện nguồn, liên kết bản đồ, tiêu chí đánh giá và biểu đồ thời gian.
+- Lịch sử tám lượt, đánh dấu, phản hồi cá nhân, bộ lọc nguồn và xuất JSON/Markdown
+  có tùy chọn kèm nội dung trung gian. Các thao tác trình bày không gọi thêm model.
+- Kiểm tra: **83 tests passed**; Edge/Playwright desktop và mobile không có lỗi
+  JavaScript hoặc tràn ngang. Browser dùng dữ liệu giả lập; chưa gọi model thật.
+
+Thiết kế và hướng dẫn: [experience-design.md](experience-design.md).
+
+## Nền tảng đã triển khai
+
 Ngày thực hiện: 29/10/2026. Nhánh: `feat/langgraph-core`, phát triển từ `101c033`.
 
 Luồng chạy thực nằm ở [workflow/service.py](../workflow/service.py), được dùng bởi UI, CLI và chế độ so sánh. [langgraph.mmd](langgraph.mmd) được xuất từ graph đã compile, không gọi model.

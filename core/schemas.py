@@ -77,6 +77,15 @@ class JudgeOutput(Contract):
         return self
 
 
+class StageEvent(Contract):
+    sequence: int = Field(default=0, ge=0)
+    node: str
+    status: Literal["running", "completed", "failed", "skipped"] = "completed"
+    elapsed: float = Field(default=0, ge=0)
+    duration: float | None = Field(default=None, ge=0)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class RunResult(Contract):
     run_id: str
     fingerprint: str
@@ -92,10 +101,11 @@ class RunResult(Contract):
     node_metadata: dict[str, Any] = Field(default_factory=dict)
     config_snapshot: dict[str, Any] = Field(default_factory=dict)
     calls: list[dict[str, Any]] = Field(default_factory=list)
+    events: list[StageEvent] = Field(default_factory=list)
     duration: float
 
 
-class RunEvent(Contract):
+class RunEvent(StageEvent):
     kind: Literal["node", "completed"]
-    node: str
+    run_id: str = ""
     result: RunResult | None = None

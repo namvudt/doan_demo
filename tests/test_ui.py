@@ -21,10 +21,13 @@ def test_ui_uses_graph_and_invalidates_old_result(monkeypatch, fake_search):
     app.button(key="start").click().run()
     assert not app.exception
     assert app.session_state.result["status"] == "reviewed"
-    assert any("Answer [wiki_a]" in markdown.value for markdown in app.markdown)
+    assert any(
+        "Answer [1](https://vi.wikipedia.org/wiki/Test)" in markdown.value
+        for markdown in app.markdown
+    )
     app.text_area(key="query").input("Different question").run()
     assert "result" not in app.session_state
-    assert not any("Answer [wiki_a]" in markdown.value for markdown in app.markdown)
+    assert not any("Answer [1]" in markdown.value for markdown in app.markdown)
 
 
 def test_ui_hides_unreviewed_draft(monkeypatch, fake_search):
@@ -50,3 +53,48 @@ def test_ui_boots_without_key():
     app = AppTest.from_file(APP_PATH, default_timeout=20).run()
     assert not app.exception
     assert app.button(key="start").disabled
+
+
+def test_preferences_and_source_filter_do_not_call_models(monkeypatch, fake_search):
+    fake = FakeLLM()
+    app = prepared_app(monkeypatch, fake)
+    app.button(key="start").click().run()
+    run_id = app.session_state.result["run_id"]
+    call_count = len(fake.history)
+    app.toggle(key="show_draft").set_value(True).run()
+    assert any("mock aggregator findings" in m.value for m in app.markdown)
+    app.text_input(key=f"source_filter_{run_id}").input("no matching source").run()
+    assert len(fake.history) == call_count
+    assert app.session_state.result["run_id"] == run_id
+    assert not app.exception
+
+
+def test_history_bookmarks_and_feedback_survive_changing_questions(monkeypatch, fake_search):
+    fake = FakeLLM()
+    app = prepared_app(monkeypatch, fake)
+    app.button(key="start").click().run()
+    run_id = app.session_state.result["run_id"]
+    app.checkbox(key=f"saved_widget_{run_id}").set_value(True).run()
+    app.text_area(key=f"note_widget_{run_id}").input("Check this source later").run()
+    before = len(fake.history)
+    app.text_area(key="query").input("Another question").run()
+    app.selectbox(key="history_view").set_value(run_id).run()
+    assert not app.exception
+    assert len(fake.history) == before
+    assert app.checkbox(key=f"saved_widget_{run_id}").value
+    assert app.text_area(key=f"note_widget_{run_id}").value == "Check this source later"
+    app.button(key="clear_history").click().run()
+    assert app.session_state.history == []
+
+
+def test_prompt_and_rotation_invalidate_current_result_without_model_call(monkeypatch, fake_search):
+    fake = FakeLLM()
+    app = prepared_app(monkeypatch, fake)
+    app.button(key="start").click().run()
+    count = len(fake.history)
+    app.button(key="rotate").click().run()
+    assert "result" not in app.session_state
+    assert len(app.session_state.history) == 1
+    app.button(key="prompt_1").click().run()
+    assert "kiến trúc" in app.text_area(key="query").value
+    assert len(fake.history) == count

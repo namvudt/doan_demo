@@ -398,7 +398,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1,<2" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "requests", specifier = ">=2.32,<3" },
-    { name = "streamlit", specifier = ">=1.45,<2" },
+    { name = "streamlit", specifier = ">=1.49,<2" },
 ]
 
 [package.metadata.requires-dev]

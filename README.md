@@ -21,6 +21,11 @@ Phương án chỉ cài dependency runtime: `pip install -r requirements.txt`. F
 
 ## Cách hoạt động
 
+Giao diện mới có ảnh mẫu/tải ảnh/camera, câu hỏi gợi ý, kết quả trung gian cập nhật
+theo từng giai đoạn, thư viện nguồn có trích dẫn, liên kết bản đồ và lịch sử phiên.
+Có thể xem bản nháp theo lựa chọn, đánh dấu lượt khám phá và xuất JSON/Markdown.
+Chi tiết tính năng, luồng dữ liệu và giới hạn: [docs/experience-design.md](docs/experience-design.md).
+
 1. Kiểm tra ảnh, câu hỏi và phạm vi.
 2. Coordinator trả ExecutionPlan có schema.
 3. Visual và Knowledge chạy song song; các kết quả/lỗi được hợp nhất bằng reducer.

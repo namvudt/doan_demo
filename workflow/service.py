@@ -11,6 +11,7 @@ from io import BytesIO
 from typing import Annotated, TypedDict
 from uuid import uuid4
 
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from PIL import Image
 
@@ -26,7 +27,8 @@ from core.config import AppConfig
 from core.gateway import LLMManager
 from core.images import fingerprint, validate_image
 from core.observability import record_node_outcome, trace_operation
-from core.schemas import RunEvent, RunResult
+from core.presentation import STAGES, search_artifact, stage_artifact
+from core.schemas import RunEvent, RunResult, StageEvent
 
 
 def merge_maps(left, right):
@@ -56,6 +58,7 @@ def build_graph(llm, config, checkpointer=None):
     def wrap(name, function):
         def execute(state):
             started = time.monotonic()
+            get_stream_writer()({"node": name, "status": "running"})
             try:
                 update = function(state)
                 metadata = update.pop("_meta", {})
@@ -67,7 +70,7 @@ def build_graph(llm, config, checkpointer=None):
                         name: {
                             **metadata,
                             "duration": time.monotonic() - started,
-                            "status": "completed",
+                            "status": "failed" if caught_error else "completed",
                         }
                     },
                 }
@@ -112,6 +115,13 @@ def build_graph(llm, config, checkpointer=None):
             query=state["query"],
             monument_hint=state["plan"]["identified_monument"],
             focus_directive=state["plan"]["focus_directives"]["knowledge_focus"],
+            on_sources=lambda search: get_stream_writer()(
+                {
+                    "node": "knowledge",
+                    "status": "running",
+                    "payload": search_artifact(search),
+                }
+            ),
         )
         return {"expert_results": {"knowledge": {"text": text, "meta": meta}}, "_meta": meta}
 
@@ -189,8 +199,8 @@ def build_graph(llm, config, checkpointer=None):
         ("judge", judge),
     ):
         graph.add_node(name, wrap(name, function))
-    graph.add_node("experts_done", lambda state: {})
-    graph.add_node("finish", lambda state: {})
+    graph.add_node("experts_done", wrap("experts_done", lambda state: {}))
+    graph.add_node("finish", wrap("finish", lambda state: {}))
     graph.add_edge(START, "scope")
     graph.add_conditional_edges(
         "scope", lambda s: "finish" if s["out_of_scope"] else "coordinate", ["finish", "coordinate"]
@@ -255,6 +265,20 @@ class RunService:
 
     def _stream_graph(self, graph, state, llm, snapshot, started, run_id, span):
         normalized, query, audience = state["image_data"], state["query"], state["audience"]
+        events = []
+
+        def event(node, status, *, payload=None, duration=None):
+            record = StageEvent(
+                sequence=len(events) + 1,
+                node=node,
+                status=status,
+                elapsed=time.monotonic() - started,
+                duration=duration,
+                payload=payload or {},
+            )
+            events.append(record)
+            return RunEvent(kind="node", run_id=run_id, **record.model_dump())
+
         for mode, update in graph.stream(
             state,
             config={
@@ -263,13 +287,39 @@ class RunService:
                 "recursion_limit": 20,
                 "run_name": "heritage-vqa.graph",
             },
-            stream_mode=["updates", "values"],
+            stream_mode=["updates", "values", "custom"],
         ):
             if mode == "values":
                 state = update
+            elif mode == "custom":
+                if isinstance(update, dict) and update.get("node") in {
+                    *STAGES,
+                    "experts_done",
+                    "finish",
+                }:
+                    yield event(update["node"], "running", payload=update.get("payload"))
             else:
-                for node in update:
-                    yield RunEvent(kind="node", node=node)
+                for node, delta in update.items():
+                    if node == "__interrupt__":
+                        continue
+                    delta = delta or {}
+                    meta = delta.get("node_metadata", {}).get(node, {})
+                    yield event(
+                        node,
+                        "failed" if meta.get("status") == "failed" else "completed",
+                        payload=stage_artifact(node, delta),
+                        duration=meta.get("duration"),
+                    )
+        visited = {item.node for item in events}
+        for node in STAGES:
+            if node not in visited:
+                yield event(
+                    node,
+                    "skipped",
+                    payload={
+                        "summary": "Không được chọn trong kế hoạch hoặc luồng đã dừng trước giai đoạn này."
+                    },
+                )
         report = state.get("judge_report", {})
         status = "unverified"
         if state.get("out_of_scope"):
@@ -297,6 +347,7 @@ class RunService:
             node_metadata=state["node_metadata"],
             config_snapshot=snapshot,
             calls=sorted(llm.calls, key=lambda call: call["attempt"]),
+            events=events,
             duration=time.monotonic() - started,
         )
         span.metadata = {"result_status": status, "error_count": len(result.errors)}
@@ -308,7 +359,14 @@ class RunService:
         }
         if status == "failed":
             span.error = "WorkflowFailed"
-        yield RunEvent(kind="completed", node="finish", result=result)
+        yield RunEvent(
+            kind="completed",
+            node="finish",
+            run_id=run_id,
+            sequence=len(events) + 1,
+            elapsed=result.duration,
+            result=result,
+        )
 
     def run(self, image_data, query, audience="tourist"):
         result = None
