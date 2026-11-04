@@ -54,13 +54,21 @@ def image_from(state):
         return image.copy()
 
 
-def build_graph(llm, config, checkpointer=None):
+class RunCancelled(RuntimeError):
+    """Cooperative stop between nodes and model attempts."""
+
+
+def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_engine_factory=None):
     def wrap(name, function):
         def execute(state):
+            if cancel_check:
+                cancel_check()
             started = time.monotonic()
             get_stream_writer()({"node": name, "status": "running"})
             try:
                 update = function(state)
+                if cancel_check:
+                    cancel_check()
                 metadata = update.pop("_meta", {})
                 caught_error = next(iter(update.get("errors", [])), {}).get("error_type")
                 record_node_outcome("failed" if caught_error else "completed", caught_error)
@@ -74,6 +82,8 @@ def build_graph(llm, config, checkpointer=None):
                         }
                     },
                 }
+            except RunCancelled:
+                raise
             except Exception as exc:
                 record_node_outcome("failed", type(exc).__name__)
                 update = {
@@ -111,7 +121,10 @@ def build_graph(llm, config, checkpointer=None):
         return {"expert_results": {"visual": {"text": text, "meta": meta}}, "_meta": meta}
 
     def knowledge(state):
-        text, meta = KnowledgeAgent(llm).retrieve(
+        agent = KnowledgeAgent(llm)
+        if search_engine_factory:
+            agent.search_engine = search_engine_factory()
+        text, meta = agent.retrieve(
             query=state["query"],
             monument_hint=state["plan"]["identified_monument"],
             focus_directive=state["plan"]["focus_directives"]["knowledge_focus"],
@@ -221,19 +234,23 @@ def build_graph(llm, config, checkpointer=None):
 
 
 class RunService:
-    def __init__(self, llm=None, *, checkpointer=None, benchmark=False):
+    def __init__(self, llm=None, *, checkpointer=None, benchmark=False, search_engine_factory=None):
         self.llm = llm or LLMManager()
         self.config: AppConfig = self.llm.config
         self.checkpointer = checkpointer
         self.benchmark = benchmark
+        self.search_engine_factory = search_engine_factory
 
-    def stream(self, image_data: bytes, query: str, audience="tourist"):
+    def stream(
+        self, image_data: bytes, query: str, audience="tourist", *, run_id=None, cancel_check=None
+    ):
         query = query.strip()
         if not query or len(query) > 4000 or audience not in {"tourist", "student"}:
             raise ValueError("Câu hỏi hoặc nhóm người dùng không hợp lệ.")
         normalized = validate_image(image_data, self.config)
-        run_id = str(uuid4())
+        run_id = str(run_id or uuid4())
         llm = self.llm.for_run(benchmark=self.benchmark)
+        llm.cancel_check = cancel_check
         snapshot = llm.config.snapshot()
         started = time.monotonic()
         state = {
@@ -246,7 +263,13 @@ class RunService:
             "fatal": False,
             "out_of_scope": False,
         }
-        graph = build_graph(llm, self.config, self.checkpointer)
+        graph = build_graph(
+            llm,
+            llm.config,
+            self.checkpointer,
+            cancel_check=cancel_check,
+            search_engine_factory=self.search_engine_factory,
+        )
         try:
             with trace_operation(
                 "heritage-vqa.run",

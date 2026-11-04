@@ -1,5 +1,28 @@
 # Đợt 1: LangGraph và sửa các lỗi ưu tiên cao
 
+## Bổ sung backend API — 04/11/2026
+
+- FastAPI với 30 HTTP operations và Swagger `/docs`, ReDoc, OpenAPI có schema,
+  multipart upload, Bearer Authorize và hướng dẫn thử theo từng bước.
+- Upload/samples, sessions, jobs/history, SSE và event replay dạng JSON, hủy/retry,
+  kết quả/nguồn/steps/metrics/export, đánh dấu và feedback có ownership.
+- SQLAlchemy + Alembic: SQLite local, PostgreSQL server; ảnh filesystem riêng,
+  queue bền vững trong DB, atomic claim, heartbeat/lease và chính sách WorkerLost.
+- Dockerfile và Compose cho PostgreSQL/API/worker riêng; cấu hình proxy SSE.
+- Streamlit tùy chọn gọi HTTP backend qua `HERITAGE_API_URL`; lõi local vẫn được
+  dùng bởi UI/CLI, đồng thời hỗ trợ run ID được cấp trước và hủy hợp tác.
+- Demo mode đi qua graph thật bằng dữ liệu mô phỏng; không gọi model hoặc gửi
+  trace ra LangSmith. Live mode giữ nguyên provider/key/model đã cấu hình.
+- Kiểm tra: **100 tests passed** trên bộ mặc định; **17 API tests passed** trên
+  PostgreSQL thật. Docker build và HTTP smoke qua Compose PostgreSQL + worker
+  riêng thành công. Swagger 30 operations và Try it out được kiểm tra bằng Edge.
+
+API chưa có đăng nhập tài khoản/OIDC, catalog/news/events CRUD, comparison job
+hoặc tự resume từ LangGraph checkpoint sau crash. Hủy request SDK đang chạy chờ
+timeout; job mất worker được kết thúc có lỗi, giữ bằng chứng và cho retry chủ động.
+
+Hướng dẫn triển khai và frontend: [api-server.md](api-server.md).
+
 ## Bổ sung giao diện và trải nghiệm — 29/10/2026
 
 - Giao diện khám phá với theme, nhập ảnh mẫu/upload/camera, xoay ảnh, câu hỏi gợi

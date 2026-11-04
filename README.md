@@ -4,6 +4,11 @@
 
 ## Cài đặt
 
+API và Swagger UI đã được tích hợp. Chạy `uv run --locked python -m scripts.serve_api`
+rồi mở <http://127.0.0.1:8000/docs>. Thêm `--demo` để thử graph/API bằng dữ liệu
+mô phỏng, không gọi model trả phí. Hướng dẫn token, upload, jobs, SSE, PostgreSQL,
+Docker và tích hợp frontend: [docs/api-server.md](docs/api-server.md).
+
 Yêu cầu Python 3.12 và uv. Tại thư mục repo:
 
 ```powershell

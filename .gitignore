@@ -28,3 +28,5 @@ Thumbs.db
 .ruff_cache/
 reports/
 comparison.json
+data/
+.api-demo/

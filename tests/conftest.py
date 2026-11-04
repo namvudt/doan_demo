@@ -35,6 +35,8 @@ def no_network(monkeypatch):
         "LANGSMITH_PROJECT",
         "LANGSMITH_ENDPOINT",
         "LANGSMITH_WORKSPACE_ID",
+        "HERITAGE_API_URL",
+        "HERITAGE_API_TOKEN",
         *[
             f"{role.upper()}_{suffix}"
             for role in ROLES

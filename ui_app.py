@@ -2,16 +2,19 @@
 
 import hashlib
 import json
+import os
 from io import BytesIO
 from pathlib import Path
 
 import streamlit as st
+from dotenv import load_dotenv
 from PIL import Image
 
 from core.gateway import LLMManager
 from core.images import image_bytes, validate_image
 from core.observability import TraceSettings
 from core.presentation import STAGES, collect_sources
+from ui.api_client import RemoteManager
 from ui.components import render_comparison, render_progress, render_result, render_stages
 from ui.session import (
     clear_active,
@@ -59,9 +62,16 @@ def rotate_image():
 def sidebar(manager):
     with st.sidebar:
         st.subheader("Không gian khám phá")
+        choices = (
+            ["Hỏi bằng ảnh"]
+            if isinstance(manager, RemoteManager)
+            else ["Hỏi bằng ảnh", "So sánh thử nghiệm"]
+        )
+        if st.session_state.get("mode") not in choices:
+            st.session_state["mode"] = choices[0]
         mode = st.radio(
             "Chọn cách sử dụng",
-            ["Hỏi bằng ảnh", "So sánh thử nghiệm"],
+            choices,
             key="mode",
             on_change=current_view,
         )
@@ -228,7 +238,12 @@ def execute(manager, image_data, query, audience, mode, show_stages, show_draft)
             with st.spinner("Đang chạy các phương pháp; chưa chấm độ chính xác..."):
                 st.session_state["comparison"] = compare(image_data, query, manager, audience)
         else:
-            for event in RunService(manager).stream(image_data, query, audience):
+            stream = (
+                manager.remote_stream(image_data, query, audience)
+                if isinstance(manager, RemoteManager)
+                else RunService(manager).stream(image_data, query, audience)
+            )
+            for event in stream:
                 if event.kind == "completed":
                     result = event.result.model_dump(mode="json")
                     st.session_state["result"] = result
@@ -267,7 +282,18 @@ def main():
     )
     apply_theme()
     try:
-        manager = LLMManager()
+        load_dotenv()
+        if base_url := os.getenv("HERITAGE_API_URL"):
+            prior = st.session_state.get("_api_connection", {})
+            token = os.getenv("HERITAGE_API_TOKEN") or (
+                prior.get("token") if prior.get("url") == base_url else None
+            )
+            manager = RemoteManager(
+                base_url, token=token, bootstrap_token=os.getenv("API_BOOTSTRAP_TOKEN")
+            )
+            st.session_state["_api_connection"] = {"url": base_url, "token": manager.token}
+        else:
+            manager = LLMManager()
     except Exception as exc:
         st.error(f"Cấu hình chưa hợp lệ ({type(exc).__name__}). Kiểm tra HERITAGE_CONFIG.")
         st.stop()
@@ -320,7 +346,9 @@ def main():
                 query.strip(),
                 audience,
                 mode,
-                manager.config.snapshot()["config_hash"],
+                manager.capabilities["config_hash"]
+                if isinstance(manager, RemoteManager)
+                else manager.config.snapshot()["config_hash"],
             ]
         ).encode()
     ).hexdigest()

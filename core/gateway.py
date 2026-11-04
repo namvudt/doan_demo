@@ -36,6 +36,7 @@ class LLMManager:
         self._started = time.monotonic()
         self.calls = []
         self._attempt_count = 0
+        self.cancel_check = None
 
     def for_run(self, *, benchmark=False):
         config = self.config.model_copy(deep=True)
@@ -122,6 +123,8 @@ class LLMManager:
         return self.config.budget.deadline_seconds - (time.monotonic() - self._started)
 
     def _admit(self):
+        if self.cancel_check:
+            self.cancel_check()
         with self._lock:
             if self.remaining_seconds() <= 0:
                 raise BudgetExceeded("Đã hết thời gian của lượt xử lý.")
