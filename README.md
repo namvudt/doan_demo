@@ -9,6 +9,10 @@ rồi mở <http://127.0.0.1:8000/docs>. Thêm `--demo` để thử graph/API b�
 mô phỏng, không gọi model trả phí. Hướng dẫn token, upload, jobs, SSE, PostgreSQL,
 Docker và tích hợp frontend: [docs/api-server.md](docs/api-server.md).
 
+Thử từng API theo [hướng dẫn Swagger chi tiết](docs/api-swagger-walkthrough.md),
+xem [bảng kết quả kiểm thử](docs/api-test-results.md), hoặc chạy
+`uv run --locked python -m scripts.api_contract_report` để tự tạo lại báo cáo.
+
 Yêu cầu Python 3.12 và uv. Tại thư mục repo:
 
 ```powershell

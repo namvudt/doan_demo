@@ -23,6 +23,13 @@ timeout; job mất worker được kết thúc có lỗi, giữ bằng chứng v
 
 Hướng dẫn triển khai và frontend: [api-server.md](api-server.md).
 
+Kiểm thử HTTP theo từng endpoint ngày 04/11/2026: **30/30 operations**, **69/69
+tình huống đạt**, API và worker chạy ở hai tiến trình riêng với SQLite riêng,
+demo mode và không gọi model trả phí. Bảng kết quả gồm mã HTTP, response tóm tắt
+và thời gian từng request: [api-test-results.md](api-test-results.md).
+Hướng dẫn thực hành: [api-swagger-walkthrough.md](api-swagger-walkthrough.md).
+Runner tái lập: `python -m scripts.api_contract_report`.
+
 ## Bổ sung giao diện và trải nghiệm — 29/10/2026
 
 - Giao diện khám phá với theme, nhập ảnh mẫu/upload/camera, xoay ảnh, câu hỏi gợi

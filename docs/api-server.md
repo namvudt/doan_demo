@@ -5,6 +5,10 @@ Swagger có 30 HTTP operations, chia theo Health, Sessions, Configuration, Asset
 Runs, Events, Results và Feedback. OpenAPI có schema, Bearer Authorize, multipart
 upload và ví dụ để thử nhanh.
 
+Hướng dẫn thao tác chi tiết từng endpoint và cách đọc response:
+[api-swagger-walkthrough.md](api-swagger-walkthrough.md).
+Bảng kết quả HTTP thật: [api-test-results.md](api-test-results.md).
+
 ## Chạy local
 
 Tại thư mục `doan_demo`, dùng Python 3.12 và dependency đã khóa:
@@ -193,6 +197,7 @@ trong `API_CORS_ORIGINS`. Key Gemini/LangSmith giữ trong environment server.
 ```powershell
 uv run --locked pytest
 uv run --locked python -m scripts.api_smoke
+uv run --locked python -m scripts.api_contract_report
 ```
 
 Smoke mặc định từ chối server live. Chỉ dùng `--allow-live` khi chủ động cho phép
