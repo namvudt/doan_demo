@@ -11,6 +11,9 @@ Bảng kết quả HTTP thật: [api-test-results.md](api-test-results.md).
 Log JSON, durable model attempts, metrics có token riêng và cấu hình Prometheus:
 [observability.md](observability.md).
 
+Bộ JSON import Postman (collection, demo/local environments và OpenAPI schema):
+[hướng dẫn Postman](postman.md).
+
 ## Chạy local
 
 Tại thư mục `doan_demo`, dùng Python 3.12 và dependency đã khóa:

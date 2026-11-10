@@ -17,6 +17,11 @@ Thử từng API theo [hướng dẫn Swagger chi tiết](docs/api-swagger-walkt
 xem [bảng kết quả kiểm thử](docs/api-test-results.md), hoặc chạy
 `uv run --locked python -m scripts.api_contract_report` để tự tạo lại báo cáo.
 
+Postman: import [Collection đầy đủ](postman/heritage-vqa.postman_collection.json)
+và [Demo environment](postman/heritage-vqa-demo.postman_environment.json).
+Xem [hướng dẫn import và chạy](docs/postman.md); bộ JSON có 31 operations,
+script tự lưu token/ID, polling và SSE.
+
 Yêu cầu Python 3.12 và uv. Tại thư mục repo:
 
 ```powershell

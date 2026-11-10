@@ -1,5 +1,8 @@
 # Hướng dẫn thử từng API trên Swagger
 
+Nếu dùng Postman, có sẵn [collection và environment JSON đầy đủ](postman.md)
+với script tự lưu token/ID, polling và SSE.
+
 Hướng dẫn này đi cùng [bảng kết quả thực tế](api-test-results.md): 31 HTTP
 operations, 73 tình huống, chạy qua HTTP với API và worker riêng. Chi tiết mọi
 request/response đã che token ở [results.json](../reports/api-contract/results.json).
