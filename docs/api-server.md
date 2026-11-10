@@ -1,13 +1,15 @@
 # Backend API và Swagger UI
 
 Backend dùng FastAPI, gọi cùng `RunService`/LangGraph của Streamlit và CLI.
-Swagger có 30 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
-Runs, Events, Results và Feedback. OpenAPI có schema, Bearer Authorize, multipart
+Swagger có 31 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
+Runs, Events, Results, Feedback và Operations. OpenAPI có schema, Bearer Authorize, multipart
 upload và ví dụ để thử nhanh.
 
 Hướng dẫn thao tác chi tiết từng endpoint và cách đọc response:
 [api-swagger-walkthrough.md](api-swagger-walkthrough.md).
 Bảng kết quả HTTP thật: [api-test-results.md](api-test-results.md).
+Log JSON, durable model attempts, metrics có token riêng và cấu hình Prometheus:
+[observability.md](observability.md).
 
 ## Chạy local
 
@@ -93,6 +95,7 @@ thúc. Retry tạo run mới, dùng cấu hình hiện tại và có thể phát
 | GET | `/api/v1/runs/{id}/events` | SSE, hỗ trợ `Last-Event-ID` và `after` |
 | GET | `/api/v1/runs/{id}/events/history` | Lịch sử JSON có cursor và limit |
 | GET | `/api/v1/runs/{id}/result`, `/steps`, `/sources`, `/metrics`, `/export` | Kết quả và bằng chứng |
+| GET | `/api/v1/operations/metrics` | Prometheus metrics; cần operations token riêng |
 | PUT | `/api/v1/runs/{id}/bookmark` | Đánh dấu hoặc bỏ đánh dấu |
 | POST, PUT, GET | `/api/v1/runs/{id}/feedback` | Ghi và đọc phản hồi |
 

@@ -16,6 +16,7 @@ from api.demo import DemoManager, DemoSearch
 from api.models import Asset, Run, SessionToken
 from api.settings import ROOT
 from api.store import Store, StoreError, owned
+from api.telemetry import persist_attempt
 from core.config import AppConfig, load_config
 from core.gateway import LLMManager
 from core.images import validate_image
@@ -56,7 +57,11 @@ class Runtime:
         snapshot.pop("config_hash", None)
         manager = self.manager(AppConfig.model_validate(snapshot), run.model_mode)
         search = DemoSearch if run.model_mode == "demo" else None
-        return RunService(manager, search_engine_factory=search)
+        return RunService(
+            manager,
+            search_engine_factory=search,
+            attempt_observer=lambda record: persist_attempt(self.db, run.id, record),
+        )
 
     def tracing_context(self, mode):
         return tracing_context(enabled=False) if mode == "demo" else nullcontext()

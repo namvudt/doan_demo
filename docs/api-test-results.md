@@ -1,12 +1,12 @@
 # Kết quả kiểm thử từng API
 
-Thời điểm: 2026-11-04T22:07:43.864257+07:00 (Asia/Ho_Chi_Minh).
+Thời điểm: 2026-11-10T15:48:18.828666+07:00 (Asia/Ho_Chi_Minh).
 Base URL: `http://127.0.0.1:18512`. Chạy HTTP thật với API và worker riêng, SQLite riêng, **demo mode**.
 Không gọi Gemini/GPU thật; báo cáo này kiểm tra hợp đồng API và workflow, không đo chất lượng AI.
 
-- OpenAPI: **30/30 operations** đã được gọi và kiểm tra.
-- Kịch bản: **69/69 đạt**, 0 lỗi.
-- Run chính: `d39c80c8-4e1c-4d59-b1d2-f67317dddd10`.
+- OpenAPI: **31/31 operations** đã được gọi và kiểm tra.
+- Kịch bản: **73/73 đạt**, 0 lỗi.
+- Run chính: `55500e90-2c23-451f-bdfa-c5c776d864b5`.
 - Run chính phát 21 events, trả 1 nguồn minh họa; model calls trả phí: **0**.
 - Token và bootstrap credential đã được che; thời gian dưới đây chỉ là một lượt local, không phải benchmark.
 
@@ -39,11 +39,12 @@ Không gọi Gemini/GPU thật; báo cáo này kiểm tra hợp đồng API và 
 | 23 | GET | `/api/v1/runs/{run_id}/sources` | 200 | 1 | Đạt |
 | 24 | GET | `/api/v1/runs/{run_id}/steps` | 200 | 2 | Đạt |
 | 25 | GET | `/api/v1/runs/{run_id}/metrics` | 200 | 1 | Đạt |
-| 26 | GET | `/api/v1/runs/{run_id}/export` | 200 | 2 | Đạt |
-| 27 | PUT | `/api/v1/runs/{run_id}/bookmark` | 200 | 1 | Đạt |
-| 28 | POST | `/api/v1/runs/{run_id}/feedback` | 200 | 1 | Đạt |
-| 29 | PUT | `/api/v1/runs/{run_id}/feedback` | 200 | 1 | Đạt |
-| 30 | GET | `/api/v1/runs/{run_id}/feedback` | 200 | 2 | Đạt |
+| 26 | GET | `/api/v1/operations/metrics` | 200, 401 | 4 | Đạt |
+| 27 | GET | `/api/v1/runs/{run_id}/export` | 200 | 2 | Đạt |
+| 28 | PUT | `/api/v1/runs/{run_id}/bookmark` | 200 | 1 | Đạt |
+| 29 | POST | `/api/v1/runs/{run_id}/feedback` | 200 | 1 | Đạt |
+| 30 | PUT | `/api/v1/runs/{run_id}/feedback` | 200 | 1 | Đạt |
+| 31 | GET | `/api/v1/runs/{run_id}/feedback` | 200 | 2 | Đạt |
 
 ## Chi tiết các tình huống
 
@@ -51,75 +52,79 @@ HTTP 4xx/503 trong case âm là kết quả đúng khi trùng với kỳ vọng.
 
 | Case | Tình huống | Kỳ vọng | Thực nhận | ms | Kết quả trả về | Kết luận |
 | --- | --- | --- | --- | --- | --- | --- |
-| C01 | Tiến trình API hoạt động | 200 | 200 | 3.22 | status=ok | Đạt |
-| C02 | Chưa có worker: readiness trả 503 | 503 | 503 | 8.81 | status=worker_unavailable; model_mode=demo | Đạt |
-| C03 | Cấu hình demo và giới hạn | 200 | 200 | 6.01 | model_mode=demo | Đạt |
-| C04 | Cấp phiên thiếu bootstrap bị từ chối | 403 | 403 | 2.91 | error.code=bootstrap_required | Đạt |
-| C05 | Cấp token phiên A | 201 | 201 | 6.76 | Đã cấp access_token; token được che trong báo cáo | Đạt |
-| C06 | Cấp token phiên B | 201 | 201 | 4.48 | Đã cấp access_token; token được che trong báo cáo | Đạt |
-| C07 | Đọc phiên đang đăng nhập | 200 | 200 | 3.65 | session_id=c1791a2e-8665-4699-93e6-459f9abd7567 | Đạt |
-| C08 | Thiếu token bị từ chối | 401 | 401 | 2.98 | error.code=authentication_required | Đạt |
-| C09 | Token sai bị từ chối | 401 | 401 | 2.39 | error.code=invalid_token | Đạt |
-| C10 | Sơ đồ và bảy giai đoạn | 200 | 200 | 6.83 | version=langgraph-v1 | Đạt |
-| C11 | Danh sách ảnh mẫu | 200 | 200 | 2.36 | items=11 | Đạt |
-| C12 | Upload ảnh multipart | 201 | 201 | 209.66 | JSON hợp lệ | Đạt |
-| C13 | Danh sách ảnh của phiên | 200 | 200 | 6.11 | 1 bản ghi | Đạt |
-| C14 | Metadata ảnh đã chuẩn hóa | 200 | 200 | 5.47 | JSON hợp lệ | Đạt |
-| C15 | Tải ảnh PNG | 200 | 200 | 34.33 | PNG, 1200×896, 2123792 bytes | Đạt |
-| C16 | Phiên B không đọc được ảnh A | 404 | 404 | 4.52 | error.code=not_found | Đạt |
-| C17 | UUID không hợp lệ | 422 | 422 | 4.16 | error.code=validation_error | Đạt |
-| C18 | Từ chối file giả ảnh | 422 | 422 | 73.78 | error.code=invalid_image | Đạt |
-| C19 | Từ chối ảnh quá dung lượng | 413 | 413 | 81.3 | error.code=image_too_large | Đạt |
-| C20 | Xóa ảnh chưa được sử dụng | 204 | 204 | 48.78 | Không có response body | Đạt |
-| C21 | Ảnh đã xóa trả 404 | 404 | 404 | 4.48 | error.code=not_found | Đạt |
-| C22 | Tạo asset từ ảnh mẫu | 201 | 201 | 188.87 | JSON hợp lệ | Đạt |
-| C23 | Ảnh mẫu không tồn tại | 404 | 404 | 3.35 | error.code=sample_not_found | Đạt |
-| C24 | Tạo run và nhận 202 | 202 | 202 | 22.68 | execution_status=queued | Đạt |
-| C25 | Gửi trùng key/body trả cùng run | 202 | 202 | 5.45 | execution_status=queued | Đạt |
-| C26 | Trùng key nhưng khác body trả 409 | 409 | 409 | 5.67 | error.code=idempotency_conflict | Đạt |
-| C27 | Câu hỏi rỗng trả 422 | 422 | 422 | 4.27 | error.code=validation_error | Đạt |
-| C28 | Profile chưa hỗ trợ trả 422 | 422 | 422 | 4.03 | error.code=validation_error | Đạt |
-| C29 | Không dùng ảnh của phiên khác | 404 | 404 | 11.77 | error.code=not_found | Đạt |
-| C30 | Đọc trạng thái queued | 200 | 200 | 6.51 | execution_status=queued | Đạt |
-| C31 | Chưa xong: result trả 409 | 409 | 409 | 5.4 | error.code=run_not_finished | Đạt |
-| C32 | Không retry run còn hoạt động | 409 | 409 | 4.72 | error.code=run_active | Đạt |
-| C33 | Phiên B không đọc được run A | 404 | 404 | 3.39 | error.code=not_found | Đạt |
-| C34 | Phiên B không đọc được events A | 404 | 404 | 4.81 | error.code=not_found | Đạt |
-| C35 | Phiên B không hủy được run A | 404 | 404 | 5.52 | error.code=not_found | Đạt |
-| C36 | Xóa ảnh đang được run sử dụng trả 409 | 409 | 409 | 4.41 | error.code=asset_in_use | Đạt |
-| C37 | Tạo run để hủy | 202 | 202 | 16.07 | execution_status=queued | Đạt |
-| C38 | Hủy queued có hiệu lực ngay | 200 | 200 | 6.87 | execution_status=cancelled | Đạt |
-| C39 | Run đã hủy không có answer | 409 | 409 | 4.66 | error.code=result_unavailable | Đạt |
-| C40 | Retry bắt buộc Idempotency-Key | 422 | 422 | 4.04 | error.code=validation_error | Đạt |
-| C41 | Retry tạo run mới liên kết parent | 202 | 202 | 16.47 | execution_status=queued | Đạt |
-| C42 | Tạo active run thứ ba | 202 | 202 | 15.41 | execution_status=queued | Đạt |
-| C43 | Vượt ba active runs trả 429 | 429 | 429 | 13.19 | error.code=queue_limit | Đạt |
-| C44 | Hủy run quota sau kiểm tra | 200 | 200 | 6.16 | execution_status=cancelled | Đạt |
-| C45 | Database và worker sẵn sàng | 200 | 200 | 2.51 | status=ready; model_mode=demo | Đạt |
-| C46 | Run đã hoàn tất | 200 | 200 | 5.42 | execution_status=succeeded | Đạt |
-| C47 | Lịch sử có phân trang | 200 | 200 | 8.29 | items=2 | Đạt |
-| C48 | Lọc lịch sử succeeded | 200 | 200 | 6.9 | items=2 | Đạt |
-| C49 | Lịch sử sự kiện JSON | 200 | 200 | 7.8 | items=21 | Đạt |
-| C50 | Lịch sử có bản nháp khi opt-in | 200 | 200 | 6.38 | items=21 | Đạt |
-| C51 | Nhận toàn bộ SSE và terminal event | 200 | 200 | 10.91 | 21 SSE events | Đạt |
-| C52 | SSE kết nối lại từ Last-Event-ID | 200 | 200 | 7.38 | 2 SSE events | Đạt |
-| C53 | Kết quả cuối và nguồn | 200 | 200 | 5.28 | status=reviewed; sources=1 | Đạt |
-| C54 | Kết quả có nội dung trung gian opt-in | 200 | 200 | 4.94 | status=reviewed; sources=1 | Đạt |
-| C55 | Nguồn có trích dẫn | 200 | 200 | 5.34 | items=1 | Đạt |
-| C56 | Các giai đoạn và bản nháp mặc định ẩn | 200 | 200 | 6.14 | items=9 | Đạt |
-| C57 | Các giai đoạn bật bản nháp | 200 | 200 | 5.95 | items=9 | Đạt |
-| C58 | Metrics demo không tự tạo token usage | 200 | 200 | 4.71 | 5 model calls; total_tokens=null (demo) | Đạt |
-| C59 | Xuất JSON không kèm draft mặc định | 200 | 200 | 4.74 | status=reviewed; sources=1 | Đạt |
-| C60 | Xuất Markdown | 200 | 200 | 5.37 | Đã nhận báo cáo Markdown | Đạt |
-| C61 | Đánh dấu run | 200 | 200 | 61.22 | execution_status=succeeded | Đạt |
-| C62 | Lọc các run đã lưu | 200 | 200 | 6.43 | items=1 | Đạt |
-| C63 | Ghi phản hồi bằng POST | 200 | 200 | 8.11 | rating=helpful | Đạt |
-| C64 | Đọc phản hồi đã lưu | 200 | 200 | 6.18 | rating=helpful | Đạt |
-| C65 | Cập nhật phản hồi bằng PUT | 200 | 200 | 6.43 | rating=needs_review | Đạt |
-| C66 | Xác nhận cập nhật phản hồi | 200 | 200 | 5.04 | rating=needs_review | Đạt |
-| C67 | Thu hồi token phiên B | 204 | 204 | 6.46 | Không có response body | Đạt |
-| C68 | Token đã thu hồi trả 401 | 401 | 401 | 2.33 | error.code=invalid_token | Đạt |
-| C69 | Thu hồi token phiên A | 204 | 204 | 4.57 | Không có response body | Đạt |
+| C01 | Tiến trình API hoạt động | 200 | 200 | 1.7 | status=ok | Đạt |
+| C02 | Chưa có worker: readiness trả 503 | 503 | 503 | 8.26 | status=worker_unavailable; model_mode=demo | Đạt |
+| C03 | Cấu hình demo và giới hạn | 200 | 200 | 5.43 | model_mode=demo | Đạt |
+| C04 | Cấp phiên thiếu bootstrap bị từ chối | 403 | 403 | 2.29 | error.code=bootstrap_required | Đạt |
+| C05 | Cấp token phiên A | 201 | 201 | 46.34 | Đã cấp access_token; token được che trong báo cáo | Đạt |
+| C06 | Cấp token phiên B | 201 | 201 | 3.94 | Đã cấp access_token; token được che trong báo cáo | Đạt |
+| C07 | Operations rejects missing token | 401 | 401 | 1.92 | error.code=operations_unauthorized | Đạt |
+| C08 | Operations rejects guest token | 401 | 401 | 1.47 | error.code=operations_unauthorized | Đạt |
+| C09 | Operations accepts operator token | 200 | 200 | 6.77 | Đã nhận báo cáo Markdown | Đạt |
+| C10 | Đọc phiên đang đăng nhập | 200 | 200 | 4.5 | session_id=4b57bc1c-cfeb-4345-bd8e-b343baf86f47 | Đạt |
+| C11 | Thiếu token bị từ chối | 401 | 401 | 1.88 | error.code=authentication_required | Đạt |
+| C12 | Token sai bị từ chối | 401 | 401 | 2.11 | error.code=invalid_token | Đạt |
+| C13 | Sơ đồ và bảy giai đoạn | 200 | 200 | 6.12 | version=langgraph-v1 | Đạt |
+| C14 | Danh sách ảnh mẫu | 200 | 200 | 1.83 | items=11 | Đạt |
+| C15 | Upload ảnh multipart | 201 | 201 | 194.08 | JSON hợp lệ | Đạt |
+| C16 | Danh sách ảnh của phiên | 200 | 200 | 5.29 | 1 bản ghi | Đạt |
+| C17 | Metadata ảnh đã chuẩn hóa | 200 | 200 | 4.88 | JSON hợp lệ | Đạt |
+| C18 | Tải ảnh PNG | 200 | 200 | 24.22 | PNG, 1200×896, 2123792 bytes | Đạt |
+| C19 | Phiên B không đọc được ảnh A | 404 | 404 | 3.78 | error.code=not_found | Đạt |
+| C20 | UUID không hợp lệ | 422 | 422 | 2.7 | error.code=validation_error | Đạt |
+| C21 | Từ chối file giả ảnh | 422 | 422 | 54.52 | error.code=invalid_image | Đạt |
+| C22 | Từ chối ảnh quá dung lượng | 413 | 413 | 50.64 | error.code=image_too_large | Đạt |
+| C23 | Xóa ảnh chưa được sử dụng | 204 | 204 | 77.52 | Không có response body | Đạt |
+| C24 | Ảnh đã xóa trả 404 | 404 | 404 | 3.51 | error.code=not_found | Đạt |
+| C25 | Tạo asset từ ảnh mẫu | 201 | 201 | 183.56 | JSON hợp lệ | Đạt |
+| C26 | Ảnh mẫu không tồn tại | 404 | 404 | 2.9 | error.code=sample_not_found | Đạt |
+| C27 | Tạo run và nhận 202 | 202 | 202 | 23.18 | execution_status=queued | Đạt |
+| C28 | Gửi trùng key/body trả cùng run | 202 | 202 | 3.45 | execution_status=queued | Đạt |
+| C29 | Trùng key nhưng khác body trả 409 | 409 | 409 | 2.46 | error.code=idempotency_conflict | Đạt |
+| C30 | Câu hỏi rỗng trả 422 | 422 | 422 | 1.76 | error.code=validation_error | Đạt |
+| C31 | Profile chưa hỗ trợ trả 422 | 422 | 422 | 1.92 | error.code=validation_error | Đạt |
+| C32 | Không dùng ảnh của phiên khác | 404 | 404 | 8.34 | error.code=not_found | Đạt |
+| C33 | Đọc trạng thái queued | 200 | 200 | 3.87 | execution_status=queued | Đạt |
+| C34 | Chưa xong: result trả 409 | 409 | 409 | 3.3 | error.code=run_not_finished | Đạt |
+| C35 | Không retry run còn hoạt động | 409 | 409 | 3.27 | error.code=run_active | Đạt |
+| C36 | Phiên B không đọc được run A | 404 | 404 | 3.11 | error.code=not_found | Đạt |
+| C37 | Phiên B không đọc được events A | 404 | 404 | 2.72 | error.code=not_found | Đạt |
+| C38 | Phiên B không hủy được run A | 404 | 404 | 4.37 | error.code=not_found | Đạt |
+| C39 | Xóa ảnh đang được run sử dụng trả 409 | 409 | 409 | 3.02 | error.code=asset_in_use | Đạt |
+| C40 | Tạo run để hủy | 202 | 202 | 10.63 | execution_status=queued | Đạt |
+| C41 | Hủy queued có hiệu lực ngay | 200 | 200 | 4.41 | execution_status=cancelled | Đạt |
+| C42 | Run đã hủy không có answer | 409 | 409 | 2.54 | error.code=result_unavailable | Đạt |
+| C43 | Retry bắt buộc Idempotency-Key | 422 | 422 | 1.89 | error.code=validation_error | Đạt |
+| C44 | Retry tạo run mới liên kết parent | 202 | 202 | 12.32 | execution_status=queued | Đạt |
+| C45 | Tạo active run thứ ba | 202 | 202 | 10.94 | execution_status=queued | Đạt |
+| C46 | Vượt ba active runs trả 429 | 429 | 429 | 10.37 | error.code=queue_limit | Đạt |
+| C47 | Hủy run quota sau kiểm tra | 200 | 200 | 4.18 | execution_status=cancelled | Đạt |
+| C48 | Database và worker sẵn sàng | 200 | 200 | 1.72 | status=ready; model_mode=demo | Đạt |
+| C49 | Run đã hoàn tất | 200 | 200 | 2.74 | execution_status=succeeded | Đạt |
+| C50 | Lịch sử có phân trang | 200 | 200 | 5.08 | items=2 | Đạt |
+| C51 | Lọc lịch sử succeeded | 200 | 200 | 6.78 | items=2 | Đạt |
+| C52 | Lịch sử sự kiện JSON | 200 | 200 | 6.19 | items=21 | Đạt |
+| C53 | Lịch sử có bản nháp khi opt-in | 200 | 200 | 4.23 | items=21 | Đạt |
+| C54 | Nhận toàn bộ SSE và terminal event | 200 | 200 | 6.88 | 21 SSE events | Đạt |
+| C55 | SSE kết nối lại từ Last-Event-ID | 200 | 200 | 4.58 | 2 SSE events | Đạt |
+| C56 | Kết quả cuối và nguồn | 200 | 200 | 3.78 | status=reviewed; sources=1 | Đạt |
+| C57 | Kết quả có nội dung trung gian opt-in | 200 | 200 | 3.17 | status=reviewed; sources=1 | Đạt |
+| C58 | Nguồn có trích dẫn | 200 | 200 | 4.84 | items=1 | Đạt |
+| C59 | Các giai đoạn và bản nháp mặc định ẩn | 200 | 200 | 3.91 | items=9 | Đạt |
+| C60 | Các giai đoạn bật bản nháp | 200 | 200 | 3.36 | items=9 | Đạt |
+| C61 | Metrics demo không tự tạo token usage | 200 | 200 | 4.34 | 5 model calls; total_tokens=null (demo) | Đạt |
+| C62 | Xuất JSON không kèm draft mặc định | 200 | 200 | 2.91 | status=reviewed; sources=1 | Đạt |
+| C63 | Xuất Markdown | 200 | 200 | 2.78 | Đã nhận báo cáo Markdown | Đạt |
+| C64 | Đánh dấu run | 200 | 200 | 53.05 | execution_status=succeeded | Đạt |
+| C65 | Lọc các run đã lưu | 200 | 200 | 4.54 | items=1 | Đạt |
+| C66 | Ghi phản hồi bằng POST | 200 | 200 | 5.97 | rating=helpful | Đạt |
+| C67 | Đọc phản hồi đã lưu | 200 | 200 | 2.92 | rating=helpful | Đạt |
+| C68 | Cập nhật phản hồi bằng PUT | 200 | 200 | 9.4 | rating=needs_review | Đạt |
+| C69 | Xác nhận cập nhật phản hồi | 200 | 200 | 3.79 | rating=needs_review | Đạt |
+| C70 | Thu hồi token phiên B | 204 | 204 | 5.67 | Không có response body | Đạt |
+| C71 | Token đã thu hồi trả 401 | 401 | 401 | 2.07 | error.code=invalid_token | Đạt |
+| C72 | Operations metrics after processing | 200 | 200 | 3.77 | Đã nhận báo cáo Markdown | Đạt |
+| C73 | Thu hồi token phiên A | 204 | 204 | 3.24 | Không có response body | Đạt |
 
 ## Xem request/response đầy đủ
 

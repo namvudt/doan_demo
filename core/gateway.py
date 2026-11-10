@@ -2,6 +2,7 @@
 
 import base64
 import json
+import logging
 import os
 import re
 import threading
@@ -12,6 +13,7 @@ from dotenv import load_dotenv
 
 from core.config import AppConfig, load_config
 from core.observability import token_usage, trace_operation
+from core.runtime_logging import log_event
 
 
 class BudgetExceeded(RuntimeError):
@@ -37,6 +39,7 @@ class LLMManager:
         self.calls = []
         self._attempt_count = 0
         self.cancel_check = None
+        self.attempt_observer = None
 
     def for_run(self, *, benchmark=False):
         config = self.config.model_copy(deep=True)
@@ -138,9 +141,33 @@ class LLMManager:
         code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
         return code in (429, 500, 502, 503, 504) or isinstance(exc, (TimeoutError, ConnectionError))
 
-    def _record(self, record):
+    def _record(self, record, *, error=None):
         with self._lock:
             self.calls.append(record)
+        self._notify_attempt(record, required=False)
+        log_event(
+            "model." + record["status"],
+            level=logging.ERROR if record["status"] == "error" else logging.INFO,
+            error=error,
+            **{k: v for k, v in record.items() if k != "usage"},
+            duration_ms=round(record.get("duration", 0) * 1000, 3),
+            **token_usage(record.get("usage"), record.get("actual_provider")),
+        )
+
+    def _notify_attempt(self, record, *, required):
+        if self.attempt_observer:
+            try:
+                self.attempt_observer(dict(record))
+            except Exception as exc:
+                log_event(
+                    "model.persistence_failed",
+                    level=logging.ERROR,
+                    error=exc,
+                    attempt=record["attempt"],
+                )
+                if required:
+                    # Refuse a paid request if its start cannot be recorded durably.
+                    raise
 
     def _provider_call(
         self,
@@ -252,7 +279,13 @@ class LLMManager:
                     "actual_provider": provider,
                     "model_used": model,
                     "usage": None,
+                    "retry": retry,
+                    "fallback_used": provider != requested,
+                    "started_at": time.time(),
+                    "status": "running",
                 }
+                self._notify_attempt(record, required=True)
+                log_event("model.started", **{k: v for k, v in record.items() if k != "usage"})
                 try:
                     with trace_operation(
                         f"model.{agent_role or 'general'}",
@@ -289,6 +322,7 @@ class LLMManager:
                         usage=usage,
                         finish_reason=finish,
                         duration=time.monotonic() - start,
+                        finished_at=time.time(),
                     )
                     self._record(record)
                     return text, {
@@ -304,8 +338,9 @@ class LLMManager:
                         status="error",
                         error_type=type(exc).__name__,
                         duration=time.monotonic() - start,
+                        finished_at=time.time(),
                     )
-                    self._record(record)
+                    self._record(record, error=exc)
                     attempts.append(record)
                     last_error = exc
                     if not self._retryable(exc):
@@ -341,6 +376,7 @@ class LLMManager:
             return
         attempt = self._admit()
         emitted = False
+        stream_error = None
         start = time.monotonic()
         record = {
             "attempt": attempt,
@@ -348,7 +384,12 @@ class LLMManager:
             "actual_provider": provider,
             "model_used": model,
             "usage": None,
+            "started_at": time.time(),
+            "retry": 0,
+            "fallback_used": False,
         }
+        self._notify_attempt({**record, "status": "running"}, required=True)
+        log_event("model.started", **{k: v for k, v in record.items() if k != "usage"})
         with trace_operation(
             f"model.{agent_role or 'general'}.stream",
             "llm",
@@ -401,6 +442,7 @@ class LLMManager:
                     raise ValueError("Stream kết thúc chưa hoàn chỉnh.")
                 record["status"] = "success"
             except Exception as exc:
+                stream_error = exc
                 record.update(status="error", error_type=type(exc).__name__)
                 if emitted:
                     raise StreamInterrupted(
@@ -409,8 +451,9 @@ class LLMManager:
                 raise
             finally:
                 record["duration"] = time.monotonic() - start
+                record["finished_at"] = time.time()
                 record.setdefault("status", "cancelled")
-                self._record(record)
+                self._record(record, error=stream_error)
                 span.outputs = {
                     "status": record["status"],
                     "usage_metadata": token_usage(record["usage"], provider),

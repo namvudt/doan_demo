@@ -13,10 +13,12 @@ from functools import lru_cache
 from langsmith import Client, trace, tracing_context
 from langsmith.run_helpers import get_current_run_tree, get_tracing_context
 
-logger = logging.getLogger(__name__)
+from core.runtime_logging import context_fields, log_event
 
 METADATA_KEYS = {
     "app_run_id",
+    "request_id",
+    "worker_id",
     "workflow_version",
     "config_hash",
     "audience",
@@ -101,13 +103,13 @@ class PrivateTracingClient(Client):
         try:
             return super().create_run(name, {}, run_type, **_private_payload(kwargs))
         except Exception:
-            logger.warning("LangSmith could not enqueue a trace; application continues.")
+            log_event("trace.enqueue_failed", level=logging.WARNING)
 
     def update_run(self, run_id, **kwargs):
         try:
             return super().update_run(run_id, **_private_payload(kwargs))
         except Exception:
-            logger.warning("LangSmith could not update a trace; application continues.")
+            log_event("trace.update_failed", level=logging.WARNING)
 
 
 @dataclass(frozen=True)
@@ -164,7 +166,7 @@ def trace_operation(name, run_type="chain", *, metadata=None, run_id=None):
             client = tracing_client(settings)
         except Exception:
             enabled = False
-            logger.warning("LangSmith initialization failed; tracing disabled for this operation.")
+            log_event("trace.initialization_failed", level=logging.WARNING)
     span = Span()
     with tracing_context(enabled=enabled, client=client, project_name=project):
         if not enabled:
@@ -177,13 +179,13 @@ def trace_operation(name, run_type="chain", *, metadata=None, run_id=None):
                 inputs={},
                 client=client,
                 project_name=project,
-                metadata=safe_metadata(metadata or {}),
+                metadata=safe_metadata({**context_fields(), **(metadata or {})}),
                 run_id=run_id,
                 tags=["heritage-vqa"],
             )
             run = manager.__enter__()
         except Exception:
-            logger.warning("LangSmith span initialization failed; operation continues.")
+            log_event("trace.span_start_failed", level=logging.WARNING)
             with tracing_context(enabled=False):
                 yield span
             return
@@ -197,18 +199,18 @@ def trace_operation(name, run_type="chain", *, metadata=None, run_id=None):
                 run.add_metadata(safe_metadata(span.metadata))
                 run.end(outputs=safe_outputs(span.outputs), error=span.error)
             except Exception:
-                logger.warning("LangSmith span finalization failed.")
+                log_event("trace.span_end_failed", level=logging.WARNING)
             finally:
                 # Do not pass raw exceptions/tracebacks to the tracing SDK.
                 try:
                     manager.__exit__(None, None, None)
                 except Exception:
-                    logger.warning("LangSmith span cleanup failed.")
+                    log_event("trace.cleanup_failed", level=logging.WARNING)
                 if context.get("parent") is None:
                     try:
                         client.flush(timeout=1)
                     except Exception:
-                        logger.warning("LangSmith flush failed; pending traces may be delayed.")
+                        log_event("trace.flush_failed", level=logging.WARNING)
 
 
 def record_node_outcome(status, error_type=None):
@@ -222,12 +224,14 @@ def record_node_outcome(status, error_type=None):
             if error_type:
                 run.error = error_type
         except Exception:
-            logger.warning("LangSmith node annotation failed.")
+            log_event("trace.annotation_failed", level=logging.WARNING)
 
 
 def token_usage(usage, provider):
     if not isinstance(usage, dict):
         return {}
+    if any(key in usage for key in ("input_tokens", "output_tokens")):
+        return safe_outputs({"usage_metadata": usage}).get("usage_metadata", {})
     if provider == "gemini":
         input_tokens = usage.get("prompt_token_count")
         output_tokens = usage.get("candidates_token_count")

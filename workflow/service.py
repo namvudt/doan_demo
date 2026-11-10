@@ -28,6 +28,7 @@ from core.gateway import LLMManager
 from core.images import fingerprint, validate_image
 from core.observability import record_node_outcome, trace_operation
 from core.presentation import STAGES, search_artifact, stage_artifact
+from core.runtime_logging import context_fields, log_context, log_event
 from core.schemas import RunEvent, RunResult, StageEvent
 
 
@@ -234,12 +235,21 @@ def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_eng
 
 
 class RunService:
-    def __init__(self, llm=None, *, checkpointer=None, benchmark=False, search_engine_factory=None):
+    def __init__(
+        self,
+        llm=None,
+        *,
+        checkpointer=None,
+        benchmark=False,
+        search_engine_factory=None,
+        attempt_observer=None,
+    ):
         self.llm = llm or LLMManager()
         self.config: AppConfig = self.llm.config
         self.checkpointer = checkpointer
         self.benchmark = benchmark
         self.search_engine_factory = search_engine_factory
+        self.attempt_observer = attempt_observer
 
     def stream(
         self, image_data: bytes, query: str, audience="tourist", *, run_id=None, cancel_check=None
@@ -251,6 +261,7 @@ class RunService:
         run_id = str(run_id or uuid4())
         llm = self.llm.for_run(benchmark=self.benchmark)
         llm.cancel_check = cancel_check
+        llm.attempt_observer = self.attempt_observer
         snapshot = llm.config.snapshot()
         started = time.monotonic()
         state = {
@@ -271,17 +282,21 @@ class RunService:
             search_engine_factory=self.search_engine_factory,
         )
         try:
-            with trace_operation(
-                "heritage-vqa.run",
-                run_id=run_id,
-                metadata={
-                    "app_run_id": run_id,
-                    "workflow_version": self.config.workflow_version,
-                    "config_hash": snapshot["config_hash"],
-                    "audience": audience,
-                    "benchmark": self.benchmark,
-                },
-            ) as span:
+            with (
+                log_context(run_id=run_id, trace_id=run_id),
+                trace_operation(
+                    "heritage-vqa.run",
+                    run_id=run_id,
+                    metadata={
+                        **context_fields(),
+                        "app_run_id": run_id,
+                        "workflow_version": self.config.workflow_version,
+                        "config_hash": snapshot["config_hash"],
+                        "audience": audience,
+                        "benchmark": self.benchmark,
+                    },
+                ) as span,
+            ):
                 yield from self._stream_graph(graph, state, llm, snapshot, started, run_id, span)
         finally:
             llm.close()
@@ -300,6 +315,16 @@ class RunService:
                 payload=payload or {},
             )
             events.append(record)
+            log_event(
+                "stage." + status,
+                run_id=run_id,
+                trace_id=run_id,
+                node=node,
+                status=status,
+                sequence=record.sequence,
+                duration_ms=round(duration * 1000, 3) if duration is not None else None,
+                error_type=(payload or {}).get("error_type"),
+            )
             return RunEvent(kind="node", run_id=run_id, **record.model_dump())
 
         for mode, update in graph.stream(
@@ -309,6 +334,7 @@ class RunService:
                 "max_concurrency": self.config.parallel_workers,
                 "recursion_limit": 20,
                 "run_name": "heritage-vqa.graph",
+                "metadata": {**context_fields(), "app_run_id": run_id},
             },
             stream_mode=["updates", "values", "custom"],
         ):

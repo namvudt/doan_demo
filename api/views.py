@@ -23,6 +23,8 @@ def asset_view(record):
 def run_view(record):
     return RunView(
         run_id=record.id,
+        request_id=record.request_id,
+        trace_id=record.id,
         asset_id=record.asset_id,
         parent_run_id=record.parent_run_id,
         question=record.question,

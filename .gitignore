@@ -30,3 +30,5 @@ reports/
 comparison.json
 data/
 .api-demo/
+logs/
+.secrets/

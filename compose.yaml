@@ -1,5 +1,12 @@
+x-logging: &bounded-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   db:
+    logging: *bounded-logging
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: heritage
@@ -15,6 +22,7 @@ services:
     restart: unless-stopped
 
   api:
+    logging: *bounded-logging
     build: .
     image: heritage-vqa-api:local
     env_file: .env
@@ -41,6 +49,7 @@ services:
     restart: unless-stopped
 
   worker:
+    logging: *bounded-logging
     image: heritage-vqa-api:local
     build: .
     command: ["python", "-m", "api.worker"]

@@ -8,12 +8,11 @@ from uuid import uuid4
 
 from sqlalchemy import select, update
 
-from api.models import Asset, Run, SessionToken, WorkerHeartbeat
+from api.models import Asset, ModelAttempt, Run, SessionToken, WorkerHeartbeat
 from api.settings import Settings
 from api.store import TERMINAL, append_event, locked_run
+from core.runtime_logging import RateLimitedLog, configure_logging, log_context, log_event
 from workflow.service import RunCancelled
-
-logger = logging.getLogger(__name__)
 
 
 class Worker:
@@ -24,6 +23,7 @@ class Worker:
         self.thread = None
         self.heartbeat_thread = None
         self.active = None
+        self.outage_logs = RateLimitedLog()
 
     def heartbeat(self):
         now = time.time()
@@ -50,8 +50,8 @@ class Worker:
         while not self.stop_event.wait(self.runtime.settings.heartbeat_seconds):
             try:
                 self.heartbeat()
-            except Exception:
-                logger.warning("Worker heartbeat failed; lease recovery remains active.")
+            except Exception as exc:
+                self.outage_logs.emit("worker.heartbeat_failed", worker_id=self.id, error=exc)
 
     def recover_stale(self):
         with self.runtime.db.session() as session:
@@ -86,6 +86,20 @@ class Worker:
                         "error_type": "WorkerLost",
                     },
                 )
+                session.execute(
+                    update(ModelAttempt)
+                    .where(ModelAttempt.run_id == run.id, ModelAttempt.status == "running")
+                    .values(status="interrupted", error_type="WorkerLost", finished_at=time.time())
+                )
+            log_event(
+                "worker.lease_lost",
+                level=logging.ERROR,
+                run_id=identifier,
+                trace_id=identifier,
+                request_id=run.request_id,
+                worker_id=self.id,
+                error_type="WorkerLost",
+            )
 
     def claim(self):
         self.recover_stale()
@@ -171,6 +185,21 @@ class Worker:
                     "stage." + event.status,
                     event.model_dump(mode="json", exclude={"result", "sequence"}),
                 )
+        if event.kind == "completed":
+            # Reconcile completed calls for custom adapters as well as transient write failures.
+            from api.telemetry import persist_attempt
+
+            for record in event.result.calls:
+                try:
+                    persist_attempt(self.runtime.db, identifier, record)
+                except Exception as exc:
+                    self.outage_logs.emit("model.reconciliation_failed", error=exc)
+            log_event(
+                "run." + run.execution_status,
+                status=run.execution_status,
+                duration_ms=round(event.result.duration * 1000, 3),
+                error_type=run.error_type,
+            )
 
     def finish_error(self, identifier, token, error):
         with self.runtime.db.session() as session:
@@ -194,12 +223,35 @@ class Worker:
                     "error_type": run.error_type,
                 },
             )
+            session.execute(
+                update(ModelAttempt)
+                .where(ModelAttempt.run_id == identifier, ModelAttempt.status == "running")
+                .values(status="interrupted", error_type=run.error_type, finished_at=time.time())
+            )
+        log_event(
+            "run." + run.execution_status,
+            level=logging.INFO if run.execution_status == "cancelled" else logging.ERROR,
+            status=run.execution_status,
+            error=error,
+        )
 
     def process_one(self):
         claimed = self.claim()
         if not claimed:
             return False
         run, token = claimed
+        with log_context(
+            request_id=run.request_id, run_id=run.id, trace_id=run.id, worker_id=self.id
+        ):
+            log_event(
+                "run.running",
+                queue_wait_ms=round((time.time() - run.created_at) * 1000, 3),
+                model_mode=run.model_mode,
+            )
+            self._process_run(run, token)
+        return True
+
+    def _process_run(self, run, token):
         self.active = (run.id, token)
         service = None
         try:
@@ -232,17 +284,17 @@ class Worker:
             if service:
                 service.llm.close()
             self.active = None
-        return True
 
     def loop(self):
+        log_event("worker.started", worker_id=self.id)
         self.heartbeat()
         self.heartbeat_thread = threading.Thread(target=self.heartbeat_loop, daemon=True)
         self.heartbeat_thread.start()
         while not self.stop_event.is_set():
             try:
                 worked = self.process_one()
-            except Exception:
-                logger.warning("Worker poll failed; retrying without logging request data.")
+            except Exception as exc:
+                self.outage_logs.emit("worker.poll_failed", worker_id=self.id, error=exc)
                 worked = False
             if not worked:
                 self.stop_event.wait(self.runtime.settings.poll_seconds)
@@ -252,6 +304,7 @@ class Worker:
         self.thread.start()
 
     def stop(self):
+        log_event("worker.stopping", worker_id=self.id)
         self.stop_event.set()
         if self.thread:
             self.thread.join(timeout=5)
@@ -266,7 +319,9 @@ class Worker:
 def main():
     from api.runtime import Runtime
 
-    runtime = Runtime(Settings.from_env())
+    settings = Settings.from_env()
+    configure_logging(settings, role="worker")
+    runtime = Runtime(settings)
     runtime.migrate()
     worker = Worker(runtime)
     for signum in (signal.SIGINT, signal.SIGTERM):

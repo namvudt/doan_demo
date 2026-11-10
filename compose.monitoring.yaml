@@ -1,0 +1,24 @@
+# Optional overlay: docker compose -f compose.yaml -f compose.monitoring.yaml up -d --build
+# Create .secrets/operations_token with the same value as API_OPERATIONS_TOKEN first.
+services:
+  prometheus:
+    image: prom/prometheus:v3.13.5
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./.secrets/operations_token:/run/secrets/operations_token:ro
+      - prometheus_data:/prometheus
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+    depends_on: [api]
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:

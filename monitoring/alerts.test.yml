@@ -1,0 +1,67 @@
+rule_files:
+  - alerts.yml
+evaluation_interval: 15s
+tests:
+  - interval: 15s
+    input_series:
+      - series: 'up{job="heritage-api",instance="demo"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: HeritageAPIUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical, job: heritage-api, instance: demo}
+            exp_annotations:
+              summary: API scrape failed; check process, network and operations token
+  - interval: 15s
+    input_series:
+      - series: 'heritage_workers_alive{job="heritage-api",instance="demo"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: HeritageWorkerUnavailable
+        exp_alerts:
+          - exp_labels: {severity: critical, job: heritage-api, instance: demo}
+            exp_annotations: {summary: No worker has a valid heartbeat}
+  - interval: 15s
+    input_series:
+      - series: 'heritage_oldest_queued_seconds{job="heritage-api",instance="demo"}'
+        values: '180x20'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: HeritageQueueDelayed
+        exp_alerts:
+          - exp_labels: {severity: warning, job: heritage-api, instance: demo}
+            exp_annotations: {summary: Oldest queued job has waited more than two minutes}
+  - interval: 15s
+    input_series:
+      - series: 'heritage_http_requests_total{status="500"}'
+        values: '0+10x40'
+      - series: 'heritage_http_requests_total{status="200"}'
+        values: '0+100x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HeritageHTTPFailures
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: API server errors exceed five percent}
+  - interval: 15s
+    input_series:
+      - series: 'heritage_worker_lost_runs{job="heritage-api",instance="demo"}'
+        values: '0x10 1x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: HeritageWorkerLeaseLost
+        exp_alerts:
+          - exp_labels: {severity: warning, job: heritage-api, instance: demo}
+            exp_annotations: {summary: A job lost its worker lease; inspect its run logs}
+  - interval: 15s
+    input_series:
+      - series: 'heritage_model_attempts{status="error",job="heritage-api",instance="demo"}'
+        values: '0+1x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HeritageModelErrors
+        exp_alerts:
+          - exp_labels: {severity: warning, job: heritage-api, instance: demo, status: error}
+            exp_annotations: {summary: Multiple model attempts failed; inspect provider errors in logs}

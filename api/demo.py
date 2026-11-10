@@ -2,6 +2,9 @@
 
 import json
 import threading
+import time
+
+from core.runtime_logging import log_event
 
 
 class DemoSearch:
@@ -30,6 +33,7 @@ class DemoManager:
         self.config, self.calls = config, []
         self.lock = threading.Lock()
         self.cancel_check = None
+        self.attempt_observer = None
 
     def for_run(self, benchmark=False):
         return DemoManager(self.config)
@@ -52,8 +56,14 @@ class DemoManager:
                 "usage": None,
                 "status": "success",
                 "duration": 0.0,
+                "started_at": time.time(),
+                "finished_at": time.time(),
             }
             self.calls.append(record)
+        if self.attempt_observer:
+            self.attempt_observer({**record, "status": "running", "finished_at": None})
+            self.attempt_observer(record)
+        log_event("model.success", **{k: v for k, v in record.items() if k != "usage"})
         if agent_role == "coordinator":
             text = json.dumps(
                 {

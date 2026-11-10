@@ -62,6 +62,8 @@ class RunCreate(Contract):
 
 class RunView(Contract):
     run_id: UUID
+    request_id: str | None = None
+    trace_id: UUID | None = None
     asset_id: UUID
     parent_run_id: UUID | None
     question: str

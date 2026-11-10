@@ -9,6 +9,10 @@ rồi mở <http://127.0.0.1:8000/docs>. Thêm `--demo` để thử graph/API b�
 mô phỏng, không gọi model trả phí. Hướng dẫn token, upload, jobs, SSE, PostgreSQL,
 Docker và tích hợp frontend: [docs/api-server.md](docs/api-server.md).
 
+Log JSON, liên kết request/run/worker/LangSmith, model attempts lưu bền, metrics
+và Prometheus: [hướng dẫn giám sát](docs/observability.md),
+[kế hoạch thực hiện](docs/observability-plan.md).
+
 Thử từng API theo [hướng dẫn Swagger chi tiết](docs/api-swagger-walkthrough.md),
 xem [bảng kết quả kiểm thử](docs/api-test-results.md), hoặc chạy
 `uv run --locked python -m scripts.api_contract_report` để tự tạo lại báo cáo.
@@ -105,4 +109,4 @@ Bản hiện tại tập trung vào nhận diện và lịch sử công trình. 
 
 Search hiện dùng Wikipedia tiếng Việt và đoạn mở đầu có giới hạn. Mỗi nguồn giữ ID/snippet/revision khi có và thời điểm truy cập; timeout/error khác với không có kết quả. Maps URL là liên kết tìm kiếm điều hướng, không phải tọa độ được xác minh hoặc bằng chứng lịch sử.
 
-Chưa có claim-level verifier đầy đủ, debate loop, evaluator độc lập, database hoặc API web mới. Checkpointer có thể được inject và đã kiểm tra serialization bằng InMemorySaver; mặc định không lưu checkpoint giữa các lần chạy và chưa hỗ trợ phục hồi sau restart.
+Chưa có claim-level verifier đầy đủ, debate loop hoặc evaluator độc lập. API và database đã lưu bền run/events/model attempts; checkpoint LangGraph mặc định chưa lưu bền để resume node sau restart. Checkpointer có thể được inject và đã kiểm tra serialization bằng InMemorySaver.

@@ -1,5 +1,23 @@
 # Đợt 1: LangGraph và sửa các lỗi ưu tiên cao
 
+## Hoàn thiện observability — 10/11/2026
+
+- JSON logs UTC dùng chung API/worker; metadata allowlist, safe error frames,
+  không log body/prompt/credential/raw URL hoặc thông báo lỗi thô từ SDK.
+- Request ID lưu vào run; context liên kết API → worker → graph → model và
+  LangSmith. Có lifecycle, SSE cursor/duration/count, warning outage rate limit.
+- Migration `0002_observability` giữ dữ liệu cũ; ghi model attempt trước/sau
+  request, giữ dấu vết khi mất worker; per-run metrics đọc cả attempt chưa hoàn tất.
+- Thêm `/api/v1/operations/metrics` dùng token vận hành riêng; tổng hợp DB bằng
+  SQL, histogram HTTP và SSE process-local. Không tăng dependency ứng dụng.
+- Docker logs có rotation; optional Prometheus LTS overlay, retention, 6 alert rules.
+- Kiểm tra: 113 tests offline; HTTP thật 73/73 cases trên 31/31 operations;
+  Prometheus native 10/10 checks và 6 alert tests. Docker Compose config hợp lệ,
+  chưa chạy container vì Docker Engine chưa hoạt động. Không gọi model trả phí.
+
+[Kế hoạch](observability-plan.md), [hướng dẫn vận hành](observability.md),
+[kết quả API](api-test-results.md).
+
 ## Bổ sung backend API — 04/11/2026
 
 - FastAPI với 30 HTTP operations và Swagger `/docs`, ReDoc, OpenAPI có schema,

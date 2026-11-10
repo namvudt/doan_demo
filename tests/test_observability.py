@@ -92,6 +92,31 @@ def test_native_graph_and_parallel_calls_share_private_trace(
     assert "image_data" not in serialized
 
 
+def test_request_worker_context_reaches_native_and_model_traces(
+    photo, fake_search, recorded_traces
+):
+    from uuid import uuid4
+
+    from core.runtime_logging import log_context
+
+    request_id, worker_id = str(uuid4()), str(uuid4())
+
+    def behavior(role, kwargs):
+        with trace_operation(f"fake.{role}", "llm"):
+            pass
+
+    with log_context(request_id=request_id, worker_id=worker_id):
+        result = RunService(FakeLLM(behavior)).run(photo, "PRIVATE_QUESTION")
+    wait_for_all_tracers()
+    creates = [r for r in recorded_traces if r["op"] == "create"]
+    assert creates
+    for record in creates:
+        metadata = record["extra"]["metadata"]
+        assert metadata["request_id"] == request_id
+        assert metadata["worker_id"] == worker_id
+        assert str(record["trace_id"]) == result.run_id
+
+
 def test_client_strips_attachments_events_serialized_and_exception_details(recorded_traces):
     client = PrivateTracingClient(api_key="test-key", auto_batch_tracing=False)
     client.create_run(

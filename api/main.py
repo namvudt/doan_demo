@@ -17,9 +17,8 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 from sqlalchemy import func, select, text, update
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
 
-from api.models import Asset, Feedback, Run, SessionToken, WorkerHeartbeat
+from api.models import Asset, Feedback, ModelAttempt, Run, SessionToken, WorkerHeartbeat
 from api.runtime import Runtime
 from api.schemas import (
     AssetView,
@@ -43,14 +42,25 @@ from api.schemas import (
 )
 from api.settings import ROOT, Settings
 from api.store import TERMINAL, StoreError, owned
+from api.telemetry import (
+    ProcessMetrics,
+    RequestEnvelopeMiddleware,
+    attempt_record,
+    database_metrics,
+    prometheus_text,
+)
 from api.views import asset_view, public_event, result_view, run_view, timestamp
 from api.worker import Worker
 from core.presentation import collect_sources, markdown_report, stage_snapshots, usage_summary
-
-logger = logging.getLogger(__name__)
+from core.runtime_logging import configure_logging, log_context, log_event
 
 bearer = HTTPBearer(
     auto_error=False, description="Token từ POST /api/v1/sessions. Dán access_token vào Authorize."
+)
+operations_bearer = HTTPBearer(
+    auto_error=False,
+    scheme_name="OperationsBearer",
+    description="Operations only: API_OPERATIONS_TOKEN configured on the server. Never a guest access token.",
 )
 bootstrap_header = APIKeyHeader(
     name="X-Bootstrap-Token",
@@ -94,68 +104,13 @@ def completed_run(rt, identifier, owner):
     return run
 
 
-class RequestEnvelopeMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        request.state.request_id = str(uuid4())
-        max_body = request.app.state.settings.max_upload_bytes + 1_000_000
-
-        def reject(status, code, message):
-            return JSONResponse(
-                status_code=status,
-                content={
-                    "error": {
-                        "code": code,
-                        "message": message,
-                        "request_id": request.state.request_id,
-                    }
-                },
-                headers={"X-Request-ID": request.state.request_id},
-            )
-
-        try:
-            if int(request.headers.get("content-length", "0")) > max_body:
-                return reject(413, "body_too_large", "Request body exceeds upload limit")
-        except ValueError:
-            return reject(400, "invalid_content_length", "Invalid Content-Length")
-        receive = request._receive
-        received = 0
-
-        async def limited_receive():
-            nonlocal received
-            message = await receive()
-            received += len(message.get("body", b""))
-            if received > max_body:
-                request.state.body_too_large = True
-                raise HTTPException(status_code=413)
-            return message
-
-        request._receive = limited_receive
-        try:
-            response = await call_next(request)
-        except Exception as exc:
-            if getattr(request.state, "body_too_large", False):
-                return reject(413, "body_too_large", "Request body exceeds upload limit")
-            logger.error(
-                "API request failed request_id=%s error_type=%s",
-                request.state.request_id,
-                type(exc).__name__,
-            )
-            return reject(
-                500, "internal_error", "Internal error; use X-Request-ID for investigation"
-            )
-        if getattr(request.state, "body_too_large", False):
-            return reject(413, "body_too_large", "Request body exceeds upload limit")
-        response.headers["X-Request-ID"] = request.state.request_id
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["Cache-Control"] = "no-store"
-        return response
-
-
 def create_app(settings=None, *, manager_factory=None):
     settings = settings or Settings.from_env()
+    configure_logging(settings)
 
     @asynccontextmanager
     async def lifespan(app):
+        log_event("api.starting", model_mode=settings.model_mode)
         rt = Runtime(settings, manager_factory=manager_factory)
         rt.config()
         rt.migrate()
@@ -165,9 +120,11 @@ def create_app(settings=None, *, manager_factory=None):
             # Readiness should work immediately after lifespan startup.
             worker.heartbeat()
             worker.start()
+        log_event("api.ready", model_mode=settings.model_mode)
         try:
             yield
         finally:
+            log_event("api.stopping")
             if worker:
                 worker.stop()
             rt.db.close()
@@ -212,6 +169,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             for status in (400, 401, 403, 404, 409, 413, 422, 429, 500, 503)
         },
     )
+    app.state.process_metrics = ProcessMetrics()
     app.state.settings = settings
     app.add_middleware(RequestEnvelopeMiddleware)
     app.add_middleware(
@@ -245,10 +203,18 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
 
     @app.exception_handler(StoreError)
     async def store_error(request, exc):
+        log_event(
+            "http.rejected", level=logging.WARNING, status_code=exc.status, error_code=exc.code
+        )
         return error_response(request, exc.status, exc.code, exc.message)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request, exc):
+        if getattr(request.state, "body_too_large", False):
+            return error_response(
+                request, 413, "body_too_large", "Request body exceeds upload limit"
+            )
+        log_event("http.validation_failed", status_code=422)
         # ValidationError.input can contain bearer tokens, private questions or bytes.
         fields = [".".join(map(str, e["loc"])) for e in exc.errors()]
         return error_response(
@@ -257,6 +223,10 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
 
     @app.exception_handler(HTTPException)
     async def http_error(request, exc):
+        if getattr(request.state, "body_too_large", False):
+            return error_response(
+                request, 413, "body_too_large", "Request body exceeds upload limit"
+            )
         return error_response(
             request, exc.status_code, "http_error", "Request could not be processed"
         )
@@ -459,12 +429,15 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         owner: Owner,
         rt: RuntimeDependency,
         response: Response,
+        request: Request,
         key: Annotated[
             str | None, Header(alias="Idempotency-Key", min_length=1, max_length=128)
         ] = None,
     ):
         existing = rt.store.find_replay(owner.id, key, rt.store.request_hash(body))
         if existing:
+            request.state.run_id = existing.id
+            log_event("run.replayed", run_id=existing.id, trace_id=existing.id)
             response.headers["Location"] = f"/api/v1/runs/{existing.id}"
             return run_view(existing)
         rt.check_model_ready()
@@ -472,6 +445,14 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             owner.id, body, rt.config().snapshot(), settings.model_mode, key
         )
         response.headers["Location"] = f"/api/v1/runs/{record.id}"
+        request.state.run_id = record.id
+        log_event(
+            "run.queued",
+            run_id=record.id,
+            trace_id=record.id,
+            parent_run_id=record.parent_run_id,
+            model_mode=record.model_mode,
+        )
         return run_view(record)
 
     @app.get("/api/v1/runs", tags=["Runs"], response_model=RunPage)
@@ -511,7 +492,9 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
 
     @app.post("/api/v1/runs/{run_id}/cancel", tags=["Runs"], response_model=RunView)
     def cancel(run_id: UUID, owner: Owner, rt: RuntimeDependency):
-        return run_view(rt.store.cancel(run_id, owner.id))
+        run = rt.store.cancel(run_id, owner.id)
+        log_event("run.cancel", run_id=run.id, trace_id=run.id, status=run.execution_status)
+        return run_view(run)
 
     @app.post("/api/v1/runs/{run_id}/retry", tags=["Runs"], response_model=RunView, status_code=202)
     def retry(
@@ -519,6 +502,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         owner: Owner,
         rt: RuntimeDependency,
         response: Response,
+        request: Request,
         key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
     ):
         parent = rt.store.get_run(run_id, owner.id)
@@ -530,7 +514,8 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             audience=parent.audience,
             parent_run_id=parent.id,
         )
-        return create_run(body, owner, rt, response, key)
+        log_event("run.retry", parent_run_id=parent.id)
+        return create_run(body, owner, rt, response, request, key)
 
     @app.get("/api/v1/runs/{run_id}/events/history", tags=["Events"], response_model=EventPage)
     def history(
@@ -574,28 +559,55 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         cursor = max(after, last_id or 0)
 
         async def stream():
-            position = cursor
+            position, sent = cursor, 0
             heartbeat_at = 0.0
-            while not await request.is_disconnected():
-                # Recheck expiry/revocation on long-lived connections.
+            started = time.monotonic()
+            reason = "disconnected"
+            metrics = request.app.state.process_metrics
+            metrics.stream(active=1, connections=1)
+            with log_context(run_id=str(run_id), trace_id=str(run_id)):
+                log_event("sse.opened", after=cursor)
                 try:
-                    auth = request.headers.get("authorization", "").split(" ", 1)[-1]
-                    await run_in_threadpool(rt.store.authenticate, auth)
-                except StoreError:
-                    yield "event: session.expired\ndata: {}\n\n"
-                    return
-                records = await run_in_threadpool(rt.store.events, run_id, position, 100)
-                for record in records:
-                    payload = public_event(record, include_draft).model_dump(mode="json")
-                    yield f"id: {record.sequence}\nevent: {record.event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
-                    position = record.sequence
-                current = await run_in_threadpool(rt.store.get_run, run_id, owner.id)
-                if current.execution_status in TERMINAL and position >= current.event_count:
-                    return
-                if time.monotonic() - heartbeat_at >= 10:
-                    yield ": heartbeat\n\n"
-                    heartbeat_at = time.monotonic()
-                await asyncio.sleep(settings.poll_seconds)
+                    while not await request.is_disconnected():
+                        try:
+                            auth = request.headers.get("authorization", "").split(" ", 1)[-1]
+                            await run_in_threadpool(rt.store.authenticate, auth)
+                        except StoreError:
+                            reason = "session_expired"
+                            yield "event: session.expired\ndata: {}\n\n"
+                            return
+                        records = await run_in_threadpool(rt.store.events, run_id, position, 100)
+                        for record in records:
+                            payload = public_event(record, include_draft).model_dump(mode="json")
+                            yield f"id: {record.sequence}\nevent: {record.event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                            position = record.sequence
+                            sent += 1
+                            metrics.stream(events=1)
+                        current = await run_in_threadpool(rt.store.get_run, run_id, owner.id)
+                        if current.execution_status in TERMINAL and position >= current.event_count:
+                            reason = "terminal"
+                            return
+                        if time.monotonic() - heartbeat_at >= 10:
+                            yield ": heartbeat\n\n"
+                            heartbeat_at = time.monotonic()
+                        await asyncio.sleep(settings.poll_seconds)
+                except asyncio.CancelledError:
+                    reason = "disconnected"
+                    raise
+                except Exception as exc:
+                    reason = "error"
+                    log_event("sse.error", level=logging.ERROR, error=exc)
+                    raise
+                finally:
+                    metrics.stream(active=-1)
+                    log_event(
+                        "sse.closed",
+                        after=cursor,
+                        sequence=position,
+                        events_sent=sent,
+                        duration_ms=round((time.monotonic() - started) * 1000, 3),
+                        reason=reason,
+                    )
 
         return StreamingResponse(
             stream(),
@@ -630,15 +642,53 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
     def metrics(run_id: UUID, owner: Owner, rt: RuntimeDependency):
         run = rt.store.get_run(run_id, owner.id)
         payload = run.result or {}
+        with rt.db.session() as session:
+            attempts = [
+                attempt_record(row)
+                for row in session.scalars(
+                    select(ModelAttempt)
+                    .where(ModelAttempt.run_id == run.id)
+                    .order_by(ModelAttempt.attempt)
+                )
+            ]
+        calls = attempts or payload.get("calls", [])
         return {
             "run_id": run.id,
             "model_mode": run.model_mode,
             "duration": payload.get("duration"),
-            "usage": usage_summary(payload.get("calls", [])),
-            "calls": payload.get("calls", []),
+            "usage": usage_summary(calls),
+            "calls": calls,
             "workflow_version": run.config_snapshot.get("workflow_version"),
             "config_hash": run.config_snapshot.get("config_hash"),
         }
+
+    @app.get(
+        "/api/v1/operations/metrics",
+        tags=["Operations"],
+        response_class=Response,
+        responses={
+            200: {
+                "content": {"text/plain": {}},
+                "description": "Prometheus metrics; requires API_OPERATIONS_TOKEN, not a guest token.",
+            }
+        },
+    )
+    def operations_metrics(
+        request: Request,
+        rt: RuntimeDependency,
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(operations_bearer)],
+    ):
+        expected = settings.operations_token.get_secret_value()
+        if not expected:
+            raise StoreError(
+                503,
+                "operations_disabled",
+                "Configure API_OPERATIONS_TOKEN to enable operations metrics",
+            )
+        if credentials is None or not hmac.compare_digest(credentials.credentials, expected):
+            raise StoreError(401, "operations_unauthorized", "Use the operations token")
+        lines = database_metrics(rt) + request.app.state.process_metrics.render()
+        return Response(prometheus_text(lines), media_type="text/plain; version=0.0.4")
 
     @app.get("/api/v1/runs/{run_id}/export", tags=["Results"])
     def export(

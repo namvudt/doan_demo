@@ -1,10 +1,15 @@
 # Hướng dẫn thử từng API trên Swagger
 
-Hướng dẫn này đi cùng [bảng kết quả thực tế](api-test-results.md): 30 HTTP
-operations, 69 tình huống, chạy qua HTTP với API và worker riêng. Chi tiết mọi
+Hướng dẫn này đi cùng [bảng kết quả thực tế](api-test-results.md): 31 HTTP
+operations, 73 tình huống, chạy qua HTTP với API và worker riêng. Chi tiết mọi
 request/response đã che token ở [results.json](../reports/api-contract/results.json).
 Các UUID trong báo cáo thuộc lượt test đã kết thúc; khi thử lại hãy tạo phiên,
 ảnh và run mới theo các bước dưới đây.
+
+Endpoint mới `GET /api/v1/operations/metrics` thuộc nhóm Operations, xuất
+Prometheus text. Nó dùng `API_OPERATIONS_TOKEN` riêng thay cho guest access token;
+chưa cấu hình trả 503, thiếu/sai token trả 401, token đúng trả 200. Hướng dẫn
+log, metrics và thử stack giám sát: [observability.md](observability.md).
 
 ## 1. Chuẩn bị và mở Swagger
 

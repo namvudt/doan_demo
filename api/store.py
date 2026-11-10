@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlalchemy import func, select, text, update
 
 from api.models import Asset, Run, RunEventRecord, SessionToken
+from core.runtime_logging import context_fields
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
 ACTIVE = {"queued", "running", "cancel_requested"}
@@ -155,6 +156,7 @@ class Store:
                 owner_id=owner,
                 asset_id=str(body.asset_id),
                 parent_run_id=str(body.parent_run_id) if body.parent_run_id else None,
+                request_id=context_fields().get("request_id"),
                 question=body.question,
                 audience=body.audience,
                 profile=body.profile,
