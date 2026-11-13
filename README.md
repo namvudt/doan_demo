@@ -9,7 +9,7 @@ Yêu cầu Python 3.12 và uv.
 
 ```powershell
 uv sync --locked --group dev
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
 Chỉ sao chép `.env.example` khi chưa có `.env`. Điền `GEMINI_API_KEY` để gọi model
@@ -36,6 +36,70 @@ Postman: import [Collection](postman/heritage-vqa.postman_collection.json) và
 [Demo environment](postman/heritage-vqa-demo.postman_environment.json), rồi chọn
 môi trường trong Postman. Bộ 33 API tự lưu token, asset/run ID và hỗ trợ SSE.
 [Hướng dẫn Postman](docs/postman.md) · [Thử từng API bằng Swagger](docs/api-swagger-walkthrough.md).
+
+## Deploy Docker trên cổng 8000
+
+Yêu cầu Docker Desktop đang chạy với Linux containers và Docker Compose. Chạy các
+lệnh PowerShell từ thư mục `doan_demo`, nơi chứa `compose.yaml`. Khi dùng Docker,
+không cần cài Python hoặc uv trên máy host.
+
+Nếu chưa có `.env`, tạo từ mẫu:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Điền cấu hình provider/model và các biến sau trong `.env` trước lần deploy đầu:
+
+- `POSTGRES_PASSWORD`: mật khẩu ngẫu nhiên dạng hex để dùng trong URL kết nối.
+- `API_BOOTSTRAP_TOKEN`: token ngẫu nhiên ít nhất 32 ký tự để cấp session.
+- `API_MODEL_MODE=live`: dùng model thật; đặt `demo` để thử workflow với dữ liệu mô phỏng.
+
+Giữ nguyên credential đã có khi deploy lại; không commit `.env` vào Git. Compose
+cấu hình production với PostgreSQL, API và worker riêng; dữ liệu database và ảnh
+được lưu trong Docker volumes.
+
+```powershell
+# Kiểm tra cấu hình, build image và chạy các dịch vụ
+docker compose config --quiet
+docker compose up -d --build --wait
+
+# Kiểm tra container và database/worker readiness
+docker compose ps
+Invoke-RestMethod http://127.0.0.1:8000/health/ready
+```
+
+Readiness thành công trả `status=ready`, `database=true` và `worker=true`.
+Swagger: <http://127.0.0.1:8000/docs>. Trong Swagger, nhập `API_BOOTSTRAP_TOKEN`
+qua **Authorize** cho header `X-Bootstrap-Token` để tạo session; sau đó dùng
+`access_token` của session trong **HTTPBearer**. Health check không gọi model;
+tạo run ở chế độ `live` có thể phát sinh phí.
+
+### Cloudflare Tunnel
+
+API được publish tại `127.0.0.1:8000`. Với `cloudflared` chạy trực tiếp trên Windows
+cùng máy Docker Desktop, thêm route cho hostname muốn dùng trong Cloudflare Tunnel
+và đặt Service URL là `http://127.0.0.1:8000` (HTTP). Sau khi lưu route, mở
+`https://<hostname>/docs` hoặc kiểm tra `https://<hostname>/health/ready`.
+Tunnel kết nối thành công vẫn cần route này để chuyển request đến API.
+
+### Vận hành và cập nhật
+
+```powershell
+# Xem log API và worker; Ctrl+C để thoát xem, server vẫn chạy
+docker compose logs -f api worker
+
+# Deploy lại sau khi cập nhật code hoặc .env
+docker compose up -d --build --wait
+
+# Dừng và chạy lại các container đã tạo
+docker compose stop
+docker compose start
+```
+
+`docker compose down` gỡ container và network, giữ named volumes. Chỉ thêm `-v`
+khi chủ động muốn xóa cả dữ liệu database và ảnh trong volumes.
+Chi tiết PostgreSQL, worker, SSE và tích hợp frontend: [API server](docs/api-server.md).
 
 ## Workflow và cấu hình
 
