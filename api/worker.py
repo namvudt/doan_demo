@@ -26,15 +26,38 @@ class Worker:
         self.active = None
         self.outage_logs = RateLimitedLog()
 
-    def heartbeat(self):
+    def renew_heartbeat(self, session):
+        # Acquire the writer/row lock before sampling time: waiting for a busy
+        # database must not commit an already-expired heartbeat.
+        session.execute(
+            update(WorkerHeartbeat)
+            .where(WorkerHeartbeat.id == self.id)
+            .values(heartbeat_at=WorkerHeartbeat.heartbeat_at)
+        )
         now = time.time()
+        worker = session.get(WorkerHeartbeat, self.id)
+        if worker:
+            worker.heartbeat_at = now
+        else:
+            session.add(WorkerHeartbeat(id=self.id, heartbeat_at=now))
+        return now
+
+    def heartbeat(self):
+        active = self.active
         with self.runtime.db.session() as session:
-            worker = session.get(WorkerHeartbeat, self.id)
-            if worker:
-                worker.heartbeat_at = now
-            else:
-                session.add(WorkerHeartbeat(id=self.id, heartbeat_at=now))
-            active = self.active
+            # Match persist's run -> worker lock order on PostgreSQL as well.
+            if active:
+                run_id, token = active
+                session.execute(
+                    update(Run)
+                    .where(
+                        Run.id == run_id,
+                        Run.worker_token == token,
+                        Run.execution_status.in_(["running", "cancel_requested"]),
+                    )
+                    .values(lease_expires_at=Run.lease_expires_at)
+                )
+            now = self.renew_heartbeat(session)
             if active:
                 run_id, token = active
                 session.execute(
@@ -162,6 +185,8 @@ class Worker:
                 raise RunCancelled("Lease lost")
             if run.cancel_requested:
                 raise RunCancelled("Cancellation requested")
+            now = self.renew_heartbeat(session)
+            run.lease_expires_at = now + self.runtime.settings.lease_seconds
             if event.kind == "completed":
                 run.result = event.result.model_dump(mode="json")
                 run.result_status = event.result.status
@@ -210,6 +235,7 @@ class Worker:
             run = locked_run(session, identifier)
             if run is None or run.worker_token != token or run.execution_status in TERMINAL:
                 return
+            self.renew_heartbeat(session)
             run.execution_status = (
                 "cancelled" if isinstance(error, RunCancelled) or run.cancel_requested else "failed"
             )

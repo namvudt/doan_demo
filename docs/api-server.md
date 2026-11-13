@@ -228,6 +228,11 @@ giữa commit job và gửi broker. Worker polling và claim bằng conditional 
 nhiều worker không nhận cùng một job. PostgreSQL khóa admission và migration
 bằng transaction advisory lock; SQLite local dùng write lock.
 
+Worker ghi heartbeat ở luồng riêng khi chờ model và gia hạn heartbeat/lease cùng
+transaction ghi tiến độ job. Timestamp được lấy sau khi có khóa ghi DB để tránh
+commit heartbeat đã cũ khi DB bận. `/health/ready` vẫn trả 503 khi không có worker
+với heartbeat còn hạn; embedded mode không bỏ qua điều kiện này.
+
 Worker ghi heartbeat và lease. Job mất lease chuyển failed/WorkerLost, giữ các
 sự kiện/bằng chứng đã lưu, không tự gọi lại model gây trùng phí. Job còn queued
 vẫn được worker nhận sau restart. `/retry` là lựa chọn chạy lại rõ ràng.

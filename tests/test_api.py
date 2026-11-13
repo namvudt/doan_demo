@@ -3,16 +3,17 @@ import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text, update
+from sqlalchemy import create_engine, event, select, text, update
 from sqlalchemy.engine import make_url
 
 from api.main import create_app
-from api.models import Run
+from api.models import Run, WorkerHeartbeat
 from api.settings import Settings
 from api.worker import Worker
 from tests.conftest import FakeLLM
@@ -474,7 +475,72 @@ def test_embedded_worker_processes_job_without_foreground_client(settings, photo
                 break
             time.sleep(0.02)
         assert record["execution_status"] == "succeeded"
-        assert client.get("/health/ready").status_code == 200
+        ready = client.get("/health/ready")
+        assert ready.status_code == 200, ready.json()
+
+
+def test_embedded_worker_progress_renews_delayed_heartbeat(settings, photo, monkeypatch):
+    heartbeat_started = threading.Event()
+
+    def delayed_heartbeat(worker):
+        heartbeat_started.set()
+        worker.stop_event.wait(10)
+
+    monkeypatch.setattr(Worker, "heartbeat_loop", delayed_heartbeat)
+    embedded = settings.model_copy(update={"embedded_worker": True})
+    with TestClient(create_app(embedded)) as client:
+        assert heartbeat_started.wait(5)
+        rt = client.app.state.runtime
+        with rt.db.session() as session:
+            session.execute(update(WorkerHeartbeat).values(heartbeat_at=time.time() - 10))
+        unavailable = client.get("/health/ready")
+        assert unavailable.status_code == 503 and unavailable.json()["worker"] is False
+        auth = identity(client)
+        identifier = enqueue(client, auth, upload(client, auth, photo))
+        until = time.monotonic() + 10
+        while time.monotonic() < until:
+            record = client.get(f"/api/v1/runs/{identifier}", headers=auth).json()
+            if record["execution_status"] in {"succeeded", "failed"}:
+                break
+            time.sleep(0.02)
+        assert record["execution_status"] == "succeeded"
+        ready = client.get("/health/ready")
+        assert ready.status_code == 200, ready.json()
+
+
+def test_heartbeat_timestamp_is_sampled_after_database_lock(client, monkeypatch):
+    rt = client.app.state.runtime
+    worker = Worker(rt)
+    worker.heartbeat()
+    clock = [time.time() - 10]
+    monkeypatch.setattr("api.worker.time", SimpleNamespace(time=lambda: clock[0]))
+    attempting = threading.Event()
+
+    def observe_update(connection, cursor, statement, parameters, context, executemany):
+        if statement.startswith("UPDATE api_workers"):
+            attempting.set()
+
+    with ThreadPoolExecutor(1) as pool:
+        try:
+            with rt.db.session() as session:
+                # Hold the same write lock as another worker/API transaction.
+                session.execute(
+                    update(WorkerHeartbeat)
+                    .where(WorkerHeartbeat.id == worker.id)
+                    .values(heartbeat_at=WorkerHeartbeat.heartbeat_at)
+                )
+                event.listen(rt.db.engine, "before_cursor_execute", observe_update)
+                pending = pool.submit(worker.heartbeat)
+                assert attempting.wait(5)
+                clock[0] = time.time()
+            pending.result(timeout=5)
+        finally:
+            event.remove(rt.db.engine, "before_cursor_execute", observe_update)
+    with rt.db.session() as session:
+        stored = session.scalar(
+            select(WorkerHeartbeat.heartbeat_at).where(WorkerHeartbeat.id == worker.id)
+        )
+    assert stored == clock[0]
 
 
 def test_chunked_body_limit_and_safe_errors(client, caplog):
