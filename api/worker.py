@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from api.models import Asset, ModelAttempt, Run, SessionToken, WorkerHeartbeat
 from api.settings import Settings
 from api.store import TERMINAL, append_event, locked_run
+from core.model_errors import failure_info
 from core.runtime_logging import RateLimitedLog, configure_logging, log_context, log_event
 from workflow.service import RunCancelled
 
@@ -202,6 +203,9 @@ class Worker:
             )
 
     def finish_error(self, identifier, token, error):
+        diagnostic = {
+            key: value for key, value in failure_info(error).items() if key != "error_type"
+        }
         with self.runtime.db.session() as session:
             run = locked_run(session, identifier)
             if run is None or run.worker_token != token or run.execution_status in TERMINAL:
@@ -221,6 +225,7 @@ class Worker:
                     "run_id": run.id,
                     "execution_status": run.execution_status,
                     "error_type": run.error_type,
+                    **diagnostic,
                 },
             )
             session.execute(
@@ -233,6 +238,7 @@ class Worker:
             level=logging.INFO if run.execution_status == "cancelled" else logging.ERROR,
             status=run.execution_status,
             error=error,
+            **diagnostic,
         )
 
     def process_one(self):
@@ -261,13 +267,22 @@ class Worker:
                 path = self.runtime.asset_path(asset.storage_key)
             service = self.runtime.service(run)
             with self.runtime.tracing_context(run.model_mode):
-                stream = service.stream(
-                    path.read_bytes(),
-                    run.question,
-                    run.audience,
-                    run_id=run.id,
-                    cancel_check=lambda: self.cancellation_check(run.id, token),
-                )
+                if run.run_kind == "review":
+                    parent = self.runtime.store.get_run(run.parent_run_id, run.owner_id)
+                    stream = service.review_stream(
+                        path.read_bytes(),
+                        parent.result,
+                        run_id=run.id,
+                        cancel_check=lambda: self.cancellation_check(run.id, token),
+                    )
+                else:
+                    stream = service.stream(
+                        path.read_bytes(),
+                        run.question,
+                        run.audience,
+                        run_id=run.id,
+                        cancel_check=lambda: self.cancellation_check(run.id, token),
+                    )
                 try:
                     for event in stream:
                         self.persist(run.id, token, event)

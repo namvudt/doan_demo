@@ -3,7 +3,7 @@
 Nếu dùng Postman, có sẵn [collection và environment JSON đầy đủ](postman.md)
 với script tự lưu token/ID, polling và SSE.
 
-Hướng dẫn bao phủ 31 HTTP operations. Chạy `python -m scripts.api_contract_report`
+Hướng dẫn bao phủ 33 HTTP operations. Chạy `python -m scripts.api_contract_report`
 để sinh bảng `reports/api-contract/results.md` và request/response đã che token
 trong `reports/api-contract/results.json`. Report là artifact local, không commit.
 Khi thử lại, tạo phiên, ảnh và run mới theo các bước dưới đây.
@@ -241,6 +241,19 @@ Nhận 200. `GET /api/v1/runs/{run_id}/feedback` phải trả đúng dữ liệu
 
 ## 10. Hủy, retry và thu hồi phiên
 
+Hai API phục vụ chẩn đoán/phục hồi:
+
+1. Sau Authorize, mở `POST /api/v1/preflight`, nhập
+   `{"roles":["coordinator","visual","aggregator","judge"],"force":false}`.
+   Kiểm tra `ready` và từng phần tử `roles`. HTTP 200 với `ready=false` nghĩa là
+   đã kiểm tra thành công nhưng cấu hình/kết nối chưa đạt. Không sinh nội dung.
+2. Với run terminal đủ ảnh, draft và nguồn, mở `POST /api/v1/runs/{run_id}/review`,
+   điền UUID run gốc và header `Idempotency-Key` mới. Không có body. HTTP 202 trả
+   run con với `run_kind=review`; dùng ID con để đọc events/result/metrics.
+   Metrics chỉ có Judge (và attempts retry của Judge nếu có). Run gốc giữ nguyên.
+
+Mã lỗi cụ thể và giới hạn preflight: [API server](api-server.md#kiểm-tra-model-và-phục-hồi-judge).
+
 | API | Cần nhập | Kết quả đúng |
 | --- | --- | --- |
 | `POST /api/v1/runs/{run_id}/cancel` | UUID của run thuộc phiên | 200; queued chuyển cancelled ngay; running có thể chuyển cancel_requested |
@@ -287,7 +300,7 @@ Runner tự mở server demo trên port 18512, tạo SQLite và worker riêng, t
 73 tình huống và tự dừng các tiến trình do nó tạo. Nếu port bận, dùng `--port 18515`.
 Runner không sửa `.env`, không gọi server live 8000. Hai file được cập nhật:
 
-- `reports/api-contract/results.md`: bảng theo 31 operations và 73 case.
+- `reports/api-contract/results.md`: bảng theo 33 operations và 82 case.
 - `reports/api-contract/results.json`: request/response đầy đủ đã che token.
 
 Quá trình không thử Gemini thật, GPU thật, tải đồng thời nhiều người dùng, hoặc

@@ -20,6 +20,7 @@ from api.telemetry import persist_attempt
 from core.config import AppConfig, load_config
 from core.gateway import LLMManager
 from core.images import validate_image
+from core.preflight import PreflightFailed, ensure_ready
 from workflow.service import RunService
 
 
@@ -66,16 +67,17 @@ class Runtime:
     def tracing_context(self, mode):
         return tracing_context(enabled=False) if mode == "demo" else nullcontext()
 
-    def check_model_ready(self):
+    def check_model_ready(self, roles=None):
         manager = self.manager()
         try:
-            status = manager.get_status()
-            if not status["ready"]:
-                raise StoreError(
-                    503,
-                    "model_not_configured",
-                    "Missing provider configuration for: " + ", ".join(status["missing_roles"]),
-                )
+            return ensure_ready(manager, roles)
+        except PreflightFailed as error:
+            raise StoreError(
+                503,
+                error.error_code,
+                "Model preflight failed; check role configuration",
+                error.report,
+            ) from None
         finally:
             manager.close()
 

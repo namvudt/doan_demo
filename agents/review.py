@@ -3,6 +3,9 @@
 import json
 import re
 
+from pydantic import ValidationError
+
+from core.model_errors import ReviewValidationError, failure_info
 from core.schemas import JudgeOutput, SourceRecord
 from utils.llm_clients import safe_extract_json
 
@@ -108,7 +111,7 @@ class JudgeAgent:
             records = [SourceRecord.model_validate(source) for source in (search_sources or [])]
             records = [source for source in records if source.type != "maps" and source.snippet]
             if image is None or (require_sources and not records):
-                raise ValueError("MissingEvidence")
+                raise ReviewValidationError("missing_evidence", "evidence")
             prompt = json.dumps(
                 {
                     "question": query,
@@ -127,19 +130,22 @@ class JudgeAgent:
                 temperature=0.0,
                 agent_role="judge",
             )
-            result = JudgeOutput.model_validate(safe_extract_json(raw))
+            try:
+                result = JudgeOutput.model_validate(safe_extract_json(raw))
+            except (ValidationError, ValueError, TypeError):
+                raise ReviewValidationError("review_schema_invalid") from None
             available = {source.source_id: source for source in records}
             if set(result.cited_source_ids) - available.keys():
-                raise ValueError("UnknownCitation")
+                raise ReviewValidationError("unknown_citation", "evidence")
             inline_ids = set(
                 re.findall(r"\[(wiki_[A-Za-z0-9_-]+|web_[A-Za-z0-9_-]+)\]", result.final_response)
             )
             if inline_ids - set(result.cited_source_ids):
-                raise ValueError("UnregisteredInlineCitation")
+                raise ReviewValidationError("unregistered_inline_citation", "evidence")
             if require_sources and not result.cited_source_ids:
-                raise ValueError("MissingCitation")
+                raise ReviewValidationError("missing_citation", "evidence")
             if re.search(r"https?://", result.final_response):
-                raise ValueError("ModelGeneratedURL")
+                raise ReviewValidationError("model_generated_url", "evidence")
             report = result.model_dump()
             report["verification_status"] = "reviewed"
             report["sources"] = [
@@ -148,4 +154,5 @@ class JudgeAgent:
             ]
             return report, meta
         except Exception as exc:
-            return unverified_report(type(exc).__name__), {**meta, "error_type": type(exc).__name__}
+            info = failure_info(exc, role="judge")
+            return {**unverified_report(type(exc).__name__), **info}, {**meta, **info}

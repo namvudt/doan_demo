@@ -96,6 +96,15 @@ không đổi kết quả workflow; khi mạng lỗi, trace có thể bị thi�
 
 ## Kiểm tra kết nối riêng
 
+Run đánh giá lại có root trace mới với `parent_run_id`, `run_kind=review` và
+`upstream_config_hash` trong metadata. Graph chỉ thực thi Judge/finish; các
+stage dùng lại hiện ở API/UI events, không tạo model span giả. Content mode
+đính kèm draft/plan/expert results vào root input đã sanitize, Judge span vẫn
+ghi input/output theo chính sách hiện tại. Lỗi provider ghi mã an toàn,
+`error_category`, `provider_reason`, `provider_status_code`, `retryable`; không
+ghi raw error body. Probe preflight chỉ có operational log `preflight.completed`,
+không tính vào model attempts/usage.
+
 ```powershell
 uv run --locked python -m scripts.langsmith_smoke
 uv run --locked python -m scripts.langsmith_smoke --content

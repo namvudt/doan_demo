@@ -23,6 +23,7 @@ def asset_view(record):
 def run_view(record):
     return RunView(
         run_id=record.id,
+        run_kind=record.run_kind,
         request_id=record.request_id,
         trace_id=record.id,
         asset_id=record.asset_id,
@@ -68,6 +69,13 @@ def result_view(run, include_intermediate=False):
             "hallucination_notes",
             "refinement_summary",
             "cited_source_ids",
+            "error_type",
+            "error_code",
+            "error_category",
+            "retryable",
+            "role",
+            "provider_reason",
+            "provider_status_code",
         )
         if key in review
     }
@@ -85,6 +93,10 @@ def result_view(run, include_intermediate=False):
         }
     return ResultView(
         run_id=run.id,
+        parent_run_id=run.parent_run_id,
+        run_kind=run.run_kind,
+        reused_nodes=result.get("reused_nodes", []),
+        upstream_config_hash=result.get("upstream_config_hash"),
         model_mode=run.model_mode,
         status=result["status"],
         question=result["query"],

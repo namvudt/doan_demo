@@ -88,6 +88,10 @@ class StageEvent(Contract):
 
 class RunResult(Contract):
     run_id: str
+    parent_run_id: str | None = None
+    run_kind: Literal["full", "review"] = "full"
+    reused_nodes: list[str] = Field(default_factory=list)
+    upstream_config_hash: str | None = None
     fingerprint: str
     query: str
     audience: Literal["tourist", "student"]
@@ -97,7 +101,7 @@ class RunResult(Contract):
     plan: dict[str, Any] = Field(default_factory=dict)
     expert_results: dict[str, Any] = Field(default_factory=dict)
     judge_report: dict[str, Any] = Field(default_factory=dict)
-    errors: list[dict[str, str]] = Field(default_factory=list)
+    errors: list[dict[str, Any]] = Field(default_factory=list)
     node_metadata: dict[str, Any] = Field(default_factory=dict)
     config_snapshot: dict[str, Any] = Field(default_factory=dict)
     calls: list[dict[str, Any]] = Field(default_factory=list)

@@ -18,6 +18,10 @@ _context = ContextVar("operational_log_context", default={})
 _lock = threading.RLock()
 _active_config = None
 FIELDS = {
+    "error_category",
+    "retryable",
+    "role",
+    "provider_reason",
     "request_id",
     "run_id",
     "trace_id",

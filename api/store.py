@@ -14,8 +14,9 @@ ACTIVE = {"queued", "running", "cancel_requested"}
 
 
 class StoreError(Exception):
-    def __init__(self, status, code, message):
+    def __init__(self, status, code, message, details=None):
         self.status, self.code, self.message = status, code, message
+        self.details = details
 
 
 def owned(session, model, identifier, owner):
@@ -100,13 +101,14 @@ class Store:
             return record
 
     @staticmethod
-    def request_hash(body):
-        return hashlib.sha256(
-            json.dumps(body.model_dump(mode="json"), sort_keys=True).encode()
-        ).hexdigest()
+    def request_hash(body, run_kind="full"):
+        payload = body.model_dump(mode="json")
+        if run_kind != "full":
+            payload["run_kind"] = run_kind
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
-    def create_run(self, owner, body, snapshot, mode, key=None):
-        digest = self.request_hash(body)
+    def create_run(self, owner, body, snapshot, mode, key=None, *, run_kind="full"):
+        digest = self.request_hash(body, run_kind)
         with self.db.session() as session:
             if self.db.engine.dialect.name == "postgresql":
                 session.execute(text("SELECT pg_advisory_xact_lock(714802004)"))
@@ -161,6 +163,7 @@ class Store:
                 audience=body.audience,
                 profile=body.profile,
                 model_mode=mode,
+                run_kind=run_kind,
                 execution_status="queued",
                 config_snapshot=snapshot,
                 request_hash=digest,

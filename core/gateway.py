@@ -16,7 +16,7 @@ from core.model_errors import (
     ModelResponseError,
     TruncatedModelResponse,
     enum_name,
-    provider_error_diagnostics,
+    failure_info,
     validate_response,
 )
 from core.observability import token_usage, trace_operation
@@ -33,6 +33,11 @@ class StreamInterrupted(RuntimeError):
 
 
 class LLMManager:
+    def preflight(self, roles=None, *, force=False):
+        from core.preflight import MANDATORY_ROLES, check_roles
+
+        return check_roles(self, roles or MANDATORY_ROLES, force=force)
+
     def __init__(self, gemini_api_key=None, openai_api_key=None, *, config=None, credentials=None):
         if credentials is None:
             load_dotenv()
@@ -365,7 +370,7 @@ class LLMManager:
                             }
                             raise
                         except Exception as exc:
-                            diagnostic = provider_error_diagnostics(exc)
+                            diagnostic = failure_info(exc, role=agent_role)
                             span.metadata.update(diagnostic)
                             span.outputs = {
                                 "status": "error",
@@ -397,7 +402,7 @@ class LLMManager:
                         "attempts": [*attempts, record],
                     }
                 except Exception as exc:
-                    record.update(provider_error_diagnostics(exc))
+                    record.update(failure_info(exc, role=agent_role))
                     if isinstance(exc, ModelResponseError):
                         record.update(exc.diagnostics, usage=exc.usage)
                     # Exception text can contain request data or credentials.

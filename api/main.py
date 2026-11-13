@@ -28,6 +28,8 @@ from api.schemas import (
     EventPage,
     FeedbackBody,
     MetricsView,
+    PreflightBody,
+    PreflightView,
     ResultView,
     RunCreate,
     RunPage,
@@ -53,6 +55,7 @@ from api.views import asset_view, public_event, result_view, run_view, timestamp
 from api.worker import Worker
 from core.presentation import collect_sources, markdown_report, stage_snapshots, usage_summary
 from core.runtime_logging import configure_logging, log_context, log_event
+from workflow.service import validate_review_parent
 
 bearer = HTTPBearer(
     auto_error=False, description="Token từ POST /api/v1/sessions. Dán access_token vào Authorize."
@@ -141,6 +144,10 @@ def create_app(settings=None, *, manager_factory=None):
 5. `GET /runs/{run_id}` và `GET /runs/{run_id}/events/history` để quan sát từng bước.
 6. `GET /runs/{run_id}/result` khi xong; `include_intermediate=true` để xem bản nháp.
 
+`POST /api/v1/preflight` kiểm tra credential/model theo role mà không sinh nội dung.
+`POST /api/v1/runs/{run_id}/review` với `Idempotency-Key` tạo run con, chỉ đánh giá lại
+Judge từ ảnh/nguồn/bản nháp đã lưu; dùng run ID mới để đọc events/result/metrics.
+
 `/events` là SSE cho frontend; `/events/history` là JSON thuận tiện thử trên Swagger.
 **live** gọi provider thật và có thể phát sinh phí. **demo** chạy đầy đủ graph với dữ liệu mô phỏng.
 Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
@@ -187,7 +194,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         allow_credentials=False,
     )
 
-    def error_response(request, status, code, message):
+    def error_response(request, status, code, message, details=None):
         headers = {"WWW-Authenticate": "Bearer"} if status == 401 else {}
         return JSONResponse(
             status_code=status,
@@ -196,6 +203,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
                     "code": code,
                     "message": message,
                     "request_id": getattr(request.state, "request_id", str(uuid4())),
+                    **({"details": details} if details is not None else {}),
                 }
             },
             headers=headers,
@@ -206,7 +214,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         log_event(
             "http.rejected", level=logging.WARNING, status_code=exc.status, error_code=exc.code
         )
-        return error_response(request, exc.status, exc.code, exc.message)
+        return error_response(request, exc.status, exc.code, exc.message, exc.details)
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request, exc):
@@ -455,6 +463,15 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         )
         return run_view(record)
 
+    @app.post("/api/v1/preflight", tags=["Workflow"], response_model=PreflightView)
+    def preflight(body: PreflightBody, owner: Owner, rt: RuntimeDependency):
+        """Check credentials/model metadata without generating content. Does not verify generation quota."""
+        manager = rt.manager()
+        try:
+            return manager.preflight(body.roles, force=body.force)
+        finally:
+            manager.close()
+
     @app.get("/api/v1/runs", tags=["Runs"], response_model=RunPage)
     def list_runs(
         owner: Owner,
@@ -516,6 +533,59 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         )
         log_event("run.retry", parent_run_id=parent.id)
         return create_run(body, owner, rt, response, request, key)
+
+    @app.post(
+        "/api/v1/runs/{run_id}/review", tags=["Runs"], response_model=RunView, status_code=202
+    )
+    def review_run(
+        run_id: UUID,
+        owner: Owner,
+        rt: RuntimeDependency,
+        response: Response,
+        request: Request,
+        key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
+    ):
+        """Create a child run that reuses stored evidence/draft and executes only Judge. Original run is preserved."""
+        parent = rt.store.get_run(run_id, owner.id)
+        body = RunCreate(
+            asset_id=parent.asset_id,
+            question=parent.question,
+            audience=parent.audience,
+            parent_run_id=parent.id,
+        )
+        existing = rt.store.find_replay(owner.id, key, rt.store.request_hash(body, "review"))
+        if existing:
+            response.headers["Location"] = f"/api/v1/runs/{existing.id}"
+            request.state.run_id = existing.id
+            return run_view(existing)
+        if parent.execution_status not in TERMINAL:
+            raise StoreError(409, "run_active", "Finish the original run before reviewing")
+        if parent.model_mode != settings.model_mode:
+            raise StoreError(409, "mode_mismatch", "Review must use the original model mode")
+        try:
+            validate_review_parent(parent.result or {})
+        except (ValueError, TypeError):
+            raise StoreError(
+                409,
+                "review_artifacts_missing",
+                "A draft, original image and source evidence are required",
+            ) from None
+        with rt.db.session() as session:
+            asset = owned(session, Asset, parent.asset_id, owner.id)
+            if not rt.asset_path(asset.storage_key).is_file():
+                raise StoreError(
+                    409, "review_artifacts_missing", "Original image is no longer available"
+                )
+        rt.check_model_ready(["judge"])
+        record = rt.store.create_run(
+            owner.id, body, rt.config().snapshot(), settings.model_mode, key, run_kind="review"
+        )
+        request.state.run_id = record.id
+        response.headers["Location"] = f"/api/v1/runs/{record.id}"
+        log_event(
+            "run.review_queued", run_id=record.id, trace_id=record.id, parent_run_id=parent.id
+        )
+        return run_view(record)
 
     @app.get("/api/v1/runs/{run_id}/events/history", tags=["Events"], response_model=EventPage)
     def history(

@@ -218,6 +218,26 @@ def exercise(report, start_worker, bootstrap, operations_token):
     )
     auth = {"Authorization": "Bearer " + session_a["access_token"]}
     other = {"Authorization": "Bearer " + session_b["access_token"]}
+    call("Preflight requires a session", "POST", "/api/v1/preflight", 401, json={})
+    call(
+        "Preflight checks mandatory roles without generation",
+        "POST",
+        "/api/v1/preflight",
+        headers=auth,
+        json={},
+        check=lambda p: require(
+            p["ready"] and len(p["roles"]) == 4 and not p["generation_verified"],
+            "Invalid preflight",
+        ),
+    )
+    call(
+        "Preflight rejects unknown roles",
+        "POST",
+        "/api/v1/preflight",
+        422,
+        headers=auth,
+        json={"roles": ["unknown"]},
+    )
     operations_path = "/api/v1/operations/metrics"
     call("Operations rejects missing token", "GET", operations_path, 401)
     call("Operations rejects guest token", "GET", operations_path, 401, headers=auth)
@@ -669,6 +689,57 @@ def exercise(report, start_worker, bootstrap, operations_token):
             'heritage_model_attempts{status="success"} 10' in p["text"],
             "Durable model attempts missing from metrics",
         ),
+    )
+    review_headers = {**auth, "Idempotency-Key": str(uuid4())}
+    call("Review requires an idempotency key", "POST", base + "/review", 422, headers=auth)
+    _, child = call(
+        "Review creates a Judge-only child",
+        "POST",
+        base + "/review",
+        202,
+        headers=review_headers,
+        check=lambda p: require(
+            p["run_kind"] == "review" and p["parent_run_id"] == identifier, "Missing lineage"
+        ),
+    )
+    call(
+        "Review replay does not create another child",
+        "POST",
+        base + "/review",
+        202,
+        headers=review_headers,
+        check=lambda p: require(p["run_id"] == child["run_id"], "Duplicate review"),
+    )
+    report.wait_for_run(child["run_id"], auth)
+    child_base = f"/api/v1/runs/{child['run_id']}"
+    call(
+        "Review result reuses original sources",
+        "GET",
+        child_base + "/result",
+        headers=auth,
+        params={"include_intermediate": True},
+        check=lambda p: require(
+            p["status"] == "reviewed"
+            and p["sources"] == result["sources"]
+            and p["intermediate"]["stages"]["aggregate"]["payload"]["reused"],
+            "Review lost evidence",
+        ),
+    )
+    call(
+        "Review charges only a single Judge call",
+        "GET",
+        child_base + "/metrics",
+        headers=auth,
+        check=lambda p: require(
+            [c["agent_role"] for c in p["calls"]] == ["judge"], "Upstream stages were rerun"
+        ),
+    )
+    call(
+        "Review leaves original result unchanged",
+        "GET",
+        base + "/result",
+        headers=auth,
+        check=lambda p: require(p == result, "Original result was overwritten"),
     )
     call("Thu hồi token phiên A", "DELETE", "/api/v1/sessions/me", 204, headers=auth)
     return {

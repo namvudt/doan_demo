@@ -29,6 +29,27 @@ class DemoSearch:
 
 
 class DemoManager:
+    def preflight(self, roles=None, *, force=False):
+        from core.preflight import MANDATORY_ROLES
+
+        return {
+            "ready": True,
+            "roles": [
+                {
+                    "role": r,
+                    "provider": "demo",
+                    "model": "offline-demo-v1",
+                    "ready": True,
+                    "cached": False,
+                    "error_code": None,
+                    "retryable": False,
+                }
+                for r in (roles or MANDATORY_ROLES)
+            ],
+            "scope": "offline_demo",
+            "generation_verified": False,
+        }
+
     def __init__(self, config):
         self.config, self.calls = config, []
         self.lock = threading.Lock()

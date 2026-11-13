@@ -62,6 +62,7 @@ class RunCreate(Contract):
 
 class RunView(Contract):
     run_id: UUID
+    run_kind: Literal["full", "review"] = "full"
     request_id: str | None = None
     trace_id: UUID | None = None
     asset_id: UUID
@@ -106,6 +107,10 @@ class EventPage(Contract):
 
 class ResultView(Contract):
     run_id: UUID
+    parent_run_id: UUID | None = None
+    run_kind: Literal["full", "review"] = "full"
+    reused_nodes: list[str] = Field(default_factory=list)
+    upstream_config_hash: str | None = None
     model_mode: Literal["live", "demo"]
     status: str
     question: str
@@ -114,7 +119,7 @@ class ResultView(Contract):
     sources: list[RetrievedSource]
     plan: dict[str, Any]
     review: dict[str, Any]
-    errors: list[dict[str, str]]
+    errors: list[dict[str, Any]]
     duration: float
     usage: dict[str, Any]
     intermediate: dict[str, Any] | None = None
@@ -133,6 +138,40 @@ class ErrorDetail(Contract):
     code: str
     message: str
     request_id: str
+    details: dict[str, Any] | None = None
+
+
+class PreflightBody(Contract):
+    roles: list[
+        Literal["coordinator", "visual", "knowledge", "generation", "aggregator", "judge"]
+    ] = Field(
+        default_factory=lambda: ["coordinator", "visual", "aggregator", "judge"],
+        min_length=1,
+        max_length=6,
+    )
+    force: bool = False
+
+
+class RoleReadiness(Contract):
+    role: str
+    provider: str
+    model: str
+    ready: bool
+    cached: bool
+    checked_at: float | None = None
+    error_type: str | None = None
+    error_code: str | None = None
+    error_category: str | None = None
+    retryable: bool = False
+    provider_status_code: int | None = None
+    provider_reason: str | None = None
+
+
+class PreflightView(Contract):
+    ready: bool
+    roles: list[RoleReadiness]
+    scope: str
+    generation_verified: bool = False
 
 
 class ErrorResponse(Contract):

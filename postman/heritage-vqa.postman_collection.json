@@ -3,7 +3,7 @@
     "_postman_id": "bbdb0c54-6200-5447-b3c5-a74425cd55d2",
     "name": "Heritage VQA - Complete API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "31 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. See docs/postman.md. No real credentials are included."
+    "description": "33 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Review creates a child run and calls only Judge. See docs/postman.md. No real credentials are included."
   },
   "auth": {
     "type": "bearer",
@@ -67,6 +67,11 @@
       "type": "string"
     },
     {
+      "key": "review_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "delete_asset_id",
       "value": "",
       "type": "string"
@@ -93,6 +98,11 @@
     },
     {
       "key": "retry_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "review_idempotency_key",
       "value": "",
       "type": "string"
     },
@@ -388,7 +398,7 @@
                   "  const data = pm.response.json();",
                   "  pm.environment.set('access_token', data.access_token);",
                   "  pm.environment.set('session_id', data.session_id);",
-                  "  ['asset_id','run_id','retry_run_id','idempotency_key','retry_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
+                  "  ['asset_id','run_id','retry_run_id','review_run_id','idempotency_key','retry_idempotency_key','review_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
                   "  ['history_after','sse_after','last_event_id','_poll_attempts'].forEach(key => pm.environment.set(key, '0'));",
                   "}"
                 ]
@@ -707,6 +717,61 @@
               ]
             },
             "description": "GET /api/v1/workflow\n\nWorkflow"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "20733552-a8ad-5973-8e56-dc99721a6a26",
+          "name": "Check role credentials and model metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/preflight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "preflight"
+              ]
+            },
+            "description": "POST /api/v1/preflight\n\nCheck credentials/model metadata without generating content. Does not verify generation quota.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"roles\":[\"coordinator\",\"visual\",\"aggregator\",\"judge\"],\"force\":false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "event": [
             {
@@ -1827,6 +1892,58 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "53cdba38-7e7a-5c41-8661-49c746b6ff58",
+          "name": "Review only Judge - saves review_run_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{review_idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "review"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/review\n\nCreate a child run that reuses stored evidence/draft and executes only Judge. Original run is preserved."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');",
+                  "if (!pm.variables.get('review_idempotency_key')) pm.environment.set('review_idempotency_key', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "if (pm.response.code === 202) { const id = pm.response.json().run_id; if ('review_run_id' === 'run_id' && pm.environment.get('run_id') !== id) ['history_after','sse_after','last_event_id'].forEach(key => pm.environment.set(key, '0')); pm.environment.set('review_run_id', id); }"
                 ]
               }
             }

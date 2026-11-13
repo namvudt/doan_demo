@@ -23,7 +23,7 @@ def test_committed_artifacts_match_current_api_and_cover_all_operations():
         if method in {"get", "post", "put", "patch", "delete"}
     }
     assert operations == actual
-    assert len(operations) == 31 and len(requests) == 34
+    assert len(operations) == 33 and len(requests) == 36
     assert len({item["id"] for item in requests}) == len(requests)
 
 

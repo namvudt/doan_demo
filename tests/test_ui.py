@@ -40,6 +40,31 @@ def test_ui_hides_unreviewed_draft(monkeypatch, fake_search):
     assert not any("mock aggregator findings" in markdown.value for markdown in app.markdown)
 
 
+def test_ui_can_recover_judge_without_rerunning_experts(monkeypatch, fake_search):
+    failing = {"judge": True}
+    fake = FakeLLM(lambda role, kwargs: "invalid" if role == "judge" and failing["judge"] else None)
+    app = prepared_app(monkeypatch, fake)
+    app.button(key="start").click().run()
+    original = app.session_state.result
+    assert original["judge_report"]["error_code"] == "review_schema_invalid"
+    before = len(fake.history)
+    failing["judge"] = False
+    app.button(key="review_again").click().run()
+    assert not app.exception
+    assert app.session_state.result["status"] == "reviewed"
+    assert app.session_state.result["parent_run_id"] == original["run_id"]
+    assert len(fake.history) == before + 1
+    assert fake.history[-1]["agent_role"] == "judge"
+    assert any(item["result"] == original for item in app.session_state.history)
+    # Historical review must use the original image even after input changes.
+    app.text_area(key="query").input("Another question").run()
+    app.selectbox(key="history_view").set_value(original["run_id"]).run()
+    app.button(key="review_again").click().run()
+    assert not app.exception
+    assert app.session_state.result["query"] == original["query"]
+    assert len(fake.history) == before + 2
+
+
 def test_ui_comparison_has_no_accuracy_scores(monkeypatch, fake_search):
     app = prepared_app(monkeypatch)
     app.radio(key="mode").set_value("So sánh thử nghiệm").run()

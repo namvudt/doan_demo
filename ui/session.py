@@ -7,6 +7,7 @@ from io import BytesIO
 from PIL import Image
 
 HISTORY_LIMIT = 8
+HISTORY_IMAGE_BYTES = 40_000_000
 
 
 def remember_run(history, result, image_data):
@@ -17,11 +18,20 @@ def remember_run(history, result, image_data):
     item = {
         "result": deepcopy(result),
         "thumbnail": buffer.getvalue(),
+        "image_data": image_data,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    return [item, *[old for old in history if old["result"]["run_id"] != result["run_id"]]][
+    items = [item, *[old for old in history if old["result"]["run_id"] != result["run_id"]]][
         :HISTORY_LIMIT
     ]
+    remaining = HISTORY_IMAGE_BYTES
+    for index, entry in enumerate(items):
+        data = entry.get("image_data") or b""
+        if len(data) > remaining:
+            items[index] = {**entry, "image_data": None}
+        else:
+            remaining -= len(data)
+    return items
 
 
 def clear_active(state):

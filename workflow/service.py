@@ -7,6 +7,7 @@ The checkpointer is injectable; default runs have no cross-run persistence.
 import operator
 import re
 import time
+from copy import deepcopy
 from io import BytesIO
 from typing import Annotated, TypedDict
 from uuid import uuid4
@@ -26,7 +27,9 @@ from agents import (
 from core.config import AppConfig
 from core.gateway import LLMManager
 from core.images import fingerprint, validate_image
+from core.model_errors import failure_info
 from core.observability import record_node_outcome, trace_operation
+from core.preflight import ensure_ready
 from core.presentation import STAGES, search_artifact, stage_artifact
 from core.runtime_logging import context_fields, log_context, log_event
 from core.schemas import RunEvent, RunResult, StageEvent
@@ -59,7 +62,15 @@ class RunCancelled(RuntimeError):
     """Cooperative stop between nodes and model attempts."""
 
 
-def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_engine_factory=None):
+def build_graph(
+    llm,
+    config,
+    checkpointer=None,
+    *,
+    cancel_check=None,
+    search_engine_factory=None,
+    review_only=False,
+):
     def wrap(name, function):
         def execute(state):
             if cancel_check:
@@ -88,11 +99,11 @@ def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_eng
             except Exception as exc:
                 record_node_outcome("failed", type(exc).__name__)
                 update = {
-                    "errors": [{"node": name, "error_type": type(exc).__name__}],
+                    "errors": [{"node": name, **failure_info(exc)}],
                     "node_metadata": {
                         name: {
                             "status": "failed",
-                            "error_type": type(exc).__name__,
+                            **failure_info(exc),
                             "duration": time.monotonic() - started,
                         }
                     },
@@ -113,6 +124,13 @@ def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_eng
         plan, meta = CoordinatorAgent(llm).plan(image_from(state), state["query"])
         if not config.enable_generation:
             plan["selected_agents"] = [a for a in plan["selected_agents"] if a != "tool_gen_agent"]
+        optional = [
+            role
+            for agent, role in (("knowledge_agent", "knowledge"), ("tool_gen_agent", "generation"))
+            if agent in plan["selected_agents"]
+        ]
+        if optional:
+            ensure_ready(llm, optional)
         return {"plan": plan, "_meta": meta}
 
     def visual(state):
@@ -186,7 +204,24 @@ def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_eng
         )
         update = {"judge_report": report, "_meta": meta}
         if report["verification_status"] == "unverified":
-            update["errors"] = [{"node": "judge", "error_type": report["error_type"]}]
+            update["errors"] = [
+                {
+                    "node": "judge",
+                    **{
+                        key: report[key]
+                        for key in (
+                            "error_type",
+                            "error_code",
+                            "error_category",
+                            "retryable",
+                            "role",
+                            "provider_reason",
+                            "provider_status_code",
+                        )
+                        if key in report
+                    },
+                }
+            ]
         return update
 
     def route_experts(state):
@@ -215,7 +250,7 @@ def build_graph(llm, config, checkpointer=None, *, cancel_check=None, search_eng
         graph.add_node(name, wrap(name, function))
     graph.add_node("experts_done", wrap("experts_done", lambda state: {}))
     graph.add_node("finish", wrap("finish", lambda state: {}))
-    graph.add_edge(START, "scope")
+    graph.add_edge(START, "judge" if review_only else "scope")
     graph.add_conditional_edges(
         "scope", lambda s: "finish" if s["out_of_scope"] else "coordinate", ["finish", "coordinate"]
     )
@@ -252,12 +287,24 @@ class RunService:
         self.attempt_observer = attempt_observer
 
     def stream(
-        self, image_data: bytes, query: str, audience="tourist", *, run_id=None, cancel_check=None
+        self,
+        image_data: bytes,
+        query: str,
+        audience="tourist",
+        *,
+        run_id=None,
+        cancel_check=None,
+        _previous=None,
     ):
         query = query.strip()
         if not query or len(query) > 4000 or audience not in {"tourist", "student"}:
             raise ValueError("Câu hỏi hoặc nhóm người dùng không hợp lệ.")
         normalized = validate_image(image_data, self.config)
+        previous = validate_review_parent(_previous) if _previous is not None else None
+        if previous and previous.fingerprint != fingerprint(
+            normalized, query, audience, previous.config_snapshot["config_hash"]
+        ):
+            raise ValueError("Review image does not match the original run")
         run_id = str(run_id or uuid4())
         llm = self.llm.for_run(benchmark=self.benchmark)
         llm.cancel_check = cancel_check
@@ -274,12 +321,34 @@ class RunService:
             "fatal": False,
             "out_of_scope": False,
         }
+        if previous:
+            state.update(
+                plan=deepcopy(previous.plan),
+                expert_results=deepcopy(previous.expert_results),
+                draft_response=previous.draft_response,
+            )
+            state["review_lineage"] = {
+                "parent_run_id": previous.run_id,
+                "run_kind": "review",
+                "upstream_config_hash": previous.config_snapshot["config_hash"],
+                "reused_nodes": ["scope", "coordinate", *previous.expert_results, "aggregate"],
+            }
+            state["node_metadata"] = {
+                node: {
+                    **previous.node_metadata.get(node, {}),
+                    "duration": 0,
+                    "status": "completed",
+                    "reused": True,
+                }
+                for node in state["review_lineage"]["reused_nodes"]
+            }
         graph = build_graph(
             llm,
             llm.config,
             self.checkpointer,
             cancel_check=cancel_check,
             search_engine_factory=self.search_engine_factory,
+            review_only=bool(_previous),
         )
         try:
             with (
@@ -287,7 +356,20 @@ class RunService:
                 trace_operation(
                     "heritage-vqa.run",
                     run_id=run_id,
-                    inputs={"query": query, "audience": audience, "image_data": normalized},
+                    inputs={
+                        "query": query,
+                        "audience": audience,
+                        "image_data": normalized,
+                        **(
+                            {
+                                "draft_response": previous.draft_response,
+                                "expert_results": previous.expert_results,
+                                "plan": previous.plan,
+                            }
+                            if previous
+                            else {}
+                        ),
+                    },
                     metadata={
                         **context_fields(),
                         "app_run_id": run_id,
@@ -295,10 +377,18 @@ class RunService:
                         "config_hash": snapshot["config_hash"],
                         "audience": audience,
                         "benchmark": self.benchmark,
+                        **{
+                            key: value
+                            for key, value in state.get("review_lineage", {}).items()
+                            if key != "reused_nodes"
+                        },
                     },
                 ) as span,
             ):
                 log_event("run.started")
+                if cancel_check:
+                    cancel_check()
+                ensure_ready(llm, ["judge"] if _previous else None)
                 yield from self._stream_graph(graph, state, llm, snapshot, started, run_id, span)
         finally:
             llm.close()
@@ -306,6 +396,7 @@ class RunService:
     def _stream_graph(self, graph, state, llm, snapshot, started, run_id, span):
         normalized, query, audience = state["image_data"], state["query"], state["audience"]
         events = []
+        lineage = state.pop("review_lineage", {})
 
         def event(node, status, *, payload=None, duration=None):
             record = StageEvent(
@@ -326,9 +417,32 @@ class RunService:
                 sequence=record.sequence,
                 duration_ms=round(duration * 1000, 3) if duration is not None else None,
                 error_type=(payload or {}).get("error_type"),
+                **{
+                    key: payload[key]
+                    for key in (
+                        "error_code",
+                        "error_category",
+                        "retryable",
+                        "role",
+                        "provider_reason",
+                        "provider_status_code",
+                    )
+                    if payload and key in payload
+                },
             )
             return RunEvent(kind="node", run_id=run_id, **record.model_dump())
 
+        for node in lineage.get("reused_nodes", []):
+            yield event(
+                node,
+                "completed",
+                duration=0,
+                payload={
+                    **stage_artifact(node, state),
+                    "reused": True,
+                    "source_run_id": lineage["parent_run_id"],
+                },
+            )
         for mode, update in graph.stream(
             state,
             config={
@@ -383,6 +497,7 @@ class RunService:
             status = "reviewed"
         result = RunResult(
             run_id=run_id,
+            **lineage,
             fingerprint=fingerprint(normalized, query, audience, snapshot["config_hash"]),
             query=query,
             audience=audience,
@@ -439,3 +554,36 @@ class RunService:
         if result is None:
             raise RuntimeError("Workflow không trả kết quả.")
         return result
+
+    def review_stream(self, image_data, previous, *, run_id=None, cancel_check=None):
+        previous = RunResult.model_validate(previous)
+        yield from self.stream(
+            image_data,
+            previous.query,
+            previous.audience,
+            run_id=run_id,
+            cancel_check=cancel_check,
+            _previous=previous.model_dump(),
+        )
+
+
+def validate_review_parent(previous):
+    previous = RunResult.model_validate(previous)
+    if not previous.draft_response or not previous.expert_results.get("visual", {}).get("text"):
+        raise ValueError("A draft and visual evidence are required for review")
+    if not previous.config_snapshot.get("config_hash"):
+        raise ValueError("Original configuration fingerprint is required")
+    if "knowledge_agent" in previous.plan.get("selected_agents", []):
+        from core.schemas import SourceRecord
+
+        sources = (
+            previous.expert_results.get("knowledge", {})
+            .get("meta", {})
+            .get("live_search_sources", [])
+        )
+        if not any(
+            source.type != "maps" and source.snippet.strip()
+            for source in map(SourceRecord.model_validate, sources)
+        ):
+            raise ValueError("Retrieve source evidence before reviewing this run")
+    return previous

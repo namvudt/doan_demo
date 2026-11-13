@@ -78,9 +78,10 @@ def render_stages(events, *, show_draft=False, sources=None, live=False):
             continue
         item = snapshots[node]
         payload = item.get("payload", {})
+        reused = " · dùng lại kết quả đã lưu" if payload.get("reused") else ""
         duration = f" · {item['duration']:.2f}s" if item.get("duration") is not None else ""
         with st.expander(
-            f"{title} · {STAGE_LABELS[item['status']]}{duration}",
+            f"{title} · {STAGE_LABELS[item['status']]}{duration}{reused}",
             expanded=item["status"] in {"running", "failed"} or node == latest,
         ):
             st.caption(description)
@@ -256,6 +257,19 @@ def render_result(result, *, show_stages=True, show_draft=False, history=False):
     sources = collect_sources(result)
     st.subheader("Kết quả khám phá")
     st.caption(result["query"])
+    if result.get("run_kind") == "review":
+        st.caption(
+            f"Đánh giá lại từ lượt {result.get('parent_run_id')} · ảnh, bản nháp và nguồn được giữ nguyên."
+        )
+    report = result.get("judge_report", {})
+    if report.get("error_code"):
+        hints = {
+            "configuration": "Kiểm tra credential/model của Judge và khởi động lại dịch vụ trước khi đánh giá lại.",
+            "technical": "Dịch vụ model gặp lỗi. Có thể đánh giá lại khi dịch vụ phục hồi.",
+            "review_format": "Judge trả định dạng chưa hợp lệ. Có thể đánh giá lại mà không chạy lại các bước trước.",
+            "evidence": "Kiểm tra nguồn và trích dẫn trong kết quả trung gian; bổ sung bằng chứng nếu cần.",
+        }
+        st.warning(f"Judge: {report['error_code']}. {hints.get(report.get('error_category'), '')}")
     if history:
         st.info("Đang xem một lượt trong lịch sử phiên. Việc xem lại không gọi model.")
     if result["status"] == "reviewed":

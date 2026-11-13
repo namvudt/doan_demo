@@ -17,6 +17,13 @@ from core.runtime_logging import context_fields, log_event
 from core.trace_content import sanitize_content
 
 METADATA_KEYS = {
+    "error_category",
+    "retryable",
+    "role",
+    "provider_reason",
+    "parent_run_id",
+    "run_kind",
+    "upstream_config_hash",
     "app_run_id",
     "request_id",
     "worker_id",
@@ -46,6 +53,10 @@ METADATA_KEYS = {
     "provider_status_code",
 }
 SUMMARY_KEYS = {
+    "error_category",
+    "retryable",
+    "role",
+    "provider_reason",
     "status",
     "call_count",
     "error_count",

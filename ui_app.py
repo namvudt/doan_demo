@@ -224,15 +224,8 @@ def image_input(config):
     return normalized
 
 
-def execute(manager, image_data, query, audience, mode, show_stages, show_draft):
-    status = manager.get_status()
-    if not status["ready"]:
-        st.error(
-            "Thiếu cấu hình cho vai trò: "
-            + ", ".join(status["missing_roles"])
-            + ". Điền API key trong .env và khởi động lại ứng dụng."
-        )
-        return
+def execute(manager, image_data, query, audience, mode, show_stages, show_draft, *, review_of=None):
+    st.session_state.pop("run_error", None)
     placeholder = st.empty()
     st.session_state["live_events"] = []
     try:
@@ -241,9 +234,17 @@ def execute(manager, image_data, query, audience, mode, show_stages, show_draft)
                 st.session_state["comparison"] = compare(image_data, query, manager, audience)
         else:
             stream = (
-                manager.remote_stream(image_data, query, audience)
-                if isinstance(manager, RemoteManager)
-                else RunService(manager).stream(image_data, query, audience)
+                (
+                    manager.remote_review_stream(image_data, review_of)
+                    if isinstance(manager, RemoteManager)
+                    else RunService(manager).review_stream(image_data, review_of)
+                )
+                if review_of
+                else (
+                    manager.remote_stream(image_data, query, audience)
+                    if isinstance(manager, RemoteManager)
+                    else RunService(manager).stream(image_data, query, audience)
+                )
             )
             for event in stream:
                 if event.kind == "completed":
@@ -275,6 +276,19 @@ def execute(manager, image_data, query, audience, mode, show_stages, show_draft)
         placeholder.empty()
         log_event("ui.run_failed", level=logging.ERROR, error=exc)
         st.session_state["run_error"] = type(exc).__name__
+        from core.preflight import PreflightFailed
+
+        if isinstance(exc, PreflightFailed):
+            st.session_state["run_error"] = "; ".join(
+                f"{r['role']}: {r['error_code']}" for r in exc.failures
+            )
+        elif getattr(exc, "error_code", None):
+            failures = [
+                r for r in getattr(exc, "details", {}).get("roles", []) if not r.get("ready")
+            ]
+            st.session_state["run_error"] = (
+                "; ".join(f"{r['role']}: {r.get('error_code')}" for r in failures) or exc.error_code
+            )
     finally:
         manager.close()
 
@@ -302,6 +316,8 @@ def main():
         log_event("ui.initialization_failed", level=logging.ERROR, error=exc)
         st.error(f"Cấu hình chưa hợp lệ ({type(exc).__name__}). Kiểm tra HERITAGE_CONFIG.")
         st.stop()
+    if st.session_state.pop("_review_finished", False):
+        current_view()
     mode, audience, show_stages, show_draft, historical = sidebar(manager)
     image_column, question_column = st.columns([1, 1.35], gap="large")
     with image_column, st.container(border=True):
@@ -378,6 +394,40 @@ def main():
     result = historical["result"] if historical else st.session_state.get("result")
     if result:
         st.divider()
+        from workflow.service import validate_review_parent
+
+        try:
+            validate_review_parent(result)
+            review_ready = True
+        except (ValueError, TypeError):
+            review_ready = False
+        stored = next(
+            (
+                item
+                for item in st.session_state.get("history", [])
+                if item["result"]["run_id"] == result["run_id"]
+            ),
+            None,
+        )
+        review_image = stored.get("image_data") if stored else None
+        if st.button(
+            "Đánh giá lại",
+            key="review_again",
+            disabled=not review_ready or review_image is None,
+            help="Chỉ gọi Judge với bản nháp, ảnh và nguồn đã lưu. Giữ nguyên lượt gốc.",
+        ):
+            execute(
+                manager,
+                review_image,
+                result["query"],
+                result["audience"],
+                "review",
+                show_stages,
+                show_draft,
+                review_of=result,
+            )
+            st.session_state["_review_finished"] = True
+            st.rerun()
         if historical:
             st.image(historical["thumbnail"], width=240)
         run_id = result["run_id"]

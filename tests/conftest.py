@@ -93,6 +93,19 @@ def valid_review():
 
 
 class FakeLLM:
+    def preflight(self, roles=None, *, force=False):
+        from core.preflight import MANDATORY_ROLES
+
+        return {
+            "ready": True,
+            "roles": [
+                {"role": r, "provider": "mock", "model": "mock", "ready": True, "cached": False}
+                for r in (roles or MANDATORY_ROLES)
+            ],
+            "scope": "mock",
+            "generation_verified": False,
+        }
+
     def __init__(self, behavior=None, config=None, history=None, lock=None):
         self.config = config or AppConfig()
         self.behavior = behavior

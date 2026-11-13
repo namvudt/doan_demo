@@ -34,7 +34,7 @@ worker, Docker và frontend: [API server](docs/api-server.md).
 
 Postman: import [Collection](postman/heritage-vqa.postman_collection.json) và
 [Demo environment](postman/heritage-vqa-demo.postman_environment.json), rồi chọn
-môi trường trong Postman. Bộ 31 API tự lưu token, asset/run ID và hỗ trợ SSE.
+môi trường trong Postman. Bộ 33 API tự lưu token, asset/run ID và hỗ trợ SSE.
 [Hướng dẫn Postman](docs/postman.md) · [Thử từng API bằng Swagger](docs/api-swagger-walkthrough.md).
 
 ## Workflow và cấu hình

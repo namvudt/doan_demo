@@ -387,7 +387,7 @@ def test_remote_frontend_adapter_uses_http_contract(client, photo):
         )
         if (
             request.method == "POST"
-            and request.url.path == "/api/v1/runs"
+            and (request.url.path == "/api/v1/runs" or request.url.path.endswith("/review"))
             and response.status_code == 202
         ):
             Worker(client.app.state.runtime).process_one()
@@ -407,6 +407,11 @@ def test_remote_frontend_adapter_uses_http_contract(client, photo):
     assert result.judge_report["sources"]
     assert result.events
     assert manager.get_status()["description"].startswith("Backend API")
+    reviewed = list(manager.remote_review_stream(photo, result.model_dump()))[-1].result
+    assert reviewed.parent_run_id == result.run_id
+    assert reviewed.run_kind == "review" and reviewed.status == "reviewed"
+    assert len(reviewed.calls) == 1
+    assert reviewed.calls[0]["agent_role"] == "judge"
 
 
 def test_streamlit_http_frontend_runs_and_renders_sources(client, monkeypatch):
@@ -423,7 +428,7 @@ def test_streamlit_http_frontend_runs_and_renders_sources(client, monkeypatch):
         )
         if (
             request.method == "POST"
-            and request.url.path == "/api/v1/runs"
+            and (request.url.path == "/api/v1/runs" or request.url.path.endswith("/review"))
             and response.status_code == 202
         ):
             Worker(client.app.state.runtime).process_one()
@@ -449,6 +454,12 @@ def test_streamlit_http_frontend_runs_and_renders_sources(client, monkeypatch):
     assert app.session_state.result["status"] == "reviewed"
     assert app.session_state.result["judge_report"]["sources"]
     assert any("DEMO" in item.value for item in app.markdown)
+    original_id = app.session_state.result["run_id"]
+    app.button(key="review_again").click().run()
+    assert not app.exception
+    assert app.session_state.result["parent_run_id"] == original_id
+    assert app.session_state.result["run_kind"] == "review"
+    assert len(app.session_state.result["calls"]) == 1
 
 
 def test_embedded_worker_processes_job_without_foreground_client(settings, photo):

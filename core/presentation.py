@@ -86,6 +86,12 @@ def stage_artifact(node, update):
             "actual_provider",
             "model_used",
             "error_type",
+            "error_code",
+            "error_category",
+            "retryable",
+            "role",
+            "provider_reason",
+            "provider_status_code",
             "fallback_used",
             "search_status",
         )
@@ -152,6 +158,12 @@ def stage_artifact(node, update):
                     "refinement_summary",
                     "cited_source_ids",
                     "error_type",
+                    "error_code",
+                    "error_category",
+                    "retryable",
+                    "role",
+                    "provider_reason",
+                    "provider_status_code",
                 )
                 if key in report
             },

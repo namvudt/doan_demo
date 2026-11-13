@@ -59,6 +59,7 @@ class Run(Base):
     audience: Mapped[str] = mapped_column(String(20))
     profile: Mapped[str] = mapped_column(String(30))
     model_mode: Mapped[str] = mapped_column(String(10))
+    run_kind: Mapped[str] = mapped_column(String(10), default="full", server_default="full")
     execution_status: Mapped[str] = mapped_column(String(25), index=True)
     result_status: Mapped[str | None] = mapped_column(String(30))
     config_snapshot: Mapped[dict] = mapped_column(Payload)

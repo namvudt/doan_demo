@@ -1,6 +1,6 @@
 # Import và thử API bằng Postman
 
-Bộ JSON gồm **31 HTTP operations**, **34 requests** (thêm SSE replay, result kèm
+Bộ JSON gồm **33 HTTP operations**, **36 requests** (thêm SSE replay, result kèm
 intermediate và export Markdown). Có body mẫu, query parameters, auth, script tự
 lưu token/ID và kiểm tra HTTP status. Mẫu không chứa credential hoặc ID của phiên
 đã chạy trên máy người phát triển.
@@ -45,13 +45,13 @@ delay 0 vì request chờ run đã tự có khoảng nghỉ khi cần polling.
 | 01 System | Liveness/readiness, capabilities, danh sách ảnh mẫu |
 | 02 Session | Cấp phiên, tự lưu `access_token` và `session_id` |
 | 03 Assets | Tạo asset từ mẫu, lưu `asset_id`, đọc metadata/PNG; upload tùy chọn |
-| 04 Workflow | Danh sách giai đoạn và sơ đồ |
+| 04 Workflow | Danh sách giai đoạn, sơ đồ và preflight credential/model |
 | 05 Runs | Tạo run, lưu `run_id`/request ID/trace ID, list và polling trạng thái |
 | 06 Events | Lịch sử JSON, SSE, SSE replay với Last-Event-ID |
 | 07 Results | Kết quả, intermediate, sources, steps, model usage, JSON/Markdown export |
 | 08 Feedback | Bookmark, POST/PUT/GET feedback |
 | 09 Operations | Prometheus metrics bằng token vận hành riêng |
-| 10 Lifecycle actions | Hủy, retry, xóa asset và thu hồi phiên; mặc định bỏ qua |
+| 10 Lifecycle actions | Hủy, đánh giá lại riêng Judge, retry, xóa asset và thu hồi phiên; mặc định bỏ qua |
 
 Upload được bỏ qua khi `enable_upload=false`; API vẫn được thử bằng ảnh mẫu.
 Operations được bỏ qua nếu `operations_token` trống. Folder 10 được bỏ qua khi
@@ -100,6 +100,7 @@ cũ và tạo ngữ cảnh mới cho workflow. Đổi sang asset khác không t�
 | `run_lifecycle_actions` | Bật `true` để gửi các request folder 10 |
 | `delete_asset_id` | Asset muốn xóa; để trống thì dùng asset hiện tại, có thể nhận 409 nếu đã gắn run |
 | `retry_run_id` | Run con trả về từ Retry, không ghi đè run chính |
+| `review_run_id` | Run con đánh giá lại riêng Judge; dùng `review_idempotency_key` riêng |
 
 Nhập token vào biến môi trường của Postman, không thêm tiền tố `Bearer`.
 Collection tự gắn Authorization; bootstrap chỉ gắn vào request cấp phiên.
@@ -147,17 +148,17 @@ Generator kiểm tra danh sách operation khớp OpenAPI trước khi xuất, gi
 hiện API mới chưa được bổ sung. Có test đối chiếu JSON commit với contract hiện
 tại. Các file mẫu chỉ có credential rỗng; không xuất token từ `.env` vào artifact.
 
-Đã chạy collection bằng **Newman 6**, HTTP thật, API demo và SQLite riêng:
+Collection hiện tại được test đối chiếu toàn bộ **33 operations / 36 requests**
+với OpenAPI. Runner HTTP độc lập `uv run --locked python -m scripts.api_contract_report`
+đã kiểm tra **82/82 case**, phủ **33/33 operations**, bao gồm preflight và review
+chỉ gọi Judge. Kết quả local ở `reports/api-contract/results.md` và `results.json`.
+Không gọi model trả phí, không dùng server live.
 
-| Luồng | HTTP requests thực gửi | Assertions | Lỗi |
-| --- | --- | --- | --- |
-| Mặc định: bỏ upload/operations/lifecycle tùy chọn | 29 (có một lần polling thêm) | 60 đạt | 0 |
-| Đầy đủ: upload, operator token và lifecycle bật | 35 (34 requests + một lần polling thêm) | 73 đạt | 0 |
-
-Luồng đầy đủ phủ 31/31 operation, kiểm tra body có dấu ngoặc kép/xuống dòng,
-token bootstrap, tự lưu ID, polling, SSE/replay và revoke. Báo cáo rút gọn không
-chứa response token ở `reports/postman/default.json` và `reports/postman/full.json`
-(artifact local, không commit). Không gọi model trả phí, không dùng server live.
+Preflight nằm trong folder 04. Review nằm trong folder 10, cần
+`run_lifecycle_actions=true`, lưu `review_run_id` và `review_idempotency_key` riêng.
+Để xem kết quả review, gán `run_id=review_run_id`, reset `history_after=0`,
+`sse_after=0`, `last_event_id=0`, sau đó gọi request Wait for run và folder 06–07
+trước khi Revoke session. Review dùng draft/nguồn đã lưu; không tự lấy nguồn mới.
 
 Nguồn định dạng và workflow:
 [Postman schemas](https://schema.postman.com/),

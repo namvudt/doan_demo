@@ -1,7 +1,7 @@
 # Backend API và Swagger UI
 
 Backend dùng FastAPI, gọi cùng `RunService`/LangGraph của Streamlit và CLI.
-Swagger có 31 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
+Swagger có 33 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
 Runs, Events, Results, Feedback và Operations. OpenAPI có schema, Bearer Authorize, multipart
 upload và ví dụ để thử nhanh.
 
@@ -82,6 +82,71 @@ thúc. Retry tạo run mới, dùng cấu hình hiện tại và có thể phát
 
 ## Danh mục endpoint
 
+### Kiểm tra model và phục hồi Judge
+
+Sau khi Authorize, gọi `POST /api/v1/preflight` với:
+
+```json
+{"roles":["coordinator","visual","aggregator","judge"],"force":false}
+```
+
+HTTP 200 chứa `ready` và kết quả từng role: provider/model, mã lỗi,
+`error_category`, `retryable`, `provider_status_code`, `provider_reason`, `cached`.
+`ready=false` là kiểm tra không đạt dù request kiểm tra trả 200. Request chỉ đọc
+metadata model, không sinh nội dung; `generation_verified=false` vì chưa kiểm tra
+quota hay khả năng sinh câu trả lời. `/capabilities` vẫn chỉ kiểm tra có cấu hình.
+
+Trước run đầy đủ, hệ thống tự kiểm tra coordinator/visual/aggregator/judge. Role
+knowledge/generation được kiểm tra sau khi coordinator chọn, trước khi gọi experts.
+Khi admission không đạt, `/runs` trả 503 với `error.code` và `error.details.roles`,
+chưa thêm job vào hàng đợi. Worker kiểm tra lại khi bắt đầu thực thi.
+
+Kết quả kiểm tra được cache theo provider/model/credential/endpoint trong từng
+process. YAML `preflight_ttl_seconds` mặc định 300, lỗi cache tối đa 15 giây,
+`preflight_timeout_seconds` mặc định 5 giây. `force=true` bỏ qua cache đã hoàn tất;
+request trùng đang chạy được dùng chung. Thay credential/model sẽ đổi cache key.
+Cache này không dùng chung giữa API và worker và không chứa key trong response/log.
+
+Nếu đã có bản nháp, ảnh và bằng chứng, gọi:
+
+```http
+POST /api/v1/runs/{run_id}/review
+Authorization: Bearer <session-token>
+Idempotency-Key: <unique-review-key>
+```
+
+Không có body. HTTP 202 trả `run_kind=review`, `parent_run_id` và run ID mới.
+Gọi `/runs/{new_id}/events` hoặc `/events/history`, `/result`, `/metrics` như run
+thường. Chỉ Judge chạy lại; expert reports, plan, ảnh và draft giữ nguyên.
+Stage dùng lại có `payload.reused=true`, `source_run_id`, duration bằng 0.
+Metrics chỉ tính các model attempts của lần đánh giá mới; Judge vẫn có thể retry
+theo budget nếu gặp lỗi tạm thời/truncation. Run gốc được giữ nguyên.
+
+Thiếu `Idempotency-Key` trả 422, run đang hoạt động trả 409/`run_active`, thiếu
+artifact hoặc nguồn bắt buộc trả 409/`review_artifacts_missing`, khác mode trả
+409/`mode_mismatch`, sai chủ sở hữu trả 404. Repeated key cùng thao tác trả run con
+cũ; dùng key đó cho full retry trả 409. Review dùng cấu hình Judge hiện tại và có
+thể phát sinh phí model. `/retry` vẫn chạy lại toàn bộ workflow.
+
+Trong UI, nút **Đánh giá lại** chỉ bật khi đủ dữ liệu. Lịch sử phiên giữ ảnh đã
+chuẩn hóa trong bộ nhớ (tối đa 8 lượt, tổng ảnh 40 MB; ảnh cũ được giải phóng trước
+khi vượt giới hạn), không dùng thumbnail để đánh giá. Lượt mới
+hiện nhãn giai đoạn dùng lại, nguồn và liên kết run gốc. Lượt cũ từ trước bản cập
+nhật có thể cần chạy lại đầy đủ để lưu ảnh phục vụ chức năng này.
+
+Review lỗi giữ `status=unverified`, không đưa draft thành đáp án đã kiểm chứng:
+
+| `error_category` | Ví dụ `error_code` | Xử lý |
+| --- | --- | --- |
+| `configuration` | `credential_invalid`, `permission_denied`, `model_not_found` | Sửa role credential/model, restart API và worker |
+| `technical` | `provider_unavailable`, `output_token_limit` | Kiểm tra dịch vụ/budget; đánh giá lại khi sẵn sàng |
+| `review_format` | `review_schema_invalid` | Đánh giá lại riêng Judge |
+| `evidence` | `missing_evidence`, `unknown_citation`, `missing_citation`, `model_generated_url` | Kiểm tra/bổ sung nguồn; đánh giá lại không tự truy xuất nguồn mới |
+
+`retryable` chỉ khả năng lỗi kỹ thuật/định dạng có thể hết khi thử lại, không
+phải trạng thái nội dung bị bác bỏ. Nguồn và schema hợp lệ chưa chứng minh mọi
+dữ kiện đều đúng; kết quả `INSUFFICIENT_EVIDENCE` vẫn được hiển thị đúng nhãn.
+
 | Method | Đường dẫn | Chức năng |
 | --- | --- | --- |
 | GET | `/health/live`, `/health/ready` | Tiến trình, database và worker heartbeat |
@@ -96,6 +161,8 @@ thúc. Retry tạo run mới, dùng cấu hình hiện tại và có thể phát
 | POST, GET | `/api/v1/runs` | Tạo run, liệt kê lịch sử có phân trang/lọc |
 | GET | `/api/v1/runs/{id}` | Trạng thái thực thi và kết quả |
 | POST | `/api/v1/runs/{id}/cancel`, `/retry` | Hủy hợp tác hoặc chủ động chạy lại |
+| POST | `/api/v1/preflight` | Kiểm tra credential/model theo role, không sinh nội dung |
+| POST | `/api/v1/runs/{id}/review` | Tạo run con, dùng lại ảnh/nguồn/bản nháp, chỉ chạy Judge |
 | GET | `/api/v1/runs/{id}/events` | SSE, hỗ trợ `Last-Event-ID` và `after` |
 | GET | `/api/v1/runs/{id}/events/history` | Lịch sử JSON có cursor và limit |
 | GET | `/api/v1/runs/{id}/result`, `/steps`, `/sources`, `/metrics`, `/export` | Kết quả và bằng chứng |

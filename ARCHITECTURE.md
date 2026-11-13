@@ -25,6 +25,7 @@ flowchart TD
 - `core/config.py`: YAML, env overrides tường minh, schema/capability declarations và public config snapshot.
 - `core/schemas.py`: hợp đồng ExecutionPlan, SourceRecord, JudgeOutput, RunResult, RunEvent.
 - `core/gateway.py`: provider clients, credential snapshot, attempt budget, timeout/retry/fallback và usage metadata.
+- `core/preflight.py`: probe metadata theo role, timeout, cache HMAC theo credential/model và gộp request trùng; không gọi generation.
 - `core/search.py`: Wikipedia adapter với trạng thái tìm kiếm và nguồn có ID; navigation tách riêng.
 - `core/images.py`: kiểm tra ảnh, chuẩn hóa hướng/RGB, bỏ metadata và tạo fingerprint.
 - `agents/`: chuyên môn và prompts; Judge kiểm tra ảnh cùng đoạn nguồn đã thực sự nhận.
@@ -42,6 +43,18 @@ State không chứa API clients/keys. Ảnh trong state ở dạng bytes để c
 Mỗi run có manager/budget riêng và đóng clients sau khi kết thúc. UI theo dõi input hash gồm ảnh, câu hỏi, audience, mode và config, không trình bày result cũ dưới input mới. Stream công khai là các node events; bản nháp được giữ riêng đến bước kiểm tra.
 
 ## Giới hạn có chủ ý của đợt đầu
+
+Preflight chạy trước graph với bốn role bắt buộc; các role tùy chọn kiểm tra khi
+plan chọn. Probe metadata không chứng minh quota sinh nội dung. Lỗi Judge có mã
+và nhóm configuration/technical/review_format/evidence, luôn giữ trạng thái chưa
+kiểm chứng khi đánh giá thất bại.
+
+Review-only dùng graph entry ở `judge`, tạo run con `run_kind=review` trong DB,
+giữ liên kết `parent_run_id` và `upstream_config_hash`. Worker đọc snapshot kết
+quả gốc, kiểm tra fingerprint ảnh, dùng lại plan/experts/draft. Các stage dùng lại
+vẫn phát event để frontend quan sát, được gắn `reused=true`; attempts/usage chỉ
+ghi nhận lần đánh giá mới. Run gốc bất biến. Luồng này phục hồi từ artifact đã
+lưu, chưa phải resume checkpoint tùy ý sau crash. Xem [hợp đồng API](docs/api-server.md).
 
 Judge hiện đánh giá toàn đáp án dựa trên schema, ảnh và snippets; chưa phải claim-evidence engine đầy đủ. Nguồn có ID và URL đúng registry chưa bảo đảm nội dung được nguồn hỗ trợ. Không dùng điểm tự đánh giá làm ground truth nghiên cứu.
 

@@ -20,12 +20,14 @@ DEFAULTS = {
     "asset_id": "",
     "run_id": "",
     "retry_run_id": "",
+    "review_run_id": "",
     "delete_asset_id": "",
     "question": "Những chi tiết kiến trúc nào nhìn thấy rõ trong ảnh?",
     "audience": "tourist",
     "profile": "default",
     "idempotency_key": "",
     "retry_idempotency_key": "",
+    "review_idempotency_key": "",
     "history_after": "0",
     "sse_after": "0",
     "last_event_id": "0",
@@ -55,6 +57,7 @@ REQUESTS = [
     ("03 Assets", "GET", "/api/v1/assets/{asset_id}/content", "Download normalized PNG"),
     ("03 Assets", "POST", "/api/v1/assets", "Upload image - optional"),
     ("04 Workflow", "GET", "/api/v1/workflow", "Workflow stages and diagram"),
+    ("04 Workflow", "POST", "/api/v1/preflight", "Check role credentials and model metadata"),
     ("05 Runs", "POST", "/api/v1/runs", "Create run and save run ID"),
     ("05 Runs", "GET", "/api/v1/runs", "List runs"),
     ("05 Runs", "GET", "/api/v1/runs/{run_id}", "Wait for run - Runner polling"),
@@ -71,6 +74,12 @@ REQUESTS = [
     ("08 Feedback", "GET", "/api/v1/runs/{run_id}/feedback", "Read feedback"),
     ("09 Operations", "GET", "/api/v1/operations/metrics", "Prometheus metrics - operator token"),
     ("10 Lifecycle actions - optional", "POST", "/api/v1/runs/{run_id}/cancel", "Cancel run"),
+    (
+        "10 Lifecycle actions - optional",
+        "POST",
+        "/api/v1/runs/{run_id}/review",
+        "Review only Judge - saves review_run_id",
+    ),
     (
         "10 Lifecycle actions - optional",
         "POST",
@@ -185,6 +194,8 @@ def make_item(folder, method, path, name, operation):
     body = None
     if method == "POST" and path == "/api/v1/sessions":
         body = '{"label": {{session_label_json}}}'
+    elif method == "POST" and path == "/api/v1/preflight":
+        body = '{"roles":["coordinator","visual","aggregator","judge"],"force":false}'
     elif method == "POST" and path == "/api/v1/assets":
         request["body"] = {
             "mode": "formdata",
@@ -250,7 +261,7 @@ if (pm.response.code === 201) {
   const data = pm.response.json();
   pm.environment.set('access_token', data.access_token);
   pm.environment.set('session_id', data.session_id);
-  ['asset_id','run_id','retry_run_id','idempotency_key','retry_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));
+  ['asset_id','run_id','retry_run_id','review_run_id','idempotency_key','retry_idempotency_key','review_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));
   ['history_after','sse_after','last_event_id','_poll_attempts'].forEach(key => pm.environment.set(key, '0'));
 }
 """)
@@ -258,14 +269,17 @@ if (pm.response.code === 201) {
         after.append(
             "if (pm.response.code === 201) pm.environment.set('asset_id', pm.response.json().asset_id);"
         )
-    if method == "POST" and (path == "/api/v1/runs" or path.endswith("/retry")):
-        key = "retry_idempotency_key" if path.endswith("/retry") else "idempotency_key"
+    if method == "POST" and (path == "/api/v1/runs" or path.endswith(("/retry", "/review"))):
+        action = (
+            "review" if path.endswith("/review") else "retry" if path.endswith("/retry") else ""
+        )
+        key = f"{action}_idempotency_key" if action else "idempotency_key"
         request["header"].append({"key": "Idempotency-Key", "value": "{{" + key + "}}"})
         before.append(
             f"if (!pm.variables.get('{key}')) pm.environment.set('{key}', "
             "pm.variables.replaceIn('{{$guid}}'));"
         )
-        target = "retry_run_id" if path.endswith("/retry") else "run_id"
+        target = f"{action}_run_id" if action else "run_id"
         after.append(
             f"if (pm.response.code === 202) {{ const id = pm.response.json().run_id; "
             f"if ('{target}' === 'run_id' && pm.environment.get('run_id') !== id) "
@@ -379,7 +393,7 @@ def build_collection(openapi):
             "_postman_id": uid("collection"),
             "name": "Heritage VQA - Complete API",
             "schema": SCHEMA,
-            "description": "31 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. See docs/postman.md. No real credentials are included.",
+            "description": "33 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Review creates a child run and calls only Judge. See docs/postman.md. No real credentials are included.",
         },
         "auth": {
             "type": "bearer",
@@ -438,7 +452,9 @@ def main():
         (args.output_dir / name).write_text(
             json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
-    print(f"Exported {len(artifacts)} credential-free JSON files; 31 operations / 34 requests.")
+    print(
+        f"Exported {len(artifacts)} credential-free JSON files; {len(REQUESTS)} operations / {sum(len(folder['item']) for folder in artifacts['heritage-vqa.postman_collection.json']['item'])} requests."
+    )
 
 
 if __name__ == "__main__":

@@ -66,6 +66,8 @@ class AppConfig(StrictConfig):
     budget: BudgetConfig = Field(default_factory=BudgetConfig)
     parallel_workers: int = Field(default=3, ge=1, le=6)
     enable_generation: bool = False
+    preflight_ttl_seconds: float = Field(default=300, ge=0, le=3600)
+    preflight_timeout_seconds: float = Field(default=5, gt=0, le=30)
     max_image_bytes: int = Field(default=10_000_000, ge=1)
     max_image_pixels: int = Field(default=20_000_000, ge=1)
 

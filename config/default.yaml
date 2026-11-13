@@ -31,6 +31,8 @@ budget:
   truncation_retries: 1
   max_output_tokens_ceiling: 8192
 parallel_workers: 3
+preflight_ttl_seconds: 300
+preflight_timeout_seconds: 5
 enable_generation: false
 max_image_bytes: 10000000
 max_image_pixels: 20000000

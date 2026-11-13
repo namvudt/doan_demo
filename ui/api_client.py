@@ -10,6 +10,13 @@ from core.images import fingerprint
 from core.schemas import RunEvent, RunResult, StageEvent
 
 
+class RemoteAPIError(RuntimeError):
+    def __init__(self, status, error):
+        self.error_code = error.get("code", "api_error")
+        self.details = error.get("details") or {}
+        super().__init__(f"HTTP {status}: {self.error_code}")
+
+
 class RemoteManager:
     def __init__(self, base_url, *, token=None, bootstrap_token=None, transport=None):
         self.base_url = base_url.rstrip("/")
@@ -43,7 +50,11 @@ class RemoteManager:
             response = client.request(method, path, headers=headers, **kwargs)
             if not response.is_success:
                 # Do not expose request/response bodies or credentials in UI errors.
-                raise RuntimeError(f"API returned HTTP {response.status_code}")
+                try:
+                    error = response.json().get("error", {})
+                except ValueError:
+                    error = {}
+                raise RemoteAPIError(response.status_code, error)
             return response.json()
 
     def get_status(self):
@@ -57,6 +68,20 @@ class RemoteManager:
     def close(self):
         pass  # HTTP clients are scoped to each request.
 
+    def preflight(self, roles=None, *, force=False):
+        body = {"force": force}
+        if roles is not None:
+            body["roles"] = roles
+        return self.request("POST", "/api/v1/preflight", json=body)
+
+    def remote_review_stream(self, image_data, previous):
+        run = self.request(
+            "POST",
+            f"/api/v1/runs/{previous['run_id']}/review",
+            headers={"Idempotency-Key": str(uuid4())},
+        )
+        yield from self._stream_run(run, image_data, previous["query"], previous["audience"])
+
     def remote_stream(self, image_data, query, audience):
         asset = self.request(
             "POST", "/api/v1/assets", files={"file": ("photo.png", image_data, "image/png")}
@@ -67,6 +92,9 @@ class RemoteManager:
             headers={"Idempotency-Key": str(uuid4())},
             json={"asset_id": asset["asset_id"], "question": query, "audience": audience},
         )
+        yield from self._stream_run(run, image_data, query, audience)
+
+    def _stream_run(self, run, image_data, query, audience):
         identifier = run["run_id"]
         base = f"/api/v1/runs/{identifier}"
         cursor, events, terminal = 0, [], False
@@ -85,6 +113,14 @@ class RemoteManager:
                     yield event
                 if item["event"] in {"run.succeeded", "run.failed", "run.cancelled"}:
                     terminal = True
+                    if item["event"] != "run.succeeded":
+                        raise RemoteAPIError(
+                            409,
+                            {
+                                "code": item["data"].get("error_code", item["event"]),
+                                "details": item["data"],
+                            },
+                        )
             cursor = page["next_after"]
             if not terminal:
                 time.sleep(0.3)
@@ -121,6 +157,10 @@ class RemoteManager:
         }
         result = RunResult(
             run_id=identifier,
+            parent_run_id=payload.get("parent_run_id"),
+            run_kind=payload.get("run_kind", "full"),
+            reused_nodes=payload.get("reused_nodes", []),
+            upstream_config_hash=payload.get("upstream_config_hash"),
             fingerprint=fingerprint(image_data, query, audience, metrics["config_hash"]),
             query=query,
             audience=audience,
