@@ -29,6 +29,8 @@ class RoleConfig(StrictConfig):
     provider: Provider = "gemini"
     model: str | None = None
     api_key_env: str | None = None
+    max_output_tokens: int | None = Field(default=None, ge=128, le=16384)
+    thinking_level: Literal["minimal", "low", "medium", "high"] | None = None
 
 
 class BudgetConfig(StrictConfig):
@@ -37,6 +39,8 @@ class BudgetConfig(StrictConfig):
     request_timeout_seconds: float = Field(default=30, gt=0, le=120)
     max_output_tokens: int = Field(default=2048, ge=128, le=16384)
     transient_retries: int = Field(default=1, ge=0, le=2)
+    truncation_retries: int = Field(default=1, ge=0, le=1)
+    max_output_tokens_ceiling: int = Field(default=8192, ge=128, le=16384)
 
 
 class AppConfig(StrictConfig):

@@ -15,7 +15,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 _context = ContextVar("operational_log_context", default={})
-_lock = threading.Lock()
+_lock = threading.RLock()
+_active_config = None
 FIELDS = {
     "request_id",
     "run_id",
@@ -48,6 +49,11 @@ FIELDS = {
     "process_role",
     "stage_count",
     "frames",
+    "finish_reason",
+    "block_reason",
+    "response_has_text",
+    "max_output_tokens",
+    "provider_status_code",
 }
 IDENTIFIERS = {"request_id", "run_id", "trace_id", "worker_id", "parent_run_id"}
 
@@ -128,6 +134,7 @@ class JsonFormatter(logging.Formatter):
 
 def configure_logging(settings, role="api"):
     """Idempotent per process. Keep testing/caller handlers, replace only owned handlers."""
+    global _active_config
     with _lock:
         root = logging.getLogger()
         for handler in list(root.handlers):
@@ -160,7 +167,42 @@ def configure_logging(settings, role="api"):
             logger.propagate = True
         # Our ASGI middleware emits safe access logs, including stream completion.
         logging.getLogger("uvicorn.access").disabled = True
+        _active_config = (
+            role,
+            settings.log_level,
+            str(settings.log_dir),
+            settings.log_max_bytes,
+            settings.log_backups,
+        )
         log_event("process.logging_ready", process_role=role)
+
+
+def configure_local_logging(role="streamlit"):
+    """Initialize once across Streamlit reruns; do not require API/DB configuration."""
+    from types import SimpleNamespace
+
+    settings = SimpleNamespace(
+        log_level=os.getenv("API_LOG_LEVEL", "INFO").upper(),
+        log_dir=Path(os.getenv("API_LOG_DIR") or Path(__file__).resolve().parents[1] / "logs"),
+        log_max_bytes=int(os.getenv("API_LOG_MAX_BYTES", "10000000")),
+        log_backups=int(os.getenv("API_LOG_BACKUPS", "5")),
+    )
+    if (
+        settings.log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        or settings.log_max_bytes < 1024
+        or not 1 <= settings.log_backups <= 100
+    ):
+        raise ValueError("Invalid local logging configuration")
+    signature = (
+        role,
+        settings.log_level,
+        str(settings.log_dir),
+        settings.log_max_bytes,
+        settings.log_backups,
+    )
+    with _lock:
+        if _active_config != signature:
+            configure_logging(settings, role)
 
 
 class RateLimitedLog:

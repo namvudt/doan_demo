@@ -35,6 +35,7 @@ def no_network(monkeypatch):
         "LANGSMITH_PROJECT",
         "LANGSMITH_ENDPOINT",
         "LANGSMITH_WORKSPACE_ID",
+        "LANGSMITH_CAPTURE_CONTENT",
         "HERITAGE_API_URL",
         "HERITAGE_API_TOKEN",
         *[

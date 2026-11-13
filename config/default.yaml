@@ -15,7 +15,7 @@ providers:
     base_url_env: LOCAL_INFERENCE_URL
 roles:
   coordinator: {provider: gemini}
-  visual: {provider: gemini}
+  visual: {provider: gemini, max_output_tokens: 4096}
   knowledge: {provider: gemini}
   generation: {provider: gemini}
   aggregator: {provider: gemini}
@@ -28,6 +28,8 @@ budget:
   request_timeout_seconds: 30
   max_output_tokens: 2048
   transient_retries: 1
+  truncation_retries: 1
+  max_output_tokens_ceiling: 8192
 parallel_workers: 3
 enable_generation: false
 max_image_bytes: 10000000

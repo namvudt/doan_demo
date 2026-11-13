@@ -2,9 +2,13 @@
 
 import argparse
 import json
+import logging
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from core.gateway import LLMManager
+from core.runtime_logging import configure_local_logging, log_event
 from workflow.comparison import compare
 from workflow.service import RunService
 
@@ -21,8 +25,11 @@ def main():
     parser.add_argument("--audience", choices=["tourist", "student"], default="tourist")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    manager = LLMManager()
+    load_dotenv()
+    configure_local_logging(role="cli")
+    manager = None
     try:
+        manager = LLMManager()
         data = Path(args.image).read_bytes()
         if args.compare:
             result = compare(data, args.query, manager, args.audience)
@@ -39,10 +46,12 @@ def main():
             return 1
         return 0
     except Exception as exc:
+        log_event("cli.run_failed", level=logging.ERROR, error=exc)
         print(json.dumps({"status": "failed", "error_type": type(exc).__name__}))
         return 1
     finally:
-        manager.close()
+        if manager:
+            manager.close()
 
 
 if __name__ == "__main__":

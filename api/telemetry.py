@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from sqlalchemy import case, func, select
 
 from api.models import ModelAttempt, Run, WorkerHeartbeat
+from core.model_errors import response_diagnostics
 from core.observability import token_usage
 from core.runtime_logging import log_context, log_event
 
@@ -214,21 +215,24 @@ class RequestEnvelopeMiddleware:
 
 def attempt_record(row):
     return {
-        key: getattr(row, key)
-        for key in (
-            "attempt",
-            "agent_role",
-            "actual_provider",
-            "model_used",
-            "status",
-            "retry",
-            "fallback_used",
-            "duration",
-            "error_type",
-            "usage",
-            "started_at",
-            "finished_at",
-        )
+        **(row.diagnostics or {}),
+        **{
+            key: getattr(row, key)
+            for key in (
+                "attempt",
+                "agent_role",
+                "actual_provider",
+                "model_used",
+                "status",
+                "retry",
+                "fallback_used",
+                "duration",
+                "error_type",
+                "usage",
+                "started_at",
+                "finished_at",
+            )
+        },
     }
 
 
@@ -255,6 +259,7 @@ def persist_attempt(db, run_id, record):
         if record.get("usage") is not None:
             # Only numeric token counts; SDK response dictionaries are never stored here.
             row.usage = token_usage(record["usage"], record.get("actual_provider"))
+        row.diagnostics = {**(row.diagnostics or {}), **response_diagnostics(record)}
 
 
 def database_metrics(rt):

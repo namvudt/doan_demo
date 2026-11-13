@@ -14,6 +14,7 @@ from langsmith import Client, trace, tracing_context
 from langsmith.run_helpers import get_current_run_tree, get_tracing_context
 
 from core.runtime_logging import context_fields, log_event
+from core.trace_content import sanitize_content
 
 METADATA_KEYS = {
     "app_run_id",
@@ -37,14 +38,26 @@ METADATA_KEYS = {
     "error_type",
     "langgraph_node",
     "langgraph_step",
+    "finish_reason",
+    "block_reason",
+    "response_has_text",
+    "error_code",
+    "max_output_tokens",
+    "provider_status_code",
 }
 SUMMARY_KEYS = {
     "status",
     "call_count",
     "error_count",
     "source_count",
+    "provider_status_code",
     "duration",
     "error_type",
+    "finish_reason",
+    "block_reason",
+    "response_has_text",
+    "error_code",
+    "max_output_tokens",
 }
 
 
@@ -80,18 +93,30 @@ def safe_outputs(value):
     return result
 
 
-def _private_payload(payload):
+def _private_payload(payload, capture_content=False):
     payload = dict(payload)
     if "inputs" in payload:
-        payload["inputs"] = {}
+        payload["inputs"] = sanitize_content(payload["inputs"]) if capture_content else {}
     if "outputs" in payload:
-        payload["outputs"] = safe_outputs(payload["outputs"])
+        payload["outputs"] = (
+            {**sanitize_content(payload["outputs"]), **safe_outputs(payload["outputs"])}
+            if capture_content
+            else safe_outputs(payload["outputs"])
+        )
     for name in ("events", "attachments", "serialized"):
         payload.pop(name, None)
     extra = payload.get("extra") or {}
     payload["extra"] = {"metadata": safe_metadata(extra.get("metadata"))}
     if payload.get("error"):
-        payload["error"] = "Operation failed (details hidden)"
+        error = str(payload["error"])
+        payload["error"] = (
+            error
+            if error.isidentifier()
+            and len(error) <= 80
+            and error.endswith(("Error", "Response", "Cancelled", "Failure", "Failed", "Timeout"))
+            and not error.startswith("PRIVATE_")
+            else "Operation failed (details hidden)"
+        )
     payload["dangerously_allow_filesystem"] = False
     return payload
 
@@ -99,15 +124,45 @@ def _private_payload(payload):
 class PrivateTracingClient(Client):
     """Redact before the SDK queues/serializes a native or custom run."""
 
+    def __init__(self, *args, capture_content=None, **kwargs):
+        self._capture_content = capture_content
+        kwargs["hide_inputs"] = self.public_inputs
+        kwargs["hide_outputs"] = self.public_outputs
+        kwargs["hide_metadata"] = safe_metadata
+        super().__init__(*args, **kwargs)
+
+    @property
+    def capture_content(self):
+        return (
+            self._capture_content
+            if self._capture_content is not None
+            else os.getenv("LANGSMITH_CAPTURE_CONTENT", "false").lower() == "true"
+        )
+
+    def public_inputs(self, value):
+        return sanitize_content(value) if self.capture_content else {}
+
+    def public_outputs(self, value):
+        return (
+            {**sanitize_content(value), **safe_outputs(value)}
+            if self.capture_content
+            else safe_outputs(value)
+        )
+
     def create_run(self, name, inputs, run_type, **kwargs):
         try:
-            return super().create_run(name, {}, run_type, **_private_payload(kwargs))
+            return super().create_run(
+                name,
+                self.public_inputs(inputs),
+                run_type,
+                **_private_payload(kwargs, self.capture_content),
+            )
         except Exception:
             log_event("trace.enqueue_failed", level=logging.WARNING)
 
     def update_run(self, run_id, **kwargs):
         try:
-            return super().update_run(run_id, **_private_payload(kwargs))
+            return super().update_run(run_id, **_private_payload(kwargs, self.capture_content))
         except Exception:
             log_event("trace.update_failed", level=logging.WARNING)
 
@@ -119,6 +174,7 @@ class TraceSettings:
     endpoint: str = "https://api.smith.langchain.com"
     project: str = "heritage-vqa-dev"
     workspace_id: str | None = None
+    capture_content: bool = False
 
     @classmethod
     def from_env(cls):
@@ -129,6 +185,7 @@ class TraceSettings:
             endpoint=os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com").strip(),
             project=os.getenv("LANGSMITH_PROJECT", "heritage-vqa-dev").strip(),
             workspace_id=os.getenv("LANGSMITH_WORKSPACE_ID") or None,
+            capture_content=os.getenv("LANGSMITH_CAPTURE_CONTENT", "false").lower() == "true",
         )
 
 
@@ -140,9 +197,7 @@ def tracing_client(settings):
         workspace_id=settings.workspace_id,
         timeout_ms=3000,
         omit_traced_runtime_info=True,
-        hide_inputs=True,
-        hide_outputs=safe_outputs,
-        hide_metadata=safe_metadata,
+        capture_content=settings.capture_content,
     )
 
 
@@ -154,7 +209,7 @@ class Span:
 
 
 @contextmanager
-def trace_operation(name, run_type="chain", *, metadata=None, run_id=None):
+def trace_operation(name, run_type="chain", *, metadata=None, run_id=None, inputs=None):
     """Never let a telemetry failure swallow or replace an application exception."""
     settings = TraceSettings.from_env()
     context = get_tracing_context()
@@ -176,7 +231,7 @@ def trace_operation(name, run_type="chain", *, metadata=None, run_id=None):
             manager = trace(
                 name,
                 run_type=run_type,
-                inputs={},
+                inputs=client.public_inputs(inputs or {}),
                 client=client,
                 project_name=project,
                 metadata=safe_metadata({**context_fields(), **(metadata or {})}),
@@ -197,7 +252,7 @@ def trace_operation(name, run_type="chain", *, metadata=None, run_id=None):
         finally:
             try:
                 run.add_metadata(safe_metadata(span.metadata))
-                run.end(outputs=safe_outputs(span.outputs), error=span.error)
+                run.end(outputs=client.public_outputs(span.outputs), error=span.error)
             except Exception:
                 log_event("trace.span_end_failed", level=logging.WARNING)
             finally:

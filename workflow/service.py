@@ -287,6 +287,7 @@ class RunService:
                 trace_operation(
                     "heritage-vqa.run",
                     run_id=run_id,
+                    inputs={"query": query, "audience": audience, "image_data": normalized},
                     metadata={
                         **context_fields(),
                         "app_run_id": run_id,
@@ -297,6 +298,7 @@ class RunService:
                     },
                 ) as span,
             ):
+                log_event("run.started")
                 yield from self._stream_graph(graph, state, llm, snapshot, started, run_id, span)
         finally:
             llm.close()
@@ -401,6 +403,12 @@ class RunService:
         )
         span.metadata = {"result_status": status, "error_count": len(result.errors)}
         span.outputs = {
+            "final_response": result.final_response,
+            "draft_response": result.draft_response,
+            "plan": result.plan,
+            "expert_results": result.expert_results,
+            "judge_report": result.judge_report,
+            "errors": result.errors,
             "status": status,
             "call_count": len(result.calls),
             "error_count": len(result.errors),
@@ -408,6 +416,12 @@ class RunService:
         }
         if status == "failed":
             span.error = "WorkflowFailed"
+        log_event(
+            "run.completed",
+            status=status,
+            duration_ms=round(result.duration * 1000, 3),
+            error_type=result.errors[0]["error_type"] if result.errors else None,
+        )
         yield RunEvent(
             kind="completed",
             node="finish",

@@ -287,3 +287,93 @@ def test_usage_missing_stays_unknown_and_settings_repr_hides_key():
     assert token_usage(None, "gemini") == {}
     assert token_usage({"total_tokens": 5}, "openai") == {"total_tokens": 5}
     assert "private-key" not in repr(TraceSettings(enabled=True, api_key="private-key"))
+
+
+def test_content_mode_keeps_workflow_input_reports_and_image_fingerprint(
+    monkeypatch, photo, fake_search, recorded_traces
+):
+    monkeypatch.setenv("LANGSMITH_CAPTURE_CONTENT", "true")
+    monkeypatch.setenv("GEMINI_API_KEY", "sensitive-test-credential-12345")
+    question = "Observe this monument; sensitive-test-credential-12345"
+    result = RunService(FakeLLM()).run(photo, question)
+    wait_for_all_tracers()
+    creates = [r for r in recorded_traces if r["op"] == "create"]
+    root = next(r for r in creates if r["name"] == "heritage-vqa.run")
+    assert root["inputs"]["query"] == "Observe this monument; [REDACTED]"
+    assert root["inputs"]["image_data"]["width"] == 40
+    assert len(root["inputs"]["image_data"]["sha256"]) == 64
+    updates = [r for r in recorded_traces if r["op"] == "update"]
+    assert any(r.get("outputs", {}).get("final_response") == result.final_response for r in updates)
+    assert any(r["inputs"].get("query") for r in creates if r["name"] == "heritage-vqa.graph")
+    payload = json.dumps(recorded_traces, default=str)
+    assert "sensitive-test-credential-12345" not in payload
+    assert "mock visual findings" in payload
+
+
+def test_failed_response_has_input_output_usage_and_diagnostics_in_trace(
+    monkeypatch, recorded_traces
+):
+    from core.model_errors import TruncatedModelResponse
+
+    monkeypatch.setenv("LANGSMITH_CAPTURE_CONTENT", "true")
+    manager = LLMManager(
+        config=AppConfig(budget=BudgetConfig(truncation_retries=0)), credentials={}
+    )
+    monkeypatch.setattr(manager, "_client", lambda *a: object())
+
+    def fail(*args):
+        raise TruncatedModelResponse(
+            text="partial output", finish_reason="MAX_TOKENS", usage={"total_token_count": 2048}
+        )
+
+    monkeypatch.setattr(manager, "_provider_call", fail)
+    with pytest.raises(TruncatedModelResponse):
+        manager.call_llm(
+            "Inspect the architecture",
+            system_instruction="Use visual evidence",
+            agent_role="visual",
+        )
+    creates = [r for r in recorded_traces if r["op"] == "create" and r["run_type"] == "llm"]
+    assert creates[0]["inputs"]["prompt"] == "Inspect the architecture"
+    assert creates[0]["inputs"]["system_instruction"] == "Use visual evidence"
+    outputs = [
+        r["outputs"]
+        for r in recorded_traces
+        if r["op"] == "update" and r.get("outputs", {}).get("finish_reason") == "MAX_TOKENS"
+    ]
+    assert outputs
+    assert outputs[-1]["response"] == "partial output"
+    assert outputs[-1]["usage_metadata"]["total_tokens"] == 2048
+    assert manager.calls[0]["finish_reason"] == "MAX_TOKENS"
+    assert manager.calls[0]["usage"] == {"total_token_count": 2048}
+
+
+def test_content_sanitizer_bounds_nested_graph_state_and_removes_secrets(monkeypatch):
+    from core.trace_content import sanitize_content
+
+    monkeypatch.setenv("SOME_API_KEY", "abcdef-secret-credential-123456")
+    raw = {
+        "query": "abcdef-secret-credential-123456 and Bearer tokenXYZ",
+        "api_key": "abcdef-secret-credential-123456",
+        "config_snapshot": {"key": "hidden"},
+        "prompt": "x" * 50000,
+        "image_data": b"binary-not-for-export",
+        "response": "url https://example.test/?api_key=another_secret&ok=1",
+    }
+    result = sanitize_content(raw)
+    assert result["query"] == "[REDACTED] and Bearer [REDACTED]"
+    assert "api_key" not in result and "config_snapshot" not in result
+    assert result["prompt"].endswith("[TRUNCATED]")
+    assert len(result["prompt"]) < 12100
+    assert "another_secret" not in result["response"]
+    assert isinstance(result["image_data"], dict)
+
+
+def test_content_mode_handles_native_error_with_null_outputs(monkeypatch, recorded_traces):
+    monkeypatch.setenv("LANGSMITH_CAPTURE_CONTENT", "true")
+    client = PrivateTracingClient(api_key="test-key", auto_batch_tracing=False)
+    identifier = "00000000-0000-0000-0000-000000000001"
+    client.update_run(identifier, outputs=None, error="ValueError")
+    assert recorded_traces[-1]["op"] == "update"
+    assert recorded_traces[-1]["outputs"] == {}
+    assert recorded_traces[-1]["error"] == "ValueError"

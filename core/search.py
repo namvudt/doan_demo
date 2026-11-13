@@ -88,9 +88,17 @@ class HeritageSearchEngine:
         }
 
     def search_heritage(self, monument_hint, query):
-        with trace_operation("search.wikipedia", "retriever") as span:
+        with trace_operation(
+            "search.wikipedia",
+            "retriever",
+            inputs={"query": query, "identified_monument": monument_hint},
+        ) as span:
             result = self._search_heritage(monument_hint, query)
-            span.outputs = {"status": result["status"], "source_count": len(result["sources"])}
+            span.outputs = {
+                "status": result["status"],
+                "source_count": len(result["sources"]),
+                "sources": result["sources"],
+            }
             if result["error"]:
                 span.error = result["error"]
                 span.metadata["error_type"] = result["error"]

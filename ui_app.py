@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import os
 from io import BytesIO
 from pathlib import Path
@@ -14,6 +15,7 @@ from core.gateway import LLMManager
 from core.images import image_bytes, validate_image
 from core.observability import TraceSettings
 from core.presentation import STAGES, collect_sources
+from core.runtime_logging import configure_local_logging, log_event
 from ui.api_client import RemoteManager
 from ui.components import render_comparison, render_progress, render_result, render_stages
 from ui.session import (
@@ -271,6 +273,7 @@ def execute(manager, image_data, query, audience, mode, show_stages, show_draft)
         placeholder.empty()
     except Exception as exc:
         placeholder.empty()
+        log_event("ui.run_failed", level=logging.ERROR, error=exc)
         st.session_state["run_error"] = type(exc).__name__
     finally:
         manager.close()
@@ -283,6 +286,7 @@ def main():
     apply_theme()
     try:
         load_dotenv()
+        configure_local_logging()
         if base_url := os.getenv("HERITAGE_API_URL"):
             prior = st.session_state.get("_api_connection", {})
             token = os.getenv("HERITAGE_API_TOKEN") or (
@@ -295,6 +299,7 @@ def main():
         else:
             manager = LLMManager()
     except Exception as exc:
+        log_event("ui.initialization_failed", level=logging.ERROR, error=exc)
         st.error(f"Cấu hình chưa hợp lệ ({type(exc).__name__}). Kiểm tra HERITAGE_CONFIG.")
         st.stop()
     mode, audience, show_stages, show_draft, historical = sidebar(manager)

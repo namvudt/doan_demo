@@ -12,8 +12,16 @@ from io import BytesIO
 from dotenv import load_dotenv
 
 from core.config import AppConfig, load_config
+from core.model_errors import (
+    ModelResponseError,
+    TruncatedModelResponse,
+    enum_name,
+    provider_error_diagnostics,
+    validate_response,
+)
 from core.observability import token_usage, trace_operation
 from core.runtime_logging import log_event
+from core.trace_content import image_info
 
 
 class BudgetExceeded(RuntimeError):
@@ -180,7 +188,10 @@ class LLMManager:
         temperature,
         json_output,
         response_schema,
+        options=None,
     ):
+        options = options or {}
+        output_limit = options.get("max_output_tokens", self.config.budget.max_output_tokens)
         timeout = min(self.config.budget.request_timeout_seconds, self.remaining_seconds())
         if provider == "gemini":
             from google.genai import types
@@ -188,23 +199,35 @@ class LLMManager:
             kwargs = {
                 "temperature": temperature,
                 "system_instruction": system_instruction,
-                "max_output_tokens": self.config.budget.max_output_tokens,
+                "max_output_tokens": output_limit,
                 "http_options": types.HttpOptions(timeout=max(1, int(timeout * 1000))),
             }
             if json_output:
                 kwargs["response_mime_type"] = "application/json"
             if response_schema:
                 kwargs["response_json_schema"] = response_schema.model_json_schema()
+            if options.get("thinking_level"):
+                kwargs["thinking_config"] = types.ThinkingConfig(
+                    thinking_level=options["thinking_level"]
+                )
             response = client.models.generate_content(
                 model=model,
                 contents=[image.convert("RGB"), prompt] if image else [prompt],
                 config=types.GenerateContentConfig(**kwargs),
             )
-            text = response.text or ""
             usage = (
                 response.usage_metadata.model_dump(mode="json") if response.usage_metadata else None
             )
-            finish = str(response.candidates[0].finish_reason) if response.candidates else None
+            finish = (
+                enum_name(response.candidates[0].finish_reason) if response.candidates else None
+            )
+            block = enum_name(
+                getattr(getattr(response, "prompt_feedback", None), "block_reason", None)
+            )
+            try:
+                text = response.text or ""
+            except ValueError:
+                text = ""  # Preserve finish/usage even when the SDK cannot extract a text part.
         else:
             content = prompt
             if image:
@@ -222,19 +245,17 @@ class LLMManager:
                 "model": model,
                 "messages": messages,
                 "temperature": temperature,
-                "max_tokens": self.config.budget.max_output_tokens,
+                "max_tokens": output_limit,
                 "timeout": timeout,
             }
             if json_output:
                 kwargs["response_format"] = {"type": "json_object"}
             response = client.chat.completions.create(**kwargs)
-            text = response.choices[0].message.content or ""
             usage = response.usage.model_dump(mode="json") if response.usage else None
-            finish = response.choices[0].finish_reason
-        if not text.strip():
-            raise ValueError("Model không trả nội dung.")
-        if finish and finish not in {"STOP", "FinishReason.STOP", "stop"}:
-            raise ValueError(f"Model kết thúc chưa hoàn chỉnh: {finish}")
+            text = response.choices[0].message.content or "" if response.choices else ""
+            finish = response.choices[0].finish_reason if response.choices else None
+            block = None
+        validate_response(text, usage, finish, block)
         return text, usage, finish
 
     def call_llm(
@@ -254,6 +275,10 @@ class LLMManager:
         providers = [requested, *[p for p in self.config.fallback_providers if p != requested]]
         attempts = []
         last_error = None
+        binding = self.config.roles.get(agent_role)
+        initial_limit = (
+            binding.max_output_tokens if binding else None
+        ) or self.config.budget.max_output_tokens
         for provider in providers:
             pc = self.config.providers[provider]
             if image is not None and not pc.supports_images:
@@ -270,7 +295,11 @@ class LLMManager:
                 if provider == requested
                 else self._credentials.get(pc.api_key_env, "")
             )
-            for retry in range(self.config.budget.transient_retries + 1):
+            output_limit = initial_limit
+            transient_count, truncation_count = 0, 0
+            for retry in range(
+                self.config.budget.transient_retries + self.config.budget.truncation_retries + 1
+            ):
                 attempt = self._admit()
                 start = time.monotonic()
                 record = {
@@ -283,6 +312,7 @@ class LLMManager:
                     "fallback_used": provider != requested,
                     "started_at": time.time(),
                     "status": "running",
+                    "max_output_tokens": output_limit,
                 }
                 self._notify_attempt(record, required=True)
                 log_event("model.started", **{k: v for k, v in record.items() if k != "usage"})
@@ -299,28 +329,62 @@ class LLMManager:
                             "attempt": attempt,
                             "retry": retry,
                             "fallback_used": provider != requested,
+                            "max_output_tokens": output_limit,
+                        },
+                        inputs={
+                            "prompt": prompt,
+                            "system_instruction": system_instruction,
+                            "image_info": image_info(image),
+                            "max_output_tokens": output_limit,
                         },
                     ) as span:
                         client = self._client(provider, model, key)
-                        text, usage, finish = self._provider_call(
-                            provider,
-                            client,
-                            model,
-                            prompt,
-                            system_instruction,
-                            image,
-                            temperature,
-                            json_output,
-                            response_schema,
-                        )
+                        try:
+                            text, usage, finish = self._provider_call(
+                                provider,
+                                client,
+                                model,
+                                prompt,
+                                system_instruction,
+                                image,
+                                temperature,
+                                json_output,
+                                response_schema,
+                                {
+                                    "max_output_tokens": output_limit,
+                                    "thinking_level": binding.thinking_level if binding else None,
+                                },
+                            )
+                        except ModelResponseError as exc:
+                            span.metadata.update(exc.diagnostics)
+                            span.outputs = {
+                                "status": "error",
+                                **exc.diagnostics,
+                                "response": exc.partial_response,
+                                "usage_metadata": token_usage(exc.usage, provider),
+                            }
+                            raise
+                        except Exception as exc:
+                            diagnostic = provider_error_diagnostics(exc)
+                            span.metadata.update(diagnostic)
+                            span.outputs = {
+                                "status": "error",
+                                "error_type": type(exc).__name__,
+                                **diagnostic,
+                            }
+                            raise
                         span.outputs = {
                             "status": "success",
+                            "response": text,
+                            "finish_reason": finish,
+                            "response_has_text": bool(text.strip()),
                             "usage_metadata": token_usage(usage, provider),
                         }
                     record.update(
                         status="success",
                         usage=usage,
                         finish_reason=finish,
+                        response_has_text=bool(text.strip()),
                         duration=time.monotonic() - start,
                         finished_at=time.time(),
                     )
@@ -333,6 +397,9 @@ class LLMManager:
                         "attempts": [*attempts, record],
                     }
                 except Exception as exc:
+                    record.update(provider_error_diagnostics(exc))
+                    if isinstance(exc, ModelResponseError):
+                        record.update(exc.diagnostics, usage=exc.usage)
                     # Exception text can contain request data or credentials.
                     record.update(
                         status="error",
@@ -343,10 +410,30 @@ class LLMManager:
                     self._record(record, error=exc)
                     attempts.append(record)
                     last_error = exc
+                    if isinstance(exc, TruncatedModelResponse):
+                        ceiling = max(initial_limit, self.config.budget.max_output_tokens_ceiling)
+                        larger = min(ceiling, output_limit * 2)
+                        if (
+                            truncation_count < self.config.budget.truncation_retries
+                            and larger > output_limit
+                        ):
+                            truncation_count += 1
+                            output_limit = larger
+                            log_event(
+                                "model.output_limit_retry",
+                                attempt=attempt,
+                                max_output_tokens=larger,
+                                agent_role=agent_role,
+                            )
+                            continue
+                        raise
                     if not self._retryable(exc):
                         raise
-                    if retry < self.config.budget.transient_retries:
-                        time.sleep(min(0.25 * 2**retry, max(0, self.remaining_seconds())))
+                    if transient_count < self.config.budget.transient_retries:
+                        time.sleep(min(0.25 * 2**transient_count, max(0, self.remaining_seconds())))
+                        transient_count += 1
+                        continue
+                    break
         raise RuntimeError("Các provider tạm thời không khả dụng.") from last_error
 
     def stream_llm(
@@ -377,6 +464,11 @@ class LLMManager:
         attempt = self._admit()
         emitted = False
         stream_error = None
+        pieces = []
+        binding = self.config.roles.get(agent_role)
+        output_limit = (
+            binding.max_output_tokens if binding else None
+        ) or self.config.budget.max_output_tokens
         start = time.monotonic()
         record = {
             "attempt": attempt,
@@ -387,6 +479,7 @@ class LLMManager:
             "started_at": time.time(),
             "retry": 0,
             "fallback_used": False,
+            "max_output_tokens": output_limit,
         }
         self._notify_attempt({**record, "status": "running"}, required=True)
         log_event("model.started", **{k: v for k, v in record.items() if k != "usage"})
@@ -401,6 +494,12 @@ class LLMManager:
                 "ls_model_type": "chat",
                 "attempt": attempt,
             },
+            inputs={
+                "prompt": prompt,
+                "system_instruction": system_instruction,
+                "image_info": image_info(image),
+                "max_output_tokens": output_limit,
+            },
         ) as span:
             try:
                 client = self._client(provider, model, key)
@@ -412,7 +511,10 @@ class LLMManager:
                     config=types.GenerateContentConfig(
                         system_instruction=system_instruction,
                         temperature=temperature,
-                        max_output_tokens=self.config.budget.max_output_tokens,
+                        max_output_tokens=output_limit,
+                        thinking_config=types.ThinkingConfig(thinking_level=binding.thinking_level)
+                        if binding and binding.thinking_level
+                        else None,
                         http_options=types.HttpOptions(
                             timeout=max(
                                 1,
@@ -428,21 +530,21 @@ class LLMManager:
                     ),
                 )
                 for chunk in response:
-                    if chunk.text:
-                        emitted = True
-                        yield chunk.text
                     if getattr(chunk, "usage_metadata", None):
                         record["usage"] = chunk.usage_metadata.model_dump(mode="json")
                     candidates = getattr(chunk, "candidates", [])
                     if candidates and candidates[0].finish_reason:
-                        record["finish_reason"] = str(candidates[0].finish_reason)
-                if not emitted:
-                    raise ValueError("Stream không trả nội dung.")
-                if record.get("finish_reason") not in {None, "STOP", "FinishReason.STOP", "stop"}:
-                    raise ValueError("Stream kết thúc chưa hoàn chỉnh.")
+                        record["finish_reason"] = enum_name(candidates[0].finish_reason)
+                    if chunk.text:
+                        emitted = True
+                        pieces.append(chunk.text)
+                        yield chunk.text
+                validate_response("".join(pieces), record["usage"], record.get("finish_reason"))
                 record["status"] = "success"
             except Exception as exc:
                 stream_error = exc
+                if isinstance(exc, ModelResponseError):
+                    record.update(exc.diagnostics)
                 record.update(status="error", error_type=type(exc).__name__)
                 if emitted:
                     raise StreamInterrupted(
@@ -450,12 +552,17 @@ class LLMManager:
                     ) from exc
                 raise
             finally:
+                record["response_has_text"] = emitted
                 record["duration"] = time.monotonic() - start
                 record["finished_at"] = time.time()
                 record.setdefault("status", "cancelled")
                 self._record(record, error=stream_error)
                 span.outputs = {
                     "status": record["status"],
+                    "response": "".join(pieces),
+                    "finish_reason": record.get("finish_reason"),
+                    "response_has_text": emitted,
+                    "error_code": record.get("error_code"),
                     "usage_metadata": token_usage(record["usage"], provider),
                 }
 

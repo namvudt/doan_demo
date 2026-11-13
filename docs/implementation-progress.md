@@ -1,5 +1,22 @@
 # Đợt 1: LangGraph và sửa các lỗi ưu tiên cao
 
+## Sửa response validation và nội dung trace — 13/11/2026
+
+- LangSmith content mode có kiểm soát: root/node/model/search có input/output
+  đã lọc credential, giới hạn text và ảnh dạng metadata. Local `.env` đã bật;
+  mẫu mặc định vẫn giữ chế độ summary. Trace cũ không khôi phục được input đã bỏ.
+- Streamlit local và CLI khởi tạo JSON logger; model diagnostics/usage được giữ
+  cả khi phản hồi rỗng/bị chặn/bị cắt. API migration 0003 lưu diagnostics bền vững.
+- Visual output limit 4096; MAX_TOKENS retry tối đa một lần, có ceiling 8192 và
+  vẫn tuân max calls/deadline. Không tự retry empty/safety block.
+- Kiểm tra: 135 tests, HTTP demo 31/31 operations với 73/73 cases; LangSmith smoke
+  đọc lại cả summary/content và xác nhận credential masking. Một visual call thật
+  thành công với STOP, 2697 output/thinking tokens, không cần retry; đã đọc lại
+  prompt/system instruction/response của trace thật.
+
+[Phân tích và thay đổi](incidents/2026-11-13-response-tracing-fix.md),
+[cấu hình LangSmith](langsmith.md).
+
 ## Hoàn thiện observability — 10/11/2026
 
 - JSON logs UTC dùng chung API/worker; metadata allowlist, safe error frames,

@@ -74,8 +74,9 @@ Các YAML ở thư mục thiết kế của workspace là tài liệu đề xu�
 
 Bật `LANGSMITH_TRACING=true`, điền `LANGSMITH_API_KEY` và chọn `LANGSMITH_PROJECT`
 trong `.env`, rồi khởi động lại ứng dụng. Trace gồm workflow/node, từng attempt gọi
-model và search; giữ thời gian, token thực, provider/model và trạng thái. Nội dung
-ảnh/câu hỏi/phản hồi/nguồn được ẩn. Hướng dẫn và lệnh kiểm tra kết nối:
+model và search; giữ thời gian, token thực, provider/model và trạng thái. Bật
+`LANGSMITH_CAPTURE_CONTENT=true` để xem câu hỏi/prompt/response và báo cáo đã lọc
+credential. Ảnh dùng metadata/fingerprint. Hướng dẫn và lệnh kiểm tra kết nối:
 [docs/langsmith.md](docs/langsmith.md).
 
 ## CLI và so sánh

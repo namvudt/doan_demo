@@ -242,6 +242,10 @@ def render_quality(result):
                     "Giây": call.get("duration"),
                     "Token": usage.get("total_tokens"),
                     "Loại lỗi": call.get("error_type"),
+                    "Finish reason": call.get("finish_reason"),
+                    "Mã lỗi": call.get("error_code"),
+                    "HTTP provider": call.get("provider_status_code"),
+                    "Giới hạn output": call.get("max_output_tokens"),
                 }
             )
         if rows:

@@ -55,6 +55,25 @@ def test_ui_boots_without_key():
     assert app.button(key="start").disabled
 
 
+def test_local_ui_initializes_json_log_once_and_keeps_run_ids(monkeypatch, fake_search, tmp_path):
+    import json
+    import logging
+
+    monkeypatch.setenv("API_LOG_DIR", str(tmp_path / "logs"))
+    app = prepared_app(monkeypatch)
+    app.button(key="start").click().run()
+    assert not app.exception
+    run_id = app.session_state.result["run_id"]
+    paths = list((tmp_path / "logs").glob("streamlit-*.jsonl"))
+    assert len(paths) == 1
+    records = [json.loads(line) for line in paths[0].read_text(encoding="utf-8").splitlines()]
+    assert any(r["event"] == "run.completed" and r["run_id"] == run_id for r in records)
+    assert sum(r["event"] == "process.logging_ready" for r in records) == 1
+    assert "Test question" not in paths[0].read_text(encoding="utf-8")
+    owned = [h for h in logging.getLogger().handlers if getattr(h, "heritage_handler", False)]
+    assert len(owned) == 2
+
+
 def test_preferences_and_source_filter_do_not_call_models(monkeypatch, fake_search):
     fake = FakeLLM()
     app = prepared_app(monkeypatch, fake)

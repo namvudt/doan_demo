@@ -6,6 +6,13 @@ API và worker dùng JSON logging, lưu lịch sử stage và model attempts tro
 
 ## Chạy local
 
+Streamlit local và CLI nay cũng khởi tạo logger: `logs/streamlit-<pid>.jsonl`
+và `logs/cli-<pid>.jsonl` theo mặc định, hoặc dùng `API_LOG_DIR` nếu đã đặt.
+Logger được dùng lại giữa các lần rerun, không nhân số handler. UI local vẫn
+không tạo job/DB API; dùng `HERITAGE_API_URL` nếu cần queue và lưu model attempts
+vào DB. Xem [chế độ nội dung LangSmith](langsmith.md) để quan sát prompt/response;
+JSONL trên máy chỉ ghi metadata.
+
 Chạy từ thư mục `doan_demo`. Không cần thêm dependency hoặc dịch vụ ngoài để ghi log.
 
 ```powershell
@@ -107,6 +114,13 @@ giữ nguyên bản ghi hiện có. Startup API/worker chạy migration bằng c
   provider thì không thể suy ra số token hoặc chi phí chính xác.
 - `GET /api/v1/runs/{id}/metrics` đọc attempts đã lưu ngay cả khi run đang chạy,
   thất bại hoặc bị gián đoạn; run cũ dùng dữ liệu calls trong result làm fallback.
+
+Migration `0003_response_diagnostics` thêm JSON diagnostics vào model attempts.
+API `/metrics` theo run trả finish reason, block reason, output limit, có text
+hay không và HTTP provider status khi có, ngay cả khi response bị từ chối.
+Model usage được đọc trước khi validate response, nên lỗi MAX_TOKENS/empty không
+làm mất số token đã được provider báo về. Bộ lọc này không lưu text vào bảng
+attempts; text chỉ có trong result nghiệp vụ hoặc LangSmith content mode.
 
 DB lưu nội dung nghiệp vụ để API có xác thực trả kết quả trung gian; đây là dữ
 liệu khác với log vận hành. File log chỉ chứa metadata. Formatter không ghi

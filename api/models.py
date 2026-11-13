@@ -114,3 +114,4 @@ class ModelAttempt(Base):
     duration: Mapped[float | None] = mapped_column(Float)
     error_type: Mapped[str | None] = mapped_column(String(80))
     usage: Mapped[dict | None] = mapped_column(Payload)
+    diagnostics: Mapped[dict | None] = mapped_column(Payload)
