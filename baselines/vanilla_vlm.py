@@ -1,7 +1,10 @@
 import time
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 from PIL import Image
+
 from utils.llm_clients import LLMManager
+
 
 class VanillaVLMBaseline:
     """
@@ -9,6 +12,7 @@ class VanillaVLMBaseline:
     Mô hình VLM cơ sở chạy trực tiếp với một Prompt đơn lẻ duy nhất,
     KHÔNG phân chia Agent, KHÔNG có công cụ hỗ trợ và KHÔNG có hội đồng kiểm chứng.
     """
+
     def __init__(self, llm_manager: LLMManager):
         self.llm = llm_manager
         self.name = "Baseline 1: Vanilla VLM (Single-Prompt)"
@@ -26,7 +30,7 @@ Hãy cung cấp câu trả lời rõ ràng và ngắn gọn."""
             system_instruction="Bạn là trợ lý AI thông thường.",
             image=image,
             preferred_provider="gemini",
-            temperature=0.3
+            temperature=0.3,
         )
         duration = round(time.time() - t0, 2)
 
@@ -37,7 +41,7 @@ Hãy cung cấp câu trả lời rõ ràng và ngắn gọn."""
             "model": meta.get("model_used", ""),
             "num_agents": 1,
             "has_verifier": False,
-            "has_tools": False
+            "has_tools": False,
         }
 
         return response_text, meta_info

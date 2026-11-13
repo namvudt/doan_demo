@@ -1,6 +1,8 @@
 import time
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 from PIL import Image
+
 from utils.llm_clients import LLMManager
 
 GENERIC_AGENT_PROMPT = """Bạn là một Generic Tool-Calling AI Agent (Tác tử sử dụng công cụ thông thường theo mô hình ReAct / Tool-Use cơ bản).
@@ -17,15 +19,17 @@ QUY TRÌNH XỬ LÝ (ReAct Paradigm):
 
 """
 
+
 class GenericToolAgentBaseline:
     """
     Baseline 2: Generic Tool-Calling Agent (Mô hình Agentic cơ sở theo chuẩn OWLViz).
     Sử dụng cơ chế Tool-use cơ bản, nhưng thiếu sự phối hợp chuyên môn hóa (Heterogeneous)
     và không có cơ chế thẩm định kiểm soát ảo giác (No Judge / Verifier).
     """
+
     def __init__(self, llm_manager: LLMManager):
         self.llm = llm_manager
-        self.name = "Baseline 2: Generic Tool-Calling Agent"
+        self.name = "Prompted ReAct simulation (no tools)"
 
     def run(self, image: Image.Image, query: str) -> Tuple[str, Dict[str, Any]]:
         prompt = f"""Hãy thực hiện quy trình Tool-Calling để giải quyết yêu cầu sau của người dùng:
@@ -40,18 +44,18 @@ Hãy thực hiện từng bước Thought, Action, Observation và đưa ra Fina
             system_instruction=GENERIC_AGENT_PROMPT,
             image=image,
             preferred_provider="gemini",
-            temperature=0.3
+            temperature=0.3,
         )
         duration = round(time.time() - t0, 2)
 
         meta_info = {
-            "baseline": "Baseline 2 (Generic Tool-Calling Agent)",
+            "baseline": "Prompted ReAct simulation (no tools)",
             "duration": duration,
             "provider": meta.get("actual_provider", ""),
             "model": meta.get("model_used", ""),
             "num_agents": 1,
             "has_verifier": False,
-            "has_tools": True
+            "has_tools": False,
         }
 
         return response_text, meta_info

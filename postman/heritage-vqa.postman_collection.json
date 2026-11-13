@@ -1,0 +1,2096 @@
+{
+  "info": {
+    "_postman_id": "bbdb0c54-6200-5447-b3c5-a74425cd55d2",
+    "name": "Heritage VQA - Complete API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "33 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Review creates a child run and calls only Judge. See docs/postman.md. No real credentials are included."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8001",
+      "type": "string"
+    },
+    {
+      "key": "bootstrap_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "operations_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "session_label",
+      "value": "Postman Heritage VQA",
+      "type": "string"
+    },
+    {
+      "key": "sample_id",
+      "value": "chua_mot_cot",
+      "type": "string"
+    },
+    {
+      "key": "asset_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "retry_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "review_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "delete_asset_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "question",
+      "value": "Những chi tiết kiến trúc nào nhìn thấy rõ trong ảnh?",
+      "type": "string"
+    },
+    {
+      "key": "audience",
+      "value": "tourist",
+      "type": "string"
+    },
+    {
+      "key": "profile",
+      "value": "default",
+      "type": "string"
+    },
+    {
+      "key": "idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "retry_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "review_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "history_after",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "sse_after",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "last_event_id",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "include_draft",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "include_intermediate",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "poll_interval_ms",
+      "value": "1000",
+      "type": "string"
+    },
+    {
+      "key": "poll_max_attempts",
+      "value": "120",
+      "type": "string"
+    },
+    {
+      "key": "feedback_note",
+      "value": "Nguồn và tiến trình dễ quan sát.",
+      "type": "string"
+    },
+    {
+      "key": "feedback_rating",
+      "value": "helpful",
+      "type": "string"
+    },
+    {
+      "key": "bookmark_saved",
+      "value": "true",
+      "type": "string"
+    },
+    {
+      "key": "enable_upload",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "run_lifecycle_actions",
+      "value": "false",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const base = String(pm.variables.get('base_url') || '').replace(/\\/+$/, '');",
+          "if (!/^https?:\\/\\//.test(base)) throw new Error('Set base_url and select the imported environment.');",
+          "pm.variables.set('base_url', base);",
+          "['question', 'feedback_note', 'session_label'].forEach(key => {",
+          "  pm.variables.set(key + '_json', JSON.stringify(String(pm.variables.get(key) || '')));",
+          "});"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response has a request ID', () => {",
+          "  pm.expect(pm.response.headers.get('X-Request-ID')).to.match(/^[a-f0-9-]{36}$/i);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 System",
+      "item": [
+        {
+          "id": "c5f57774-b8c4-511d-97c8-63fc36e696e6",
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/live",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "live"
+              ]
+            },
+            "description": "GET /health/live\n\nLive",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "69edae86-5838-5a7a-9256-a8ddd9dfd2b0",
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health/ready",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "ready"
+              ]
+            },
+            "description": "GET /health/ready\n\nReady",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200, 503]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "2835d2e9-6ffb-5512-a5ba-5f5356605f78",
+          "name": "Capabilities and model mode",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/capabilities",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "capabilities"
+              ]
+            },
+            "description": "GET /api/v1/capabilities\n\nCapabilities",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "577c6161-37e6-558f-9357-2604cf2ba973",
+          "name": "List sample images",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/samples",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "samples"
+              ]
+            },
+            "description": "GET /api/v1/samples\n\nSample List",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 Session",
+      "item": [
+        {
+          "id": "50662d39-6668-5221-a2f5-ee51ade25395",
+          "name": "Create session and save access token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions"
+              ]
+            },
+            "description": "POST /api/v1/sessions\n\nCreate Session",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"label\": {{session_label_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const bootstrap = pm.variables.get('bootstrap_token'); if (bootstrap) pm.request.headers.upsert({key:'X-Bootstrap-Token',value:bootstrap}); else pm.request.headers.remove('X-Bootstrap-Token');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "",
+                  "if (pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  pm.environment.set('access_token', data.access_token);",
+                  "  pm.environment.set('session_id', data.session_id);",
+                  "  ['asset_id','run_id','retry_run_id','review_run_id','idempotency_key','retry_idempotency_key','review_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
+                  "  ['history_after','sse_after','last_event_id','_poll_attempts'].forEach(key => pm.environment.set(key, '0'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "e235f433-6703-5ed2-9a06-970af93d29f0",
+          "name": "Current session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "me"
+              ]
+            },
+            "description": "GET /api/v1/sessions/me\n\nMe"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 Assets",
+      "item": [
+        {
+          "id": "cf1c0eb3-5159-59c2-8f56-68608bbf7289",
+          "name": "Create asset from sample",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/samples/{{sample_id}}/assets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "samples",
+                "{{sample_id}}",
+                "assets"
+              ]
+            },
+            "description": "POST /api/v1/samples/{sample_id}/assets\n\nUse Sample"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code === 201) pm.environment.set('asset_id', pm.response.json().asset_id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "a9897612-6787-5f8f-842b-70530e80cb2a",
+          "name": "List assets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets?limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/assets\n\nAssets"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "c1b27f5e-1d57-57de-a9d4-b974473b8e27",
+          "name": "Asset metadata",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets/{{asset_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets",
+                "{{asset_id}}"
+              ]
+            },
+            "description": "GET /api/v1/assets/{asset_id}\n\nAsset Info"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('asset_id')) throw new Error('Missing asset_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "9b0665a8-a3e8-5fda-8b6a-aee5da3262d7",
+          "name": "Download normalized PNG",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets/{{asset_id}}/content",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets",
+                "{{asset_id}}",
+                "content"
+              ]
+            },
+            "description": "GET /api/v1/assets/{asset_id}/content\n\nAsset Content"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('asset_id')) throw new Error('Missing asset_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "188a371a-5996-507f-bfa8-81da04c6d852",
+          "name": "Upload image - optional",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets"
+              ]
+            },
+            "description": "POST /api/v1/assets\n\nUpload",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Choose a JPEG/PNG/WebP in Postman; set enable_upload=true."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_upload')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code === 201) pm.environment.set('asset_id', pm.response.json().asset_id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 Workflow",
+      "item": [
+        {
+          "id": "3f595829-fa48-5bb4-9fa2-ba04e5157769",
+          "name": "Workflow stages and diagram",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/workflow",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "workflow"
+              ]
+            },
+            "description": "GET /api/v1/workflow\n\nWorkflow"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "20733552-a8ad-5973-8e56-dc99721a6a26",
+          "name": "Check role credentials and model metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/preflight",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "preflight"
+              ]
+            },
+            "description": "POST /api/v1/preflight\n\nCheck credentials/model metadata without generating content. Does not verify generation quota.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"roles\":[\"coordinator\",\"visual\",\"aggregator\",\"judge\"],\"force\":false}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 Runs",
+      "item": [
+        {
+          "id": "2cc5b5d8-8e0b-5988-9a88-7a119dcdd4db",
+          "name": "Create run and save run ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs"
+              ]
+            },
+            "description": "POST /api/v1/runs\n\nCreate Run",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"asset_id\":\"{{asset_id}}\",\"question\":{{question_json}},\"audience\":\"{{audience}}\",\"profile\":\"{{profile}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('asset_id')) throw new Error('Missing asset_id; run the earlier setup requests.');",
+                  "if (!pm.variables.get('idempotency_key')) pm.environment.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('_poll_attempts', '0');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "if (pm.response.code === 202) { const id = pm.response.json().run_id; if ('run_id' === 'run_id' && pm.environment.get('run_id') !== id) ['history_after','sse_after','last_event_id'].forEach(key => pm.environment.set(key, '0')); pm.environment.set('run_id', id); }",
+                  "if (pm.response.code === 202) { pm.environment.set('request_id', pm.response.json().request_id); pm.environment.set('trace_id', pm.response.json().trace_id); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "3708892c-c7e9-5371-8db1-1d4c09bd5ba1",
+          "name": "List runs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs?limit=20&offset=0&saved_only=false",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                },
+                {
+                  "key": "saved_only",
+                  "value": "false",
+                  "disabled": false,
+                  "description": "saved_only"
+                },
+                {
+                  "key": "execution_status",
+                  "value": "",
+                  "disabled": true,
+                  "description": "execution_status"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs\n\nList Runs"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "b775a2ee-3349-535d-abe8-94574b15705f",
+          "name": "Wait for run - Runner polling",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}\n\nGet Run"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const state = pm.response.json().execution_status;",
+                  "  if (['queued','running','cancel_requested'].includes(state)) {",
+                  "    const count = Number(pm.environment.get('_poll_attempts') || 0) + 1;",
+                  "    pm.environment.set('_poll_attempts', String(count));",
+                  "    if (count >= Number(pm.variables.get('poll_max_attempts') || 120)) {",
+                  "      pm.test('Polling budget exceeded', () => pm.expect.fail('Run still active; inspect status/events and increase poll_max_attempts.'));",
+                  "      pm.execution.setNextRequest(null);",
+                  "    } else {",
+                  "      pm.execution.setNextRequest(pm.info.requestId);",
+                  "      const delay = Math.min(10000, Math.max(100, Number(pm.variables.get('poll_interval_ms') || 1000)));",
+                  "      setTimeout(() => {}, delay);",
+                  "    }",
+                  "  } else if (state !== 'succeeded') {",
+                  "    pm.test('Run succeeded', () => pm.expect(state).to.eql('succeeded'));",
+                  "    pm.execution.setNextRequest(null);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "06 Events",
+      "item": [
+        {
+          "id": "d0539ab1-6d13-5445-9393-c48d4a211825",
+          "name": "Event history JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/events/history?after={{history_after}}&limit=100&include_draft={{include_draft}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "events",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "{{history_after}}",
+                  "disabled": false,
+                  "description": "after"
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "include_draft",
+                  "value": "{{include_draft}}",
+                  "disabled": false,
+                  "description": "include_draft"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/events/history\n\nHistory"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "if (pm.response.code === 200) pm.environment.set('history_after', String(pm.response.json().next_after));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "070f8a1e-ad0f-5e9a-82bf-7414b3089dc2",
+          "name": "Stream stages SSE",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/events?after={{sse_after}}&include_draft={{include_draft}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "{{sse_after}}",
+                  "disabled": false,
+                  "description": "after"
+                },
+                {
+                  "key": "include_draft",
+                  "value": "{{include_draft}}",
+                  "disabled": false,
+                  "description": "include_draft"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/events\n\nStream Events"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "pm.test('SSE content type', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('text/event-stream'));",
+                  "const ids = Array.from(pm.response.text().matchAll(/^id:\\s*(\\d+)\\s*$/gm), m => Number(m[1]));",
+                  "if (ids.length) pm.environment.set('last_event_id', String(Math.max(...ids)));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "7d8ca43c-06b9-5bad-8571-590df0d50b12",
+          "name": "Replay SSE using Last-Event-ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/event-stream"
+              },
+              {
+                "key": "Last-Event-ID",
+                "value": "{{last_event_id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/events?after={{sse_after}}&include_draft={{include_draft}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "after",
+                  "value": "{{sse_after}}",
+                  "disabled": false,
+                  "description": "after"
+                },
+                {
+                  "key": "include_draft",
+                  "value": "{{include_draft}}",
+                  "disabled": false,
+                  "description": "include_draft"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/events\n\nStream Events"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "pm.test('SSE content type', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('text/event-stream'));",
+                  "const ids = Array.from(pm.response.text().matchAll(/^id:\\s*(\\d+)\\s*$/gm), m => Number(m[1]));",
+                  "if (ids.length) pm.environment.set('last_event_id', String(Math.max(...ids)));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "07 Results",
+      "item": [
+        {
+          "id": "27aea1af-e0ff-542c-a007-534cf3d0fa26",
+          "name": "Final result",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/result?include_intermediate={{include_intermediate}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "result"
+              ],
+              "query": [
+                {
+                  "key": "include_intermediate",
+                  "value": "{{include_intermediate}}",
+                  "disabled": false,
+                  "description": "include_intermediate"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/result\n\nResult"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "2ae839eb-b6ca-57ff-97a6-2c91ffded6aa",
+          "name": "Result including intermediate artifacts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/result?include_intermediate=true",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "result"
+              ],
+              "query": [
+                {
+                  "key": "include_intermediate",
+                  "value": "true",
+                  "disabled": false,
+                  "description": "include_intermediate"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/result\n\nResult"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "206edfc9-1973-53a9-848f-8a5c436ab67c",
+          "name": "Sources and citations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/sources",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "sources"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/sources\n\nSources"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "57a6d184-d2be-599d-bac2-9482a69a9ce8",
+          "name": "Intermediate stage snapshots",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/steps?include_draft={{include_draft}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "steps"
+              ],
+              "query": [
+                {
+                  "key": "include_draft",
+                  "value": "{{include_draft}}",
+                  "disabled": false,
+                  "description": "include_draft"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/steps\n\nSteps"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "7a6ee378-f1ea-5673-a4c8-2fe9f8461f68",
+          "name": "Durable model attempts and usage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "metrics"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/metrics\n\nMetrics"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "b55b1c44-bb11-5d72-a152-6cb485a64dd0",
+          "name": "Export JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/export?format=json&include_intermediate={{include_intermediate}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "json",
+                  "disabled": false,
+                  "description": "format"
+                },
+                {
+                  "key": "include_intermediate",
+                  "value": "{{include_intermediate}}",
+                  "disabled": false,
+                  "description": "include_intermediate"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/export\n\nExport"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "e2f55886-8644-5d93-87b7-c424350bba45",
+          "name": "Export Markdown",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/export?format=markdown&include_intermediate={{include_intermediate}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "export"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "markdown",
+                  "disabled": false,
+                  "description": "format"
+                },
+                {
+                  "key": "include_intermediate",
+                  "value": "{{include_intermediate}}",
+                  "disabled": false,
+                  "description": "include_intermediate"
+                }
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/export\n\nExport"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 Feedback",
+      "item": [
+        {
+          "id": "198d2f84-214e-5dc3-8cb0-d84fdf0fdf92",
+          "name": "Save bookmark",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/bookmark",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "bookmark"
+              ]
+            },
+            "description": "PUT /api/v1/runs/{run_id}/bookmark\n\nBookmark",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"saved\": {{bookmark_saved}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "5a4001ec-c51d-5528-a77e-e8b907988aee",
+          "name": "Create feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "feedback"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/feedback\n\nFeedback",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\":\"{{feedback_rating}}\",\"note\":{{feedback_note_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "c965a68e-93b4-5c3b-8f89-4ac388201e71",
+          "name": "Update feedback",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "feedback"
+              ]
+            },
+            "description": "PUT /api/v1/runs/{run_id}/feedback\n\nFeedback",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"rating\":\"{{feedback_rating}}\",\"note\":{{feedback_note_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "4e8cf016-9632-56a7-868d-5fa2a1d1aa5a",
+          "name": "Read feedback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "feedback"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/feedback\n\nGet Feedback"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "09 Operations",
+      "item": [
+        {
+          "id": "8deaec67-53fb-5055-a6b8-06fbd7cc0c30",
+          "name": "Prometheus metrics - operator token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "metrics"
+              ]
+            },
+            "description": "GET /api/v1/operations/metrics\n\nOperations Metrics",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operations_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('operations_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test('Prometheus text', () => pm.expect(pm.response.text()).to.include('heritage_runs'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "10 Lifecycle actions - optional",
+      "item": [
+        {
+          "id": "25cb6821-704e-5144-a0af-6b8853c2d7b5",
+          "name": "Cancel run",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "cancel"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/cancel\n\nCancel"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "53cdba38-7e7a-5c41-8661-49c746b6ff58",
+          "name": "Review only Judge - saves review_run_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{review_idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "review"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/review\n\nCreate a child run that reuses stored evidence/draft and executes only Judge. Original run is preserved."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');",
+                  "if (!pm.variables.get('review_idempotency_key')) pm.environment.set('review_idempotency_key', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "if (pm.response.code === 202) { const id = pm.response.json().run_id; if ('review_run_id' === 'run_id' && pm.environment.get('run_id') !== id) ['history_after','sse_after','last_event_id'].forEach(key => pm.environment.set(key, '0')); pm.environment.set('review_run_id', id); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "8f5ad389-f0cf-5d8f-9e32-605c01390f13",
+          "name": "Retry terminal run - saves retry_run_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{retry_idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/retry",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "retry"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/retry\n\nRetry"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');",
+                  "if (!pm.variables.get('retry_idempotency_key')) pm.environment.set('retry_idempotency_key', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "if (pm.response.code === 202) { const id = pm.response.json().run_id; if ('retry_run_id' === 'run_id' && pm.environment.get('run_id') !== id) ['history_after','sse_after','last_event_id'].forEach(key => pm.environment.set(key, '0')); pm.environment.set('retry_run_id', id); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "c8ce8008-a546-5894-bce9-01dfef30338b",
+          "name": "Delete asset - 409 if used",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/assets/{{delete_asset_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "assets",
+                "{{delete_asset_id}}"
+              ]
+            },
+            "description": "DELETE /api/v1/assets/{asset_id}\n\nDelete Asset"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('delete_asset_id')) pm.variables.set('delete_asset_id', pm.variables.get('asset_id'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([204, 409]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "63e2615e-85e2-5556-93fb-8aa60f69164c",
+          "name": "Revoke session - run last",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sessions/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sessions",
+                "me"
+              ]
+            },
+            "description": "DELETE /api/v1/sessions/me\n\nRevoke"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([204]));",
+                  "if (pm.response.code === 204) ['access_token','session_id'].forEach(key => pm.environment.unset(key));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}

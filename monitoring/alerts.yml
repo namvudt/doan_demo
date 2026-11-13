@@ -1,0 +1,38 @@
+groups:
+  - name: heritage
+    rules:
+      - alert: HeritageAPIUnavailable
+        expr: up{job="heritage-api"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: API scrape failed; check process, network and operations token
+      - alert: HeritageWorkerUnavailable
+        expr: heritage_workers_alive == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: No worker has a valid heartbeat
+      - alert: HeritageQueueDelayed
+        expr: heritage_oldest_queued_seconds > 120
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: Oldest queued job has waited more than two minutes
+      - alert: HeritageHTTPFailures
+        expr: sum(rate(heritage_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(heritage_http_requests_total[5m])), 0.001) > 0.05
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: API server errors exceed five percent
+      - alert: HeritageWorkerLeaseLost
+        expr: delta(heritage_worker_lost_runs[5m]) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: A job lost its worker lease; inspect its run logs
+      - alert: HeritageModelErrors
+        expr: delta(heritage_model_attempts{status="error"}[5m]) > 2
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: Multiple model attempts failed; inspect provider errors in logs

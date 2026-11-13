@@ -1,6 +1,8 @@
-import json
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 from PIL import Image
+
+from core.schemas import ExecutionPlan
 from utils.llm_clients import LLMManager, safe_extract_json
 
 COORDINATOR_SYSTEM_PROMPT = """Bạn là Coordinator Agent (Kiến trúc sư Trưởng Điều phối Hệ thống) của Hệ thống Multi-Agent VQA Di tích Lịch sử & Văn hóa Nghệ thuật Việt Nam.
@@ -33,6 +35,7 @@ BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON chuẩn xác có �
 }
 """
 
+
 class CoordinatorAgent:
     def __init__(self, llm_manager: LLMManager):
         self.llm = llm_manager
@@ -53,44 +56,12 @@ Hãy quan sát ảnh kỹ lưỡng, định danh sơ bộ di tích/công trình 
             prompt=prompt,
             system_instruction=COORDINATOR_SYSTEM_PROMPT,
             image=image,
-            preferred_provider="gemini", # Multimodal quan sát ảnh để định tuyến
+            preferred_provider="gemini",  # Multimodal quan sát ảnh để định tuyến
             temperature=0.2,
             json_output=True,
-            agent_role="coordinator"
+            agent_role="coordinator",
+            response_schema=ExecutionPlan,
         )
 
-        plan = safe_extract_json(raw_response)
-        
-        # Đảm bảo fallback an toàn nếu LLM parse lỗi
-        if "selected_agents" not in plan or not isinstance(plan["selected_agents"], list):
-            # Fallback mặc định an toàn
-            query_lower = query.lower()
-            selected = ["visual_agent", "knowledge_agent"]
-            categories = ["QA_Fact", "Visual_Description"]
-            
-            if any(w in query_lower for w in ["thơ", "sáng tác", "bài thơ", "văn", "cảm tác"]):
-                selected.append("tool_gen_agent")
-                categories.append("Creative")
-                
-            plan = {
-                "query_intent": query,
-                "identified_monument": "Di tích lịch sử - văn hóa trong ảnh",
-                "task_categories": categories,
-                "selected_agents": selected,
-                "plan_reasoning": "Kế hoạch dự phòng: Kích hoạt các tác tử trọng tâm dựa trên từ khóa ngữ nghĩa của câu hỏi.",
-                "focus_directives": {
-                    "visual_focus": "Nhận diện di tích và kiến trúc tổng quan",
-                    "knowledge_focus": "Lịch sử và giá trị văn hóa",
-                    "generation_focus": "Giải đáp yêu cầu đặc thù"
-                }
-            }
-
-        # Đảm bảo visual_agent luôn có mặt để cung cấp giác quan thị giác
-        if "visual_agent" not in plan["selected_agents"]:
-            plan["selected_agents"].insert(0, "visual_agent")
-
-        # Loại bỏ ocr_agent nếu model lỡ trả về
-        if "ocr_agent" in plan["selected_agents"]:
-            plan["selected_agents"].remove("ocr_agent")
-
-        return plan, meta
+        plan = ExecutionPlan.model_validate(safe_extract_json(raw_response))
+        return plan.model_dump(), meta
