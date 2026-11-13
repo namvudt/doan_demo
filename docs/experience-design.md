@@ -88,9 +88,11 @@ Kiểm thử offline gồm event lifecycle, nhánh song song, nguồn đến tr�
 hoàn tất, giữ nguồn khi model lỗi, trích dẫn, xuất báo cáo, cache/state lịch sử và
 Streamlit AppTest. Kiểm tra trình duyệt Edge qua Playwright ở 1440 × 1080 và
 390 × 844 dùng nguồn/model giả lập; không gọi API model thật. Xem kết quả kiểm tra
-mới nhất trong [implementation-progress.md](implementation-progress.md).
+mới nhất bằng `uv run --locked pytest`; HTTP report được tạo bằng
+`uv run --locked python -m scripts.api_contract_report`.
 
-Lịch sử/phản hồi hiện chỉ lưu trong phiên, chưa có đăng nhập hoặc database. Bản
+Streamlit local giữ lịch sử/phản hồi trong phiên; API có database và endpoint
+lưu bền nhưng chưa có đăng nhập tài khoản/OIDC. Bản
 đồ là liên kết tìm kiếm, chưa có tọa độ được xác minh để gắn điểm trong ứng dụng.
 Ứng dụng chưa có dữ liệu du lịch thời gian thực về giá vé, giờ mở cửa, tin tức hay
 lịch sự kiện. Chi phí và chất lượng model thật cần được đo ở lượt chạy có API.

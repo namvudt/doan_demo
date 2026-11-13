@@ -14,3 +14,14 @@ __pycache__
 .pytest_cache
 .ruff_cache
 tests
+docs/*
+!docs/langgraph.mmd
+postman
+.github
+.coverage*
+htmlcov
+coverage.xml
+**/*.sqlite*
+**/*.db
+**/*.log
+**/*.jsonl

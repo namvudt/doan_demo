@@ -722,6 +722,9 @@ def summarize_response(record):
 
 
 def write_report(report, summary, json_path, markdown_path, base_url):
+    def relative_link(path):
+        return os.path.relpath(path, markdown_path.parent).replace(os.sep, "/")
+
     covered = {c["operation"] for c in report.cases if c["operation"] and c["passed"]}
     expected = {f"{method} {path}" for method, path in report.operations}
     missing = sorted(expected - covered)
@@ -791,7 +794,7 @@ def write_report(report, summary, json_path, markdown_path, base_url):
             "## Xem request/response đầy đủ",
             "",
             "Dữ liệu phản hồi thật, request, header đã che token và assertion của từng case nằm ở",
-            "[results.json](../reports/api-contract/results.json). File này được tạo local, không commit cùng source.",
+            f"[results.json]({relative_link(json_path)}). File này được tạo local, không commit cùng source.",
             "Ảnh tải về được ghi nhận bằng format, kích thước, số byte và SHA-256; SSE được parse thành các frame.",
             "",
             "## Chạy lại",
@@ -802,7 +805,7 @@ def write_report(report, summary, json_path, markdown_path, base_url):
             "",
             "Lệnh tạo server demo tạm trên port 18512, tạo worker riêng và tự dừng cả hai khi xong.",
             "Không thay đổi `.env`, không gửi request vào server live port 8000. Có thể đổi `--port`.",
-            "Hướng dẫn thao tác thủ công từng API: [api-swagger-walkthrough.md](api-swagger-walkthrough.md).",
+            f"Hướng dẫn thao tác thủ công từng API: [api-swagger-walkthrough.md]({relative_link(ROOT / 'docs/api-swagger-walkthrough.md')}).",
             "",
         ]
     )
@@ -815,7 +818,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=18512)
     parser.add_argument("--output", type=Path, default=ROOT / "reports/api-contract/results.json")
-    parser.add_argument("--markdown", type=Path, default=ROOT / "docs/api-test-results.md")
+    parser.add_argument("--markdown", type=Path, default=ROOT / "reports/api-contract/results.md")
     args = parser.parse_args()
     # Do not stop/reuse a server we did not launch.
     with socket.socket() as probe:

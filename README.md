@@ -1,118 +1,90 @@
-# Hệ thống VQA di tích Việt Nam — LangGraph
+# Heritage VQA — Di sản Việt Nam qua ảnh
 
-Ứng dụng hỏi đáp bằng ảnh, ưu tiên Gemini API và cấu hình provider/model theo từng vai trò. UI Streamlit, CLI và chế độ so sánh dùng chung một workflow LangGraph.
+Ứng dụng hỏi đáp bằng ảnh với LangGraph multi-agent, ưu tiên Gemini và cấu hình
+provider/model theo từng vai trò. Streamlit, CLI và FastAPI dùng chung workflow.
 
 ## Cài đặt
 
-API và Swagger UI đã được tích hợp. Chạy `uv run --locked python -m scripts.serve_api`
-rồi mở <http://127.0.0.1:8000/docs>. Thêm `--demo` để thử graph/API bằng dữ liệu
-mô phỏng, không gọi model trả phí. Hướng dẫn token, upload, jobs, SSE, PostgreSQL,
-Docker và tích hợp frontend: [docs/api-server.md](docs/api-server.md).
-
-Log JSON, liên kết request/run/worker/LangSmith, model attempts lưu bền, metrics
-và Prometheus: [hướng dẫn giám sát](docs/observability.md),
-[kế hoạch thực hiện](docs/observability-plan.md).
-
-Thử từng API theo [hướng dẫn Swagger chi tiết](docs/api-swagger-walkthrough.md),
-xem [bảng kết quả kiểm thử](docs/api-test-results.md), hoặc chạy
-`uv run --locked python -m scripts.api_contract_report` để tự tạo lại báo cáo.
-
-Postman: import [Collection đầy đủ](postman/heritage-vqa.postman_collection.json)
-và [Demo environment](postman/heritage-vqa-demo.postman_environment.json).
-Xem [hướng dẫn import và chạy](docs/postman.md); bộ JSON có 31 operations,
-script tự lưu token/ID, polling và SSE.
-
-Yêu cầu Python 3.12 và uv. Tại thư mục repo:
+Yêu cầu Python 3.12 và uv.
 
 ```powershell
 uv sync --locked --group dev
 Copy-Item .env.example .env
 ```
 
-Điền GEMINI_API_KEY trong `.env`; file này được Git bỏ qua. Một key chung đủ cho cấu hình mặc định. Có thể cấu hình key riêng cho role bằng các biến tương ứng trong `.env.example`.
+Chỉ sao chép `.env.example` khi chưa có `.env`. Điền `GEMINI_API_KEY` để gọi model
+thật; giữ credential trong `.env` hoặc secret của môi trường triển khai.
+
+## Chạy ứng dụng
 
 ```powershell
-uv run streamlit run app.py
+# API demo: không gọi model trả phí
+uv run --locked python -m scripts.serve_api --demo --port 8001
+
+# API dùng model đã cấu hình
+uv run --locked python -m scripts.serve_api --port 8000
+
+# Giao diện Streamlit
+uv run --locked streamlit run app.py
 ```
 
-Phương án chỉ cài dependency runtime: `pip install -r requirements.txt`. File requirements được xuất từ uv.lock; sửa dependency gốc tại pyproject.toml rồi cập nhật lock/export.
+Swagger: <http://127.0.0.1:8001/docs> trong demo, hoặc port 8000 khi chạy live.
+Các lệnh server chạy riêng ở từng terminal. Hướng dẫn triển khai PostgreSQL,
+worker, Docker và frontend: [API server](docs/api-server.md).
 
-## Cách hoạt động
+Postman: import [Collection](postman/heritage-vqa.postman_collection.json) và
+[Demo environment](postman/heritage-vqa-demo.postman_environment.json), rồi chọn
+môi trường trong Postman. Bộ 31 API tự lưu token, asset/run ID và hỗ trợ SSE.
+[Hướng dẫn Postman](docs/postman.md) · [Thử từng API bằng Swagger](docs/api-swagger-walkthrough.md).
 
-Giao diện mới có ảnh mẫu/tải ảnh/camera, câu hỏi gợi ý, kết quả trung gian cập nhật
-theo từng giai đoạn, thư viện nguồn có trích dẫn, liên kết bản đồ và lịch sử phiên.
-Có thể xem bản nháp theo lựa chọn, đánh dấu lượt khám phá và xuất JSON/Markdown.
-Chi tiết tính năng, luồng dữ liệu và giới hạn: [docs/experience-design.md](docs/experience-design.md).
+## Workflow và cấu hình
 
-1. Kiểm tra ảnh, câu hỏi và phạm vi.
-2. Coordinator trả ExecutionPlan có schema.
-3. Visual và Knowledge chạy song song; các kết quả/lỗi được hợp nhất bằng reducer.
-4. Generation chỉ chạy khi bật trong cấu hình và có trong kế hoạch, sau khi các expert có kết quả.
-5. Aggregator tạo bản nháp nội bộ.
-6. Judge đối chiếu ảnh gốc và các đoạn nguồn thực, trả kết quả theo schema.
-7. UI công bố câu trả lời khi có đánh giá hợp lệ hoặc thông báo thiếu căn cứ. Bản nháp không được stream công khai.
+Kiểm tra đầu vào → điều phối → Visual/Knowledge song song → tổng hợp → đánh giá.
+Giao diện có báo cáo trung gian, nguồn trích dẫn, lịch sử phiên và export.
+Generation tùy chọn, mặc định tắt. `reviewed` là đánh giá tự động, không bảo đảm
+mọi dữ kiện đều chính xác. [Kiến trúc](ARCHITECTURE.md) · [Sơ đồ](docs/langgraph.mmd).
 
-Các trạng thái nội dung: `reviewed`, `unverified`, `insufficient_evidence`, `out_of_scope`, `failed`. `reviewed` nghĩa là có đánh giá tự động hợp lệ; không phải bảo đảm đáp án đúng tuyệt đối.
+- Cấu hình: [config/default.yaml](config/default.yaml); đổi provider/model/role,
+  timeout, token budget, retry và concurrency tại đây hoặc qua biến môi trường.
+- LangSmith: đặt `LANGSMITH_TRACING=true`; bật `LANGSMITH_CAPTURE_CONTENT=true`
+  để xem prompt/response đã lọc credential. [Hướng dẫn](docs/langsmith.md).
+- Log JSON, model diagnostics, metrics và Prometheus: [Observability](docs/observability.md).
+- CLI nghiên cứu: `uv run --locked python benchmark_run.py --help`.
 
-Sơ đồ thực: [docs/langgraph.mmd](docs/langgraph.mmd). Chi tiết thay đổi và giới hạn: [docs/implementation-progress.md](docs/implementation-progress.md).
-
-## Cấu hình
-
-Cấu hình runtime là [config/default.yaml](config/default.yaml). `HERITAGE_CONFIG` có thể trỏ tới YAML khác; cấu hình được xác thực trước khi chạy.
-
-- Mặc định mọi role dùng Gemini; sửa `roles.<role>.provider` và `model` để đổi binding.
-- Provider được khai báo rõ; không suy từ tiền tố API key.
-- Cross-provider fallback là opt-in qua `fallback_providers`; benchmark tắt fallback để giữ điều kiện.
-- Giới hạn model calls, timeout, output tokens, retry và concurrency nằm trong cấu hình.
-- Mỗi run giữ config snapshot/hash, provider/model/usage và lỗi của từng attempt. Secret không được xuất vào result.
-- YAML được đọc khi tạo manager mới; sau khi sửa `.env`, khởi động lại ứng dụng để nạp lại các biến môi trường.
-- GPU provider dùng endpoint tương thích API đã khai báo; cần chọn model và kiểm tra khả năng nhận ảnh/JSON trước khi sử dụng. Chưa benchmark GPU.
-
-Các YAML ở thư mục thiết kế của workspace là tài liệu đề xuất rộng hơn, không thay thế trực tiếp schema runtime này.
-
-## Theo dõi LangSmith
-
-Bật `LANGSMITH_TRACING=true`, điền `LANGSMITH_API_KEY` và chọn `LANGSMITH_PROJECT`
-trong `.env`, rồi khởi động lại ứng dụng. Trace gồm workflow/node, từng attempt gọi
-model và search; giữ thời gian, token thực, provider/model và trạng thái. Bật
-`LANGSMITH_CAPTURE_CONTENT=true` để xem câu hỏi/prompt/response và báo cáo đã lọc
-credential. Ảnh dùng metadata/fingerprint. Hướng dẫn và lệnh kiểm tra kết nối:
-[docs/langsmith.md](docs/langsmith.md).
-
-## CLI và so sánh
-
-```powershell
-uv run python benchmark_run.py samples/chua_mot_cot.jpg "Đây là công trình nào?"
-uv run python benchmark_run.py samples/chua_mot_cot.jpg "Đây là công trình nào?" --compare --output comparison.json
-```
-
-Các lệnh chạy model thật cần key và có thể phát sinh phí. Chế độ `--compare` chỉ báo đầu ra, thời gian, calls và lỗi. Chưa có gold answers/evaluator độc lập, không tính accuracy hoặc kết luận phương pháp thắng. Baseline ReAct hiện là mô phỏng bằng prompt, được ghi rõ `has_tools=false`.
-
-## Kiểm tra offline
+## Kiểm tra và tạo lại artifact
 
 ```powershell
 uv run --locked ruff check .
+uv run --locked python -m scripts.check_repo
 uv run --locked ruff format --check .
 uv run --locked pytest
-uv run --locked python -m scripts.export_graph
+uv run --locked python -m scripts.api_contract_report
+uv run --locked python -m scripts.export_postman
 ```
 
-Test mặc định dùng mock và chặn kết nối ra ngoài, không cần key. CI được cấu hình cho Windows và Linux.
+Tests mặc định dùng mock, chặn mạng ngoài và không cần API key. HTTP report chạy
+API/worker demo riêng, tạo bảng và JSON ở `reports/api-contract/results.md` và
+`reports/api-contract/results.json`. Các báo cáo theo lượt chạy không commit.
+OpenAPI luôn có ở `/openapi.json`; xuất file tùy chọn bằng
+`uv run --locked python -m scripts.export_postman --include-openapi`.
 
-Live smoke riêng, chỉ chạy khi chủ động bật:
+## Cấu trúc repository
 
-```powershell
-$env:RUN_LIVE_SMOKE = '1'
-uv run python -m scripts.live_api_smoke
-Remove-Item Env:RUN_LIVE_SMOKE
-```
+| Thư mục | Nội dung |
+| --- | --- |
+| `agents/`, `core/`, `workflow/` | Agent, provider gateway, graph và hợp đồng dữ liệu |
+| `api/`, `migrations/` | API, queue, worker và migration SQLite/PostgreSQL |
+| `ui/`, `ui_app.py`, `app.py` | Giao diện Streamlit |
+| `tests/`, `scripts/` | Regression tests và lệnh vận hành/kiểm tra |
+| `docs/`, `deploy/`, `monitoring/` | Tài liệu hiện hành và cấu hình triển khai |
+| `postman/`, `samples/` | Collection/environment mẫu và bốn ảnh di sản |
 
-Import `test.py` không còn thực thi request. Các script không tự thay đổi OPENAI_BASE_URL trong môi trường.
+Giữ mã nguồn, tests, migrations, lockfile, cấu hình và tài liệu dùng chung trong
+Git. `.env`, dữ liệu người dùng, log, báo cáo chạy thử, virtualenv và công cụ tải
+tạm được Git/Docker bỏ qua. Dependency gốc ở `pyproject.toml`; `uv.lock` dùng cho
+uv/CI, `requirements.txt` dùng cho pip/Docker.
 
-## Phạm vi và giới hạn
-
-Bản hiện tại tập trung vào nhận diện và lịch sử công trình. Phiên âm/dịch Hán–Nôm và sáng tác không thuộc đường chạy chính; generation mặc định tắt. OCR chuyên dụng, entity catalog nhiều ứng viên và corpus di sản được tuyển chọn nằm ở giai đoạn tiếp theo.
-
-Search hiện dùng Wikipedia tiếng Việt và đoạn mở đầu có giới hạn. Mỗi nguồn giữ ID/snippet/revision khi có và thời điểm truy cập; timeout/error khác với không có kết quả. Maps URL là liên kết tìm kiếm điều hướng, không phải tọa độ được xác minh hoặc bằng chứng lịch sử.
-
-Chưa có claim-level verifier đầy đủ, debate loop hoặc evaluator độc lập. API và database đã lưu bền run/events/model attempts; checkpoint LangGraph mặc định chưa lưu bền để resume node sau restart. Checkpointer có thể được inject và đã kiểm tra serialization bằng InMemorySaver.
+Giới hạn hiện tại: chưa có account/OIDC, catalog du lịch, claim-level verifier,
+corpus RAG được tuyển chọn hoặc resume node bền vững. Search dùng Wikipedia;
+maps URL là liên kết tìm kiếm, không phải tọa độ đã xác minh. Baseline so sánh
+chỉ phục vụ mô tả đầu ra/thời gian, chưa có gold dataset để kết luận accuracy.

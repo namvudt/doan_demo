@@ -18,6 +18,7 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked --group dev
+      - run: uv run --locked python -m scripts.check_repo
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
       - run: uv run --locked pytest

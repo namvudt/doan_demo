@@ -7,7 +7,8 @@ upload và ví dụ để thử nhanh.
 
 Hướng dẫn thao tác chi tiết từng endpoint và cách đọc response:
 [api-swagger-walkthrough.md](api-swagger-walkthrough.md).
-Bảng kết quả HTTP thật: [api-test-results.md](api-test-results.md).
+Bảng kết quả HTTP được sinh local bằng `python -m scripts.api_contract_report`,
+ghi tại `reports/api-contract/results.md` và `results.json`, không commit.
 Log JSON, durable model attempts, metrics có token riêng và cấu hình Prometheus:
 [observability.md](observability.md).
 

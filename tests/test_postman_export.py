@@ -14,7 +14,6 @@ def test_committed_artifacts_match_current_api_and_cover_all_operations():
     schema = app.openapi()
     collection = read("heritage-vqa.postman_collection.json")
     assert collection == build_collection(schema)
-    assert read("heritage-vqa.openapi.json") == schema
     requests = [item for folder in collection["item"] for item in folder["item"]]
     operations = {item["request"]["description"].splitlines()[0] for item in requests}
     actual = {

@@ -1,6 +1,6 @@
 # Kiến trúc đang triển khai
 
-Phiên bản 0.2: một LangGraph dùng chung cho các adapter UI/CLI/comparison.
+Phiên bản 0.2: một LangGraph dùng chung cho Streamlit, CLI, comparison và API worker.
 
 ```mermaid
 flowchart TD
@@ -32,6 +32,10 @@ flowchart TD
 - `workflow/comparison.py`: chạy cùng service cho Proposed, giữ baseline errors và không tự chấm accuracy.
 - `ui_app.py`, `app.py`, `benchmark_run.py`: presentation/CLI adapters.
 - `tests/`: transport fixtures, regression, graph concurrency/checkpoint và UI AppTest.
+- `api/`: FastAPI, sessions/ownership, assets, durable run queue, SSE và worker.
+- `migrations/`: schema/versioning SQLite local và PostgreSQL server.
+- `core/observability.py`, `core/runtime_logging.py`: LangSmith content policy và JSON logs.
+- `postman/`, `deploy/`, `monitoring/`: API client mẫu và cấu hình vận hành.
 
 State không chứa API clients/keys. Ảnh trong state ở dạng bytes để checkpointer có thể serialize. Result xuất ra không chứa ảnh gốc hoặc credentials.
 
@@ -41,6 +45,10 @@ Mỗi run có manager/budget riêng và đóng clients sau khi kết thúc. UI t
 
 Judge hiện đánh giá toàn đáp án dựa trên schema, ảnh và snippets; chưa phải claim-evidence engine đầy đủ. Nguồn có ID và URL đúng registry chưa bảo đảm nội dung được nguồn hỗ trợ. Không dùng điểm tự đánh giá làm ground truth nghiên cứu.
 
-Checkpointer injectable, mặc định không bật; InMemorySaver được test nhưng không bền qua restart. Chưa có persistent resume/cancel/API worker, corpus RAG, tool registry, debate, hoặc GPU đã đo. Các phần này giữ trong backlog để triển khai theo từng lát có nghiệm thu.
+API lưu queue, run/events, model attempts và feedback trong DB; worker claim job,
+heartbeat/lease và hỗ trợ cancel/retry. Checkpointer LangGraph injectable, mặc
+định không bật; InMemorySaver được test nhưng không bền qua restart. Chưa có
+resume node từ checkpoint sau crash, corpus RAG, tool registry, debate hoặc GPU
+đã đo. [API và triển khai](docs/api-server.md) · [Giám sát](docs/observability.md).
 
 Tham khảo cơ chế graph, state, reducers và conditional edges trong [LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api); lưu trạng thái trong [LangGraph persistence](https://docs.langchain.com/oss/python/langgraph/persistence).

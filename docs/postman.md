@@ -18,9 +18,10 @@ Chọn environment vừa import ở góc trên bên phải. Collection tên **He
 Complete API** xuất hiện trong Collections. Không cần import cả hai environment
 cùng lúc; có thể import cả hai để chuyển server bằng environment selector.
 
-File [heritage-vqa.openapi.json](../postman/heritage-vqa.openapi.json) chứa toàn bộ
-schema OpenAPI, dùng khi cần import API definition hoặc sinh client. Collection
-ở bước 1 đã có sẵn workflow và scripts nên tiện thử hơn API definition thuần.
+Schema OpenAPI có sẵn tại `/openapi.json`. Khi cần file để sinh client, chạy
+`uv run --locked python -m scripts.export_postman --include-openapi` để tạo
+`postman/heritage-vqa.openapi.json` local. Schema có thể sinh lại nên không commit;
+collection ở bước 1 đã có đủ workflow và scripts để thử toàn bộ API.
 
 ## 2. Chạy backend demo
 

@@ -11,6 +11,7 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+.venv-*/
 env/
 ENV/
 
@@ -32,3 +33,24 @@ data/
 .api-demo/
 logs/
 .secrets/
+
+# Local databases and coverage/test artifacts
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.jsonl
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Reproducible exports and local development notes
+/postman/heritage-vqa.openapi.json
+/docs/api-test-results.md
+/docs/implementation-progress.md
+/docs/observability-plan.md
+/docs/incidents/
+/docs/local/
+*.postman_environment.local.json

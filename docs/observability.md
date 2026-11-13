@@ -1,8 +1,8 @@
 # Log và giám sát server
 
 API và worker dùng JSON logging, lưu lịch sử stage và model attempts trong DB,
-đồng thời có thể gửi trace đã lọc dữ liệu tới LangSmith. Kế hoạch và tiêu chí:
-[observability-plan.md](observability-plan.md).
+đồng thời có thể gửi trace đã lọc dữ liệu tới LangSmith. Tài liệu này mô tả cấu
+hình hiện hành; kế hoạch cũ và báo cáo theo từng lượt chạy giữ ở local.
 
 ## Chạy local
 
@@ -222,8 +222,8 @@ uv run --locked python -m scripts.api_contract_report
 
 Runner tạo API/worker/SQLite/log directory riêng, kiểm tra mọi OpenAPI operation,
 operations auth, metrics và liên kết log qua hai tiến trình, rồi dừng tiến trình
-do nó tạo. Không đổi `.env`, không gọi model thật hoặc chạm server live. Xem
-[bảng kết quả HTTP](api-test-results.md). Log thô của runner ở thư mục
+do nó tạo. Không đổi `.env`, không gọi model thật hoặc chạm server live. Bảng
+kết quả ở `reports/api-contract/results.md`. Log thô của runner ở thư mục
 `.api-demo/contract-<uuid>/logs`, bị Git bỏ qua.
 
 Để kiểm tra Prometheus thật mà không cần Docker, tải binary chính thức và xác

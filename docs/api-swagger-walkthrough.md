@@ -3,11 +3,10 @@
 Nếu dùng Postman, có sẵn [collection và environment JSON đầy đủ](postman.md)
 với script tự lưu token/ID, polling và SSE.
 
-Hướng dẫn này đi cùng [bảng kết quả thực tế](api-test-results.md): 31 HTTP
-operations, 73 tình huống, chạy qua HTTP với API và worker riêng. Chi tiết mọi
-request/response đã che token ở [results.json](../reports/api-contract/results.json).
-Các UUID trong báo cáo thuộc lượt test đã kết thúc; khi thử lại hãy tạo phiên,
-ảnh và run mới theo các bước dưới đây.
+Hướng dẫn bao phủ 31 HTTP operations. Chạy `python -m scripts.api_contract_report`
+để sinh bảng `reports/api-contract/results.md` và request/response đã che token
+trong `reports/api-contract/results.json`. Report là artifact local, không commit.
+Khi thử lại, tạo phiên, ảnh và run mới theo các bước dưới đây.
 
 Endpoint mới `GET /api/v1/operations/metrics` thuộc nhóm Operations, xuất
 Prometheus text. Nó dùng `API_OPERATIONS_TOKEN` riêng thay cho guest access token;
@@ -285,11 +284,11 @@ uv run --locked python -m scripts.api_contract_report
 ```
 
 Runner tự mở server demo trên port 18512, tạo SQLite và worker riêng, thực hiện
-69 tình huống và tự dừng các tiến trình do nó tạo. Nếu port bận, dùng `--port 18515`.
+73 tình huống và tự dừng các tiến trình do nó tạo. Nếu port bận, dùng `--port 18515`.
 Runner không sửa `.env`, không gọi server live 8000. Hai file được cập nhật:
 
-- [api-test-results.md](api-test-results.md): bảng theo 30 operations và 69 case.
-- [results.json](../reports/api-contract/results.json): request/response đầy đủ đã che token.
+- `reports/api-contract/results.md`: bảng theo 31 operations và 73 case.
+- `reports/api-contract/results.json`: request/response đầy đủ đã che token.
 
 Quá trình không thử Gemini thật, GPU thật, tải đồng thời nhiều người dùng, hoặc
 mất mạng giữa lúc request SDK chạy. Các phần này cần bài kiểm thử riêng với điều

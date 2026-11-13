@@ -413,6 +413,11 @@ def environment(name, url):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "postman")
+    parser.add_argument(
+        "--include-openapi",
+        action="store_true",
+        help="Also generate the optional OpenAPI JSON (not tracked in Git)",
+    )
     args = parser.parse_args()
     from api.main import app
 
@@ -425,8 +430,9 @@ def main():
         "heritage-vqa-local.postman_environment.json": environment(
             "Heritage VQA - Local API", "http://127.0.0.1:8000"
         ),
-        "heritage-vqa.openapi.json": schema,
     }
+    if args.include_openapi:
+        artifacts["heritage-vqa.openapi.json"] = schema
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for name, value in artifacts.items():
         (args.output_dir / name).write_text(
