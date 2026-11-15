@@ -1,0 +1,50 @@
+.image-dropzone > .resilient-image {
+  height: 250px;
+}
+.image-dropzone.has-image .resilient-image > img {
+  object-fit: contain;
+  background: #101b16;
+}
+.image-dropzone .image-fallback {
+  padding: 18px;
+}
+.run-title-with-image > .run-input-image {
+  width: 78px;
+  height: 78px;
+  border-radius: 10px;
+  border: 1px solid #405148;
+}
+.run-input-image .image-fallback {
+  padding: 4px;
+  gap: 0;
+}
+.run-input-image .image-fallback-symbol {
+  width: 40px;
+  height: 40px;
+}
+.run-input-image .image-fallback > strong,
+.run-input-image .image-fallback > span:not(.image-fallback-symbol) {
+  display: none;
+}
+.feedback-form button[aria-pressed="true"] {
+  background: #284634;
+  border-color: #80aa87;
+  color: #d0ead5;
+}
+
+.live-model-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin-top: 12px;
+  cursor: pointer;
+}
+.live-model-consent > input {
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  margin-top: 3px;
+  accent-color: #cdb477;
+}

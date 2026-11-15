@@ -1,0 +1,319 @@
+{
+  "date": "2026-11-15",
+  "timezone": "Asia/Saigon",
+  "branch": "fe",
+  "window_utc": {
+    "start": "2026-11-15T14:43:28Z",
+    "end": "2026-11-15T14:44:57Z"
+  },
+  "window_saigon": {
+    "start": "2026-11-15T21:43:28+07:00",
+    "end": "2026-11-15T21:44:57+07:00"
+  },
+  "environment": {
+    "compose_project": "heritage-fe-local",
+    "backend_url": "http://127.0.0.1:8001",
+    "browser_test_origin": "http://127.0.0.1:5174",
+    "services": [
+      "PostgreSQL 17",
+      "FastAPI",
+      "separate worker"
+    ],
+    "backend_mode": "demo",
+    "http_backend_database_worker": "real local services",
+    "model_inference": "offline demo; no live provider inference tested",
+    "source": "Docker API/worker structured logs, PostgreSQL run metadata, Playwright assertions and container HTTP smoke"
+  },
+  "playwright": {
+    "command": "RUN_API_INTEGRATION=1 npm run test:e2e",
+    "passed": 2,
+    "failed": 0,
+    "duration_seconds": 18.4
+  },
+  "smoke": {
+    "passed": true,
+    "run_id": "94fbc973-9142-4554-a7ed-5763c3872dac",
+    "event_count": 21,
+    "sources": 1
+  },
+  "http": {
+    "note": "Aggregates UI integration, subsequent container smoke and automatic health checks in the bounded window. 401 and 404 responses were expected ownership/security assertions.",
+    "request_total": 259,
+    "status_totals": [
+      {
+        "status": 200,
+        "count": 240
+      },
+      {
+        "status": 201,
+        "count": 7
+      },
+      {
+        "status": 202,
+        "count": 5
+      },
+      {
+        "status": 204,
+        "count": 4
+      },
+      {
+        "status": 401,
+        "count": 1
+      },
+      {
+        "status": 404,
+        "count": 2
+      }
+    ],
+    "routes": [
+      {
+        "method": "POST",
+        "route": "/api/v1/assets",
+        "status": 201,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/assets/{asset_id}/content",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/assets/{asset_id}/content",
+        "status": 401,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/capabilities",
+        "status": 200,
+        "count": 14
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/preflight",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs",
+        "status": 200,
+        "count": 10
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/runs",
+        "status": 202,
+        "count": 3
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}",
+        "status": 200,
+        "count": 26
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}",
+        "status": 404,
+        "count": 2
+      },
+      {
+        "method": "PUT",
+        "route": "/api/v1/runs/{run_id}/bookmark",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/events",
+        "status": 200,
+        "count": 5
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/events/history",
+        "status": 200,
+        "count": 21
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/export",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/feedback",
+        "status": 200,
+        "count": 20
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/runs/{run_id}/feedback",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "PUT",
+        "route": "/api/v1/runs/{run_id}/feedback",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/metrics",
+        "status": 200,
+        "count": 20
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/result",
+        "status": 200,
+        "count": 15
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/runs/{run_id}/retry",
+        "status": 202,
+        "count": 1
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/runs/{run_id}/review",
+        "status": 202,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/sources",
+        "status": 200,
+        "count": 20
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/steps",
+        "status": 200,
+        "count": 20
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/samples",
+        "status": 200,
+        "count": 8
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/samples/{sample_id}/assets",
+        "status": 201,
+        "count": 2
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/sessions",
+        "status": 201,
+        "count": 4
+      },
+      {
+        "method": "DELETE",
+        "route": "/api/v1/sessions/me",
+        "status": 204,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/sessions/me",
+        "status": 200,
+        "count": 3
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/workflow",
+        "status": 200,
+        "count": 20
+      },
+      {
+        "method": "GET",
+        "route": "/health/live",
+        "status": 200,
+        "count": 27
+      },
+      {
+        "method": "GET",
+        "route": "/health/ready",
+        "status": 200,
+        "count": 1
+      }
+    ],
+    "unexpected_5xx": 0,
+    "error_events": []
+  },
+  "completed_runs": [
+    {
+      "run_id": "0e655230-acc9-4814-b02c-19f830351653",
+      "kind": "full",
+      "parent_run_id": null,
+      "status": "succeeded",
+      "mode": "demo",
+      "purpose": "sample UI journey"
+    },
+    {
+      "run_id": "f029deb1-9084-4a04-ab7b-4b98f5a5d5cb",
+      "kind": "full",
+      "parent_run_id": "0e655230-acc9-4814-b02c-19f830351653",
+      "status": "succeeded",
+      "mode": "demo",
+      "purpose": "UI full retry"
+    },
+    {
+      "run_id": "006487cb-02a7-4a35-9cc7-8b1bc7f42e2d",
+      "kind": "review",
+      "parent_run_id": "0e655230-acc9-4814-b02c-19f830351653",
+      "status": "succeeded",
+      "mode": "demo",
+      "purpose": "UI Judge-only review"
+    },
+    {
+      "run_id": "3a2c5d4e-2d34-46a3-b241-0446a7624a8f",
+      "kind": "full",
+      "parent_run_id": null,
+      "status": "succeeded",
+      "mode": "demo",
+      "purpose": "upload UI journey"
+    },
+    {
+      "run_id": "94fbc973-9142-4554-a7ed-5763c3872dac",
+      "kind": "full",
+      "parent_run_id": null,
+      "status": "succeeded",
+      "mode": "demo",
+      "purpose": "container HTTP smoke"
+    }
+  ],
+  "successful_model_attempts": {
+    "provider": "demo",
+    "count": 21
+  },
+  "verified": [
+    "Guest session creation, validation and revocation",
+    "Real sample asset creation, image upload and authenticated image content",
+    "Run creation and idempotency header",
+    "Event history and authenticated SSE",
+    "Terminal result, sources, workflow stages and model-attempt metadata",
+    "Bookmark and saved run list",
+    "Feedback persistence",
+    "Actual downloaded JSON and Markdown artifact contents",
+    "Full retry and Judge-only review parent/child linkage",
+    "Anonymous image access rejected with 401",
+    "Cross-owner resource access rejected with 404",
+    "Hard reload discards browser credentials"
+  ],
+  "cleanup": {
+    "created_sessions": 4,
+    "revoked_sessions": 4,
+    "credentials_in_artifact": false,
+    "raw_logs_in_artifact": false
+  }
+}

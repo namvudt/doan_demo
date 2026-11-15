@@ -1,0 +1,16 @@
+**
+!requirements.txt
+!alembic.ini
+!api/**
+!agents/**
+!core/**
+!workflow/**
+!utils/**
+!config/**
+!migrations/**
+!samples/**
+!scripts/**
+!docs/langgraph.mmd
+**/__pycache__
+**/*.pyc
+**/.env*
