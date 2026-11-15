@@ -1,9 +1,21 @@
 # Import và thử API bằng Postman
 
-Bộ JSON gồm **33 HTTP operations**, **36 requests** (thêm SSE replay, result kèm
+Bộ JSON gồm **37 HTTP operations**, **40 requests** (thêm SSE replay, result kèm
 intermediate và export Markdown). Có body mẫu, query parameters, auth, script tự
 lưu token/ID và kiểm tra HTTP status. Mẫu không chứa credential hoặc ID của phiên
 đã chạy trên máy người phát triển.
+
+Profile [hanoi-evidence](accuracy-profile.md) thêm evidence, PNG crop và hỏi bổ sung.
+`focus_box` mặc định `null`, có thể đặt `[0.1,0.1,0.8,0.7]`. Request evidence tự lưu
+`region_id`; request clarification GET tự lưu ID/revision. Đặt `clarification_answer`
+và chạy POST clarification với `run_lifecycle_actions=true`, rồi dùng child ID ở
+`clarification_run_id` để theo dõi. Polling coi `awaiting_input` là kết thúc một đoạn xử lý.
+
+`location_hint` mặc định `null`; có thể đặt JSON như
+`{"name":"Chùa Hương","provenance":"user"}` khi bật profile bằng chứng. Kết quả và
+event Judge trả `recognition` riêng với `answer_status`. Khi phản hồi hỏi bổ sung,
+`selected_candidate` mặc định `null`; có thể đặt JSON string như `"Chùa Thiên Trù"`
+đúng tên trong `options`, thay cho hoặc kèm câu trả lời tự do. Nhãn/gợi ý chưa là gold.
 
 ## 1. Import file
 
@@ -148,7 +160,7 @@ Generator kiểm tra danh sách operation khớp OpenAPI trước khi xuất, gi
 hiện API mới chưa được bổ sung. Có test đối chiếu JSON commit với contract hiện
 tại. Các file mẫu chỉ có credential rỗng; không xuất token từ `.env` vào artifact.
 
-Collection hiện tại được test đối chiếu toàn bộ **33 operations / 36 requests**
+Collection hiện tại được test đối chiếu toàn bộ **37 operations / 40 requests**
 với OpenAPI. Runner HTTP độc lập `uv run --locked python -m scripts.api_contract_report`
 đã kiểm tra **82/82 case**, phủ **33/33 operations**, bao gồm preflight và review
 chỉ gọi Judge. Kết quả local ở `reports/api-contract/results.md` và `results.json`.

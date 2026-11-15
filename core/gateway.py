@@ -210,7 +210,9 @@ class LLMManager:
             if json_output:
                 kwargs["response_mime_type"] = "application/json"
             if response_schema:
-                kwargs["response_json_schema"] = response_schema.model_json_schema()
+                kwargs["response_json_schema"] = provider_json_schema(
+                    response_schema, self.config.providers[provider].json_schema_mode
+                )
             if options.get("thinking_level"):
                 kwargs["thinking_config"] = types.ThinkingConfig(
                     thinking_level=options["thinking_level"]
@@ -570,6 +572,20 @@ class LLMManager:
                     "error_code": record.get("error_code"),
                     "usage_metadata": token_usage(record["usage"], provider),
                 }
+
+
+def provider_json_schema(model, mode="full"):
+    """Reduce Gemini grammar branching; backend Pydantic constraints remain unchanged."""
+    schema = model.model_json_schema()
+
+    def compact(value):
+        if isinstance(value, dict):
+            return {k: compact(v) for k, v in value.items() if k not in {"maxItems", "maxLength"}}
+        if isinstance(value, list):
+            return [compact(item) for item in value]
+        return value
+
+    return compact(schema) if mode == "compact" else schema
 
 
 def safe_extract_json(text: str) -> dict:

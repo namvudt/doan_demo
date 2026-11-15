@@ -3,7 +3,7 @@
     "_postman_id": "bbdb0c54-6200-5447-b3c5-a74425cd55d2",
     "name": "Heritage VQA - Complete API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "33 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Review creates a child run and calls only Judge. See docs/postman.md. No real credentials are included."
+    "description": "37 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Clarification requires hanoi-evidence profile and a pending revision; set clarification_answer, then use clarification_run_id to inspect the child run. See docs/postman.md. No real credentials are included."
   },
   "auth": {
     "type": "bearer",
@@ -69,6 +69,51 @@
     {
       "key": "review_run_id",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clarification_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clarification_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clarification_revision",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "clarification_answer",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "selected_candidate",
+      "value": "null",
+      "type": "string"
+    },
+    {
+      "key": "clarification_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "region_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "focus_box",
+      "value": "null",
+      "type": "string"
+    },
+    {
+      "key": "location_hint",
+      "value": "null",
       "type": "string"
     },
     {
@@ -176,7 +221,7 @@
           "const base = String(pm.variables.get('base_url') || '').replace(/\\/+$/, '');",
           "if (!/^https?:\\/\\//.test(base)) throw new Error('Set base_url and select the imported environment.');",
           "pm.variables.set('base_url', base);",
-          "['question', 'feedback_note', 'session_label'].forEach(key => {",
+          "['question', 'feedback_note', 'session_label', 'clarification_answer'].forEach(key => {",
           "  pm.variables.set(key + '_json', JSON.stringify(String(pm.variables.get(key) || '')));",
           "});"
         ]
@@ -398,7 +443,7 @@
                   "  const data = pm.response.json();",
                   "  pm.environment.set('access_token', data.access_token);",
                   "  pm.environment.set('session_id', data.session_id);",
-                  "  ['asset_id','run_id','retry_run_id','review_run_id','idempotency_key','retry_idempotency_key','review_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
+                  "  ['asset_id','run_id','retry_run_id','review_run_id','clarification_run_id','clarification_id','region_id','idempotency_key','retry_idempotency_key','review_idempotency_key','clarification_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
                   "  ['history_after','sse_after','last_event_id','_poll_attempts'].forEach(key => pm.environment.set(key, '0'));",
                   "}"
                 ]
@@ -829,7 +874,7 @@
             "description": "POST /api/v1/runs\n\nCreate Run",
             "body": {
               "mode": "raw",
-              "raw": "{\"asset_id\":\"{{asset_id}}\",\"question\":{{question_json}},\"audience\":\"{{audience}}\",\"profile\":\"{{profile}}\"}",
+              "raw": "{\"asset_id\":\"{{asset_id}}\",\"question\":{{question_json}},\"audience\":\"{{audience}}\",\"profile\":\"{{profile}}\",\"focus_box\":{{focus_box}},\"location_hint\":{{location_hint}}}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -982,7 +1027,7 @@
                   "      const delay = Math.min(10000, Math.max(100, Number(pm.variables.get('poll_interval_ms') || 1000)));",
                   "      setTimeout(() => {}, delay);",
                   "    }",
-                  "  } else if (state !== 'succeeded') {",
+                  "  } else if (!['succeeded', 'awaiting_input'].includes(state)) {",
                   "    pm.test('Run succeeded', () => pm.expect(state).to.eql('succeeded'));",
                   "    pm.execution.setNextRequest(null);",
                   "  }",
@@ -1349,6 +1394,148 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "94c084b1-c11a-5999-87de-e0b1cdd66981",
+          "name": "Claims and registered evidence",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/evidence",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "evidence"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/evidence\n\nEvidence"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "if (pm.response.code === 200) pm.environment.set('region_id', (pm.response.json().regions[0] || {}).region_id || '');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "ba772da7-2495-5211-ba05-92b4e56dd6f5",
+          "name": "View evidence crop - optional",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/regions/{{region_id}}/image",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "regions",
+                "{{region_id}}",
+                "image"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/regions/{region_id}/image\n\nRegion Image"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('region_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "6a2210ff-68c3-51c6-ba88-cf644a720e7e",
+          "name": "Pending clarification and revision",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/clarification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "clarification"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/clarification\n\nClarification"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const pending = pm.response.json().clarification;",
+                  "  pm.environment.set('clarification_id', pending ? pending.clarification_id : '');",
+                  "  pm.environment.set('clarification_revision', String(pending ? pending.revision : 1));",
+                  "}"
                 ]
               }
             }
@@ -1853,6 +2040,72 @@
     {
       "name": "10 Lifecycle actions - optional",
       "item": [
+        {
+          "id": "c4bcf635-1024-5bf6-9814-f71bf835ffee",
+          "name": "Answer clarification - saves clarification_run_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{clarification_idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/clarification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "clarification"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/clarification\n\nContinue from stored evidence. Consumes one pending revision atomically; keeps parent immutable.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clarification_id\":\"{{clarification_id}}\",\"revision\":{{clarification_revision}},\"answer\":{{clarification_answer_json}},\"selected_candidate\":{{selected_candidate}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('clarification_id') || !pm.variables.get('clarification_answer')) pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');",
+                  "if (!pm.variables.get('clarification_idempotency_key')) pm.environment.set('clarification_idempotency_key', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "if (pm.response.code === 202) { const id = pm.response.json().run_id; if ('clarification_run_id' === 'run_id' && pm.environment.get('run_id') !== id) ['history_after','sse_after','last_event_id'].forEach(key => pm.environment.set(key, '0')); pm.environment.set('clarification_run_id', id); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
         {
           "id": "25cb6821-704e-5144-a0af-6b8853c2d7b5",
           "name": "Cancel run",

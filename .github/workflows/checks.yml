@@ -22,3 +22,30 @@ jobs:
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
       - run: uv run --locked pytest
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: heritage_test
+          POSTGRES_PASSWORD: ephemeral_ci_test_only
+          POSTGRES_DB: heritage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U heritage_test -d heritage_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PYTHON_DOTENV_DISABLED: "1"
+      LANGSMITH_TRACING: "false"
+      API_TEST_DATABASE_URL: postgresql+psycopg://heritage_test:ephemeral_ci_test_only@127.0.0.1:5432/heritage_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --locked --group dev
+      - run: uv run --locked pytest tests/test_api.py tests/test_accuracy_profile.py tests/test_recognition_api.py --tb=short

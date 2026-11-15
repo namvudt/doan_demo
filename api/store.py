@@ -4,12 +4,14 @@ import secrets
 import time
 from uuid import uuid4
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, or_, select, text, update
 
-from api.models import Asset, Run, RunEventRecord, SessionToken
+from api.models import Asset, ModelAttempt, Run, RunEventRecord, SessionToken
+from core.config import AppConfig
 from core.runtime_logging import context_fields
 
 TERMINAL = {"succeeded", "failed", "cancelled"}
+SEGMENT_END = TERMINAL | {"awaiting_input"}
 ACTIVE = {"queued", "running", "cancel_requested"}
 
 
@@ -101,14 +103,22 @@ class Store:
             return record
 
     @staticmethod
-    def request_hash(body, run_kind="full"):
+    def request_hash(body, run_kind="full", input_context=None):
         payload = body.model_dump(mode="json")
+        if payload.get("focus_box") is None:
+            payload.pop("focus_box", None)
+        if payload.get("location_hint") is None:
+            payload.pop("location_hint", None)
         if run_kind != "full":
             payload["run_kind"] = run_kind
+        if input_context is not None:
+            payload["input_context"] = input_context
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
-    def create_run(self, owner, body, snapshot, mode, key=None, *, run_kind="full"):
-        digest = self.request_hash(body, run_kind)
+    def create_run(
+        self, owner, body, snapshot, mode, key=None, *, run_kind="full", input_context=None
+    ):
+        digest = self.request_hash(body, run_kind, input_context)
         with self.db.session() as session:
             if self.db.engine.dialect.name == "postgresql":
                 session.execute(text("SELECT pg_advisory_xact_lock(714802004)"))
@@ -128,7 +138,27 @@ class Store:
                     return existing
             owned(session, Asset, body.asset_id, owner)
             if body.parent_run_id:
-                owned(session, Run, body.parent_run_id, owner)
+                parent = owned(session, Run, body.parent_run_id, owner)
+            if run_kind == "clarification":
+                if not body.parent_run_id:
+                    raise StoreError(409, "parent_required", "Clarification needs a parent run")
+                parent = locked_run(session, body.parent_run_id)
+                pending = (parent.result or {}).get("clarification") or {}
+                if parent.execution_status != "awaiting_input" or parent.cancel_requested:
+                    raise StoreError(
+                        409,
+                        "clarification_not_pending",
+                        "The original run is not waiting for input",
+                    )
+                if pending.get("clarification_id") != input_context.get(
+                    "clarification_id"
+                ) or pending.get("revision") != input_context.get("revision"):
+                    raise StoreError(409, "clarification_stale", "Reload the pending clarification")
+                ttl = parent.config_snapshot.get("accuracy", {}).get(
+                    "clarification_ttl_seconds", 86400
+                )
+                if time.time() - (parent.finished_at or parent.created_at) > ttl:
+                    raise StoreError(410, "clarification_expired", "Start a new run")
             active = session.scalar(
                 select(func.count())
                 .select_from(Run)
@@ -153,8 +183,71 @@ class Store:
                     "queue_limit",
                     "Too many active runs; retry after an existing run completes",
                 )
+            identifier = str(uuid4())
+            run_input = dict(
+                input_context or ({"focus_box": list(body.focus_box)} if body.focus_box else {})
+            )
+            if body.location_hint:
+                run_input["location_hint"] = body.location_hint.model_dump()
+            if snapshot.get("accuracy", {}).get("enabled"):
+                root_id = (
+                    (parent.input_context or {}).get("conversation_root_id", parent.id)
+                    if body.parent_run_id
+                    else identifier
+                )
+                limit = snapshot["accuracy"]["max_conversation_llm_calls"]
+                committed = 0
+                if body.parent_run_id:
+                    root = owned(session, Run, root_id, owner)
+                    limit = root.config_snapshot.get("accuracy", {}).get(
+                        "max_conversation_llm_calls", limit
+                    )
+                    related = list(
+                        session.scalars(
+                            select(Run).where(
+                                Run.owner_id == owner,
+                                or_(
+                                    Run.id == root_id,
+                                    Run.input_context["conversation_root_id"].as_string()
+                                    == root_id,
+                                ),
+                            )
+                        )
+                    )
+                    ids = [r.id for r in related]
+                    attempts = dict(
+                        session.execute(
+                            select(ModelAttempt.run_id, func.count())
+                            .where(ModelAttempt.run_id.in_(ids))
+                            .group_by(ModelAttempt.run_id)
+                        ).all()
+                    )
+                    for related_run in related:
+                        if related_run.execution_status in ACTIVE:
+                            committed += (related_run.input_context or {}).get(
+                                "conversation_reserved_calls",
+                                related_run.config_snapshot["budget"]["max_llm_calls"],
+                            )
+                        else:
+                            committed += max(
+                                attempts.get(related_run.id, 0),
+                                len((related_run.result or {}).get("calls", [])),
+                            )
+                reserved = min(snapshot["budget"]["max_llm_calls"], limit - committed)
+                if reserved < 1:
+                    raise StoreError(
+                        409,
+                        "conversation_budget",
+                        "Conversation budget is spent or reserved by active runs",
+                    )
+                config_data = {
+                    key: value for key, value in snapshot.items() if key != "config_hash"
+                }
+                config_data["budget"] = {**config_data["budget"], "max_llm_calls": reserved}
+                snapshot = AppConfig.model_validate(config_data).snapshot()
+                run_input.update(conversation_root_id=root_id, conversation_reserved_calls=reserved)
             run = Run(
-                id=str(uuid4()),
+                id=identifier,
                 owner_id=owner,
                 asset_id=str(body.asset_id),
                 parent_run_id=str(body.parent_run_id) if body.parent_run_id else None,
@@ -166,6 +259,7 @@ class Store:
                 run_kind=run_kind,
                 execution_status="queued",
                 config_snapshot=snapshot,
+                input_context=run_input,
                 request_hash=digest,
                 idempotency_key=key,
                 cancel_requested=False,
@@ -175,6 +269,15 @@ class Store:
             )
             session.add(run)
             session.flush()
+            if run_kind == "clarification":
+                parent.execution_status = "succeeded"
+                parent.input_context = {
+                    **(parent.input_context or {}),
+                    "continuation_run_id": run.id,
+                }
+                append_event(
+                    session, parent, "run.continued", {"run_id": parent.id, "child_run_id": run.id}
+                )
             append_event(
                 session, run, "run.queued", {"run_id": run.id, "execution_status": "queued"}
             )
@@ -206,7 +309,7 @@ class Store:
             if run.execution_status in TERMINAL or run.cancel_requested:
                 return run
             run.cancel_requested = True
-            if run.execution_status == "queued":
+            if run.execution_status in {"queued", "awaiting_input"}:
                 run.execution_status = "cancelled"
                 run.finished_at = time.time()
             else:

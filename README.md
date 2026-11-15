@@ -34,7 +34,7 @@ worker, Docker và frontend: [API server](docs/api-server.md).
 
 Postman: import [Collection](postman/heritage-vqa.postman_collection.json) và
 [Demo environment](postman/heritage-vqa-demo.postman_environment.json), rồi chọn
-môi trường trong Postman. Bộ 33 API tự lưu token, asset/run ID và hỗ trợ SSE.
+môi trường trong Postman. Bộ 37 API tự lưu token, asset/run ID và hỗ trợ SSE.
 [Hướng dẫn Postman](docs/postman.md) · [Thử từng API bằng Swagger](docs/api-swagger-walkthrough.md).
 
 ## Deploy Docker trên cổng 8000
@@ -102,6 +102,11 @@ khi chủ động muốn xóa cả dữ liệu database và ảnh trong volumes.
 Chi tiết PostgreSQL, worker, SSE và tích hợp frontend: [API server](docs/api-server.md).
 
 ## Workflow và cấu hình
+
+Profile mới tập trung độ chính xác và trải nghiệm: [hanoi-evidence](docs/accuracy-profile.md).
+Có nhận định kèm bằng chứng/vùng ảnh, OCR có giới hạn, câu trả lời một phần và hỏi bổ sung
+qua API/Streamlit. Thử riêng: `uv run --locked python -m scripts.serve_api --demo --profile hanoi-evidence --port 8001`.
+Luồng mặc định được giữ để so sánh; chỉ bật profile mới cho production sau đánh giá pilot.
 
 Kiểm tra đầu vào → điều phối → Visual/Knowledge song song → tổng hợp → đánh giá.
 Giao diện có báo cáo trung gian, nguồn trích dẫn, lịch sử phiên và export.

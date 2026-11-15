@@ -40,6 +40,7 @@ class RemoteManager:
             max_image_bytes=caps["max_upload_bytes"],
             max_image_pixels=caps["max_image_pixels"],
             workflow_version=caps["profiles"][0]["workflow_version"],
+            accuracy={"enabled": caps.get("accuracy", {}).get("enabled", False)},
         )
 
     def request(self, method, path, *, authenticated=True, **kwargs):
@@ -82,7 +83,7 @@ class RemoteManager:
         )
         yield from self._stream_run(run, image_data, previous["query"], previous["audience"])
 
-    def remote_stream(self, image_data, query, audience):
+    def remote_stream(self, image_data, query, audience, *, focus_box=None, location_hint=None):
         asset = self.request(
             "POST", "/api/v1/assets", files={"file": ("photo.png", image_data, "image/png")}
         )
@@ -90,9 +91,50 @@ class RemoteManager:
             "POST",
             "/api/v1/runs",
             headers={"Idempotency-Key": str(uuid4())},
-            json={"asset_id": asset["asset_id"], "question": query, "audience": audience},
+            json={
+                "asset_id": asset["asset_id"],
+                "question": query,
+                "audience": audience,
+                **({"focus_box": focus_box} if focus_box else {}),
+                **({"location_hint": location_hint} if location_hint else {}),
+            },
         )
         yield from self._stream_run(run, image_data, query, audience)
+
+    def remote_continue_stream(
+        self,
+        image_data,
+        previous,
+        answer,
+        *,
+        new_image=False,
+        focus_box=None,
+        selected_candidate=None,
+    ):
+        pending = previous["clarification"]
+        body = {
+            "clarification_id": pending["clarification_id"],
+            "revision": pending["revision"],
+            "answer": answer,
+        }
+        if new_image:
+            asset = self.request(
+                "POST",
+                "/api/v1/assets",
+                files={"file": ("additional.png", image_data, "image/png")},
+            )
+            body["asset_id"] = asset["asset_id"]
+        if focus_box:
+            body["focus_box"] = focus_box
+        if selected_candidate:
+            body["selected_candidate"] = selected_candidate
+        run = self.request(
+            "POST",
+            f"/api/v1/runs/{previous['run_id']}/clarification",
+            headers={"Idempotency-Key": str(uuid4())},
+            json=body,
+        )
+        yield from self._stream_run(run, image_data, previous["query"], previous["audience"])
 
     def _stream_run(self, run, image_data, query, audience):
         identifier = run["run_id"]
@@ -111,9 +153,14 @@ class RemoteManager:
                         )
                     )
                     yield event
-                if item["event"] in {"run.succeeded", "run.failed", "run.cancelled"}:
+                if item["event"] in {
+                    "run.succeeded",
+                    "run.failed",
+                    "run.cancelled",
+                    "run.awaiting_input",
+                }:
                     terminal = True
-                    if item["event"] != "run.succeeded":
+                    if item["event"] not in {"run.succeeded", "run.awaiting_input"}:
                         raise RemoteAPIError(
                             409,
                             {
@@ -156,12 +203,36 @@ class RemoteManager:
             ],
         }
         result = RunResult(
+            **{
+                key: payload[key]
+                for key in (
+                    "result_schema_version",
+                    "answer_status",
+                    "recognition",
+                    "location_hint",
+                    "evidence",
+                    "claims",
+                    "requested_slots",
+                    "candidates",
+                    "image_quality",
+                    "regions",
+                    "tool_calls",
+                    "clarification",
+                )
+                if key in payload
+            },
             run_id=identifier,
             parent_run_id=payload.get("parent_run_id"),
             run_kind=payload.get("run_kind", "full"),
             reused_nodes=payload.get("reused_nodes", []),
             upstream_config_hash=payload.get("upstream_config_hash"),
-            fingerprint=fingerprint(image_data, query, audience, metrics["config_hash"]),
+            fingerprint=fingerprint(
+                image_data,
+                query,
+                audience,
+                metrics["config_hash"],
+                location_hint=payload.get("location_hint"),
+            ),
             query=query,
             audience=audience,
             status=payload["status"],

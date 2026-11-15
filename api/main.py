@@ -6,6 +6,7 @@ import json
 import logging
 import time
 from contextlib import asynccontextmanager
+from io import BytesIO
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -24,8 +25,11 @@ from api.schemas import (
     AssetView,
     BookmarkBody,
     CapabilitiesView,
+    ClarificationBody,
+    ClarificationView,
     ErrorResponse,
     EventPage,
+    EvidenceView,
     FeedbackBody,
     MetricsView,
     PreflightBody,
@@ -43,7 +47,7 @@ from api.schemas import (
     WorkflowView,
 )
 from api.settings import ROOT, Settings
-from api.store import TERMINAL, StoreError, owned
+from api.store import SEGMENT_END, TERMINAL, StoreError, owned
 from api.telemetry import (
     ProcessMetrics,
     RequestEnvelopeMiddleware,
@@ -55,6 +59,8 @@ from api.views import asset_view, public_event, result_view, run_view, timestamp
 from api.worker import Worker
 from core.presentation import collect_sources, markdown_report, stage_snapshots, usage_summary
 from core.runtime_logging import configure_logging, log_context, log_event
+from core.schemas import RunResult
+from core.tools import crop_root
 from workflow.service import validate_review_parent
 
 bearer = HTTPBearer(
@@ -302,7 +308,10 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             identifiers = list(
                 session.scalars(
                     select(Run.id).where(
-                        Run.owner_id == owner.id, Run.execution_status.in_(["queued", "running"])
+                        Run.owner_id == owner.id,
+                        Run.execution_status.in_(
+                            ["queued", "running", "cancel_requested", "awaiting_input"]
+                        ),
                     )
                 )
             )
@@ -323,6 +332,12 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             "config_hash": config.snapshot()["config_hash"],
             "model_mode": settings.model_mode,
             "model_configured": status["ready"],
+            "accuracy": {
+                "enabled": config.accuracy.enabled,
+                "pilot_region": config.accuracy.pilot_region,
+                "max_clarifications": config.accuracy.max_clarifications,
+                "recognition": config.accuracy.recognition.model_dump(),
+            },
             "missing_roles": status["missing_roles"],
             "max_upload_bytes": min(settings.max_upload_bytes, config.max_image_bytes),
             "max_image_pixels": config.max_image_pixels,
@@ -448,6 +463,8 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             log_event("run.replayed", run_id=existing.id, trace_id=existing.id)
             response.headers["Location"] = f"/api/v1/runs/{existing.id}"
             return run_view(existing)
+        if body.location_hint and not rt.config().accuracy.enabled:
+            raise StoreError(422, "profile_mismatch", "Location hints require the evidence profile")
         rt.check_model_ready()
         record = rt.store.create_run(
             owner.id, body, rt.config().snapshot(), settings.model_mode, key
@@ -480,7 +497,8 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         offset: int = Query(0, ge=0),
         saved_only: bool = False,
         execution_status: str | None = Query(
-            None, pattern="^(queued|running|cancel_requested|succeeded|failed|cancelled)$"
+            None,
+            pattern="^(queued|running|cancel_requested|succeeded|failed|cancelled|awaiting_input)$",
         ),
     ):
         conditions = [Run.owner_id == owner.id]
@@ -530,6 +548,8 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             question=parent.question,
             audience=parent.audience,
             parent_run_id=parent.id,
+            location_hint=(parent.input_context or {}).get("location_hint"),
+            focus_box=(parent.input_context or {}).get("focus_box"),
         )
         log_event("run.retry", parent_run_id=parent.id)
         return create_run(body, owner, rt, response, request, key)
@@ -552,6 +572,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             question=parent.question,
             audience=parent.audience,
             parent_run_id=parent.id,
+            location_hint=(parent.input_context or {}).get("location_hint"),
         )
         existing = rt.store.find_replay(owner.id, key, rt.store.request_hash(body, "review"))
         if existing:
@@ -602,7 +623,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             run_id=run_id,
             items=[public_event(e, include_draft) for e in records],
             next_after=records[-1].sequence if records else after,
-            terminal=run.execution_status in TERMINAL,
+            terminal=run.execution_status in SEGMENT_END,
         )
 
     @app.get(
@@ -654,7 +675,10 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
                             sent += 1
                             metrics.stream(events=1)
                         current = await run_in_threadpool(rt.store.get_run, run_id, owner.id)
-                        if current.execution_status in TERMINAL and position >= current.event_count:
+                        if (
+                            current.execution_status in SEGMENT_END
+                            and position >= current.event_count
+                        ):
                             reason = "terminal"
                             return
                         if time.monotonic() - heartbeat_at >= 10:
@@ -698,6 +722,142 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         events = [e.payload for e in records if e.event.startswith("stage.")]
         payload = {**(run.result or {}), "events": events}
         return {"run_id": run.id, "items": collect_sources(payload)}
+
+    @app.get("/api/v1/runs/{run_id}/evidence", tags=["Results"], response_model=EvidenceView)
+    def evidence(run_id: UUID, owner: Owner, rt: RuntimeDependency):
+        record = completed_run(rt, run_id, owner.id)
+        result = RunResult.model_validate(record.result)
+        return {
+            "run_id": record.id,
+            **{
+                key: getattr(result, key)
+                for key in (
+                    "result_schema_version",
+                    "answer_status",
+                    "recognition",
+                    "location_hint",
+                    "requested_slots",
+                    "evidence",
+                    "claims",
+                    "candidates",
+                    "image_quality",
+                    "regions",
+                    "tool_calls",
+                )
+            },
+        }
+
+    @app.get(
+        "/api/v1/runs/{run_id}/regions/{region_id}/image",
+        tags=["Results"],
+        responses={200: {"content": {"image/png": {}}}},
+    )
+    def region_image(run_id: UUID, region_id: str, owner: Owner, rt: RuntimeDependency):
+        record = completed_run(rt, run_id, owner.id)
+        region = next(
+            (r for r in record.result.get("regions", []) if r["region_id"] == region_id), None
+        )
+        if region is None:
+            raise StoreError(404, "region_not_found", "Region does not belong to this run")
+        with rt.db.session() as session:
+            asset = owned(session, Asset, record.asset_id, owner.id)
+            path = rt.asset_path(asset.storage_key)
+        if not path.is_file():
+            raise StoreError(404, "asset_missing", "Original image is unavailable")
+        data = crop_root(path.read_bytes(), region["box"], region.get("preprocess", "none"))
+        return StreamingResponse(
+            BytesIO(data), media_type="image/png", headers={"Cache-Control": "private, no-store"}
+        )
+
+    @app.get("/api/v1/runs/{run_id}/clarification", tags=["Runs"], response_model=ClarificationView)
+    def clarification(run_id: UUID, owner: Owner, rt: RuntimeDependency):
+        record = completed_run(rt, run_id, owner.id)
+        return {
+            "run_id": record.id,
+            "execution_status": record.execution_status,
+            "clarification": record.result.get("clarification"),
+            "continuation_run_id": (record.input_context or {}).get("continuation_run_id"),
+        }
+
+    @app.post(
+        "/api/v1/runs/{run_id}/clarification",
+        tags=["Runs"],
+        response_model=RunView,
+        status_code=202,
+    )
+    def submit_clarification(
+        run_id: UUID,
+        body: ClarificationBody,
+        owner: Owner,
+        rt: RuntimeDependency,
+        response: Response,
+        request: Request,
+        key: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=128)],
+    ):
+        """Continue from stored evidence. Consumes one pending revision atomically; keeps parent immutable."""
+        parent = completed_run(rt, run_id, owner.id)
+        policy = rt.config().accuracy
+        previous = RunResult.model_validate(parent.result)
+        if parent.model_mode != settings.model_mode or not policy.enabled:
+            raise StoreError(
+                409,
+                "profile_mismatch",
+                "Continue with the original evidence profile and model mode",
+            )
+        if not body.answer.strip() and body.asset_id is None and not body.selected_candidate:
+            raise StoreError(422, "clarification_empty", "Provide an answer or an additional image")
+        pending = previous.clarification or {}
+        if not pending:
+            raise StoreError(409, "clarification_not_pending", "Run has no clarification")
+        if body.selected_candidate and body.selected_candidate not in pending.get("options", []):
+            raise StoreError(422, "candidate_invalid", "Select a candidate from this clarification")
+        context = {
+            "answer": body.answer.strip(),
+            "clarification_id": body.clarification_id,
+            "revision": body.revision,
+            "rounds": int(pending["rounds"]) + 1,
+        }
+        if body.selected_candidate:
+            context["selected_candidate"] = body.selected_candidate
+        focus = body.focus_box or (
+            (parent.input_context or {}).get("focus_box") if body.asset_id is None else None
+        )
+        if focus:
+            context["focus_box"] = list(focus)
+        create_body = RunCreate(
+            asset_id=body.asset_id or parent.asset_id,
+            question=parent.question,
+            audience=parent.audience,
+            parent_run_id=parent.id,
+            focus_box=focus,
+        )
+        existing = rt.store.find_replay(
+            owner.id, key, rt.store.request_hash(create_body, "clarification", context)
+        )
+        if existing:
+            response.headers["Location"] = f"/api/v1/runs/{existing.id}"
+            request.state.run_id = existing.id
+            return run_view(existing)
+        if context["rounds"] > policy.max_clarifications:
+            raise StoreError(
+                409, "clarification_limit", "Clarification limit reached; start a new question"
+            )
+        used = int(previous.continuation_context.get("total_llm_calls", 0)) + len(previous.calls)
+        if used >= policy.max_conversation_llm_calls:
+            raise StoreError(409, "conversation_budget", "Conversation model budget exhausted")
+        rt.check_model_ready()
+        child = rt.store.create_run(
+            owner.id,
+            create_body,
+            rt.config().snapshot(),
+            settings.model_mode,
+            key,
+            run_kind="clarification",
+            input_context=context,
+        )
+        response.headers["Location"] = f"/api/v1/runs/{child.id}"
+        request.state.run_id = child.id
+        return run_view(child)
 
     @app.get("/api/v1/runs/{run_id}/steps", tags=["Results"], response_model=StepsView)
     def steps(run_id: UUID, owner: Owner, rt: RuntimeDependency, include_draft: bool = False):

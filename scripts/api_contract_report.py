@@ -549,6 +549,31 @@ def exercise(report, start_worker, bootstrap, operations_token):
             "SSE replay duplicated/missed events",
         ),
     )
+    call(
+        "Evidence contract on legacy result",
+        "GET",
+        base + "/evidence",
+        headers=auth,
+        check=lambda p: require(
+            p["result_schema_version"] == 1 and p["claims"] == [], "Legacy adapter failed"
+        ),
+    )
+    call("Unknown image region", "GET", base + "/regions/unknown/image", 404, headers=auth)
+    call(
+        "No pending clarification",
+        "GET",
+        base + "/clarification",
+        headers=auth,
+        check=lambda p: require(p["clarification"] is None, "Unexpected clarification"),
+    )
+    call(
+        "Legacy profile cannot continue clarification",
+        "POST",
+        base + "/clarification",
+        409,
+        headers={**auth, "Idempotency-Key": "clarification-legacy"},
+        json={"clarification_id": "not-pending", "revision": 1, "answer": "DEMO"},
+    )
     _, result = call(
         "Kết quả cuối và nguồn",
         "GET",

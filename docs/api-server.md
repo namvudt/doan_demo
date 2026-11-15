@@ -1,7 +1,7 @@
 # Backend API và Swagger UI
 
 Backend dùng FastAPI, gọi cùng `RunService`/LangGraph của Streamlit và CLI.
-Swagger có 33 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
+Swagger có 37 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
 Runs, Events, Results, Feedback và Operations. OpenAPI có schema, Bearer Authorize, multipart
 upload và ví dụ để thử nhanh.
 

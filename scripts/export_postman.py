@@ -21,6 +21,15 @@ DEFAULTS = {
     "run_id": "",
     "retry_run_id": "",
     "review_run_id": "",
+    "clarification_run_id": "",
+    "clarification_id": "",
+    "clarification_revision": "1",
+    "clarification_answer": "",
+    "selected_candidate": "null",
+    "clarification_idempotency_key": "",
+    "region_id": "",
+    "focus_box": "null",
+    "location_hint": "null",
     "delete_asset_id": "",
     "question": "Những chi tiết kiến trúc nào nhìn thấy rõ trong ảnh?",
     "audience": "tourist",
@@ -65,6 +74,19 @@ REQUESTS = [
     ("06 Events", "GET", "/api/v1/runs/{run_id}/events", "Stream stages SSE"),
     ("07 Results", "GET", "/api/v1/runs/{run_id}/result", "Final result"),
     ("07 Results", "GET", "/api/v1/runs/{run_id}/sources", "Sources and citations"),
+    ("07 Results", "GET", "/api/v1/runs/{run_id}/evidence", "Claims and registered evidence"),
+    (
+        "07 Results",
+        "GET",
+        "/api/v1/runs/{run_id}/regions/{region_id}/image",
+        "View evidence crop - optional",
+    ),
+    (
+        "07 Results",
+        "GET",
+        "/api/v1/runs/{run_id}/clarification",
+        "Pending clarification and revision",
+    ),
     ("07 Results", "GET", "/api/v1/runs/{run_id}/steps", "Intermediate stage snapshots"),
     ("07 Results", "GET", "/api/v1/runs/{run_id}/metrics", "Durable model attempts and usage"),
     ("07 Results", "GET", "/api/v1/runs/{run_id}/export", "Export JSON"),
@@ -73,6 +95,12 @@ REQUESTS = [
     ("08 Feedback", "PUT", "/api/v1/runs/{run_id}/feedback", "Update feedback"),
     ("08 Feedback", "GET", "/api/v1/runs/{run_id}/feedback", "Read feedback"),
     ("09 Operations", "GET", "/api/v1/operations/metrics", "Prometheus metrics - operator token"),
+    (
+        "10 Lifecycle actions - optional",
+        "POST",
+        "/api/v1/runs/{run_id}/clarification",
+        "Answer clarification - saves clarification_run_id",
+    ),
     ("10 Lifecycle actions - optional", "POST", "/api/v1/runs/{run_id}/cancel", "Cancel run"),
     (
         "10 Lifecycle actions - optional",
@@ -120,7 +148,7 @@ def root_scripts():
 const base = String(pm.variables.get('base_url') || '').replace(/\/+$/, '');
 if (!/^https?:\/\//.test(base)) throw new Error('Set base_url and select the imported environment.');
 pm.variables.set('base_url', base);
-['question', 'feedback_note', 'session_label'].forEach(key => {
+['question', 'feedback_note', 'session_label', 'clarification_answer'].forEach(key => {
   pm.variables.set(key + '_json', JSON.stringify(String(pm.variables.get(key) || '')));
 });
 """,
@@ -163,7 +191,7 @@ def query_parameters(operation):
 
 def make_item(folder, method, path, name, operation):
     request_path = path
-    for variable in ("asset_id", "sample_id", "run_id"):
+    for variable in ("asset_id", "sample_id", "run_id", "region_id"):
         request_path = request_path.replace("{" + variable + "}", "{{" + variable + "}}")
     query = query_parameters(operation)
     if path.endswith("/events"):
@@ -209,7 +237,9 @@ def make_item(folder, method, path, name, operation):
             ],
         }
     elif method == "POST" and path == "/api/v1/runs":
-        body = '{"asset_id":"{{asset_id}}","question":{{question_json}},"audience":"{{audience}}","profile":"{{profile}}"}'
+        body = '{"asset_id":"{{asset_id}}","question":{{question_json}},"audience":"{{audience}}","profile":"{{profile}}","focus_box":{{focus_box}},"location_hint":{{location_hint}}}'
+    elif method == "POST" and path.endswith("/clarification"):
+        body = '{"clarification_id":"{{clarification_id}}","revision":{{clarification_revision}},"answer":{{clarification_answer_json}},"selected_candidate":{{selected_candidate}}}'
     elif method == "PUT" and path.endswith("/bookmark"):
         body = '{"saved": {{bookmark_saved}}}'
     elif method in {"POST", "PUT"} and path.endswith("/feedback"):
@@ -261,7 +291,7 @@ if (pm.response.code === 201) {
   const data = pm.response.json();
   pm.environment.set('access_token', data.access_token);
   pm.environment.set('session_id', data.session_id);
-  ['asset_id','run_id','retry_run_id','review_run_id','idempotency_key','retry_idempotency_key','review_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));
+  ['asset_id','run_id','retry_run_id','review_run_id','clarification_run_id','clarification_id','region_id','idempotency_key','retry_idempotency_key','review_idempotency_key','clarification_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));
   ['history_after','sse_after','last_event_id','_poll_attempts'].forEach(key => pm.environment.set(key, '0'));
 }
 """)
@@ -269,9 +299,11 @@ if (pm.response.code === 201) {
         after.append(
             "if (pm.response.code === 201) pm.environment.set('asset_id', pm.response.json().asset_id);"
         )
-    if method == "POST" and (path == "/api/v1/runs" or path.endswith(("/retry", "/review"))):
-        action = (
-            "review" if path.endswith("/review") else "retry" if path.endswith("/retry") else ""
+    if method == "POST" and (
+        path == "/api/v1/runs" or path.endswith(("/retry", "/review", "/clarification"))
+    ):
+        action = next(
+            (name for name in ("review", "retry", "clarification") if path.endswith("/" + name)), ""
         )
         key = f"{action}_idempotency_key" if action else "idempotency_key"
         request["header"].append({"key": "Idempotency-Key", "value": "{{" + key + "}}"})
@@ -306,12 +338,31 @@ if (pm.response.code === 200) {
       const delay = Math.min(10000, Math.max(100, Number(pm.variables.get('poll_interval_ms') || 1000)));
       setTimeout(() => {}, delay);
     }
-  } else if (state !== 'succeeded') {
+  } else if (!['succeeded', 'awaiting_input'].includes(state)) {
     pm.test('Run succeeded', () => pm.expect(state).to.eql('succeeded'));
     pm.execution.setNextRequest(null);
   }
 }
 """)
+    if path.endswith("/evidence"):
+        after.append(
+            "if (pm.response.code === 200) pm.environment.set('region_id', (pm.response.json().regions[0] || {}).region_id || '');"
+        )
+    if "/regions/" in path:
+        before.insert(0, "if (!pm.variables.get('region_id')) pm.execution.skipRequest();")
+    if path.endswith("/clarification") and method == "GET":
+        after.append("""
+if (pm.response.code === 200) {
+  const pending = pm.response.json().clarification;
+  pm.environment.set('clarification_id', pending ? pending.clarification_id : '');
+  pm.environment.set('clarification_revision', String(pending ? pending.revision : 1));
+}
+""")
+    if path.endswith("/clarification") and method == "POST":
+        before.insert(
+            0,
+            "if (!pm.variables.get('clarification_id') || !pm.variables.get('clarification_answer')) pm.execution.skipRequest();",
+        )
     if path.endswith("/events/history"):
         after.append(
             "if (pm.response.code === 200) pm.environment.set('history_after', String(pm.response.json().next_after));"
@@ -393,7 +444,7 @@ def build_collection(openapi):
             "_postman_id": uid("collection"),
             "name": "Heritage VQA - Complete API",
             "schema": SCHEMA,
-            "description": "33 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Review creates a child run and calls only Judge. See docs/postman.md. No real credentials are included.",
+            "description": "37 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Clarification requires hanoi-evidence profile and a pending revision; set clarification_answer, then use clarification_run_id to inspect the child run. See docs/postman.md. No real credentials are included.",
         },
         "auth": {
             "type": "bearer",

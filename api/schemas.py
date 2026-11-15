@@ -6,6 +6,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from core.evidence import (
+    CheckedClaim,
+    Clarification,
+    Evidence,
+    LocationHint,
+    RecognitionResult,
+    Region,
+    RequestedSlot,
+)
 from core.schemas import SourceRecord
 
 
@@ -42,6 +51,10 @@ class AssetView(Contract):
 
 
 class RunCreate(Contract):
+    location_hint: LocationHint | None = Field(
+        default=None, description="Optional unverified location hint; not historical ground truth."
+    )
+    focus_box: tuple[float, float, float, float] | None = None
     asset_id: UUID
     question: str = Field(
         min_length=1,
@@ -59,10 +72,55 @@ class RunCreate(Contract):
             raise ValueError("Question must not be blank")
         return value.strip()
 
+    @field_validator("focus_box")
+    @classmethod
+    def region_is_valid(cls, value):
+        if value is not None:
+            Region(box=value)
+        return value
+
+
+class ClarificationBody(Contract):
+    selected_candidate: str | None = Field(default=None, min_length=1, max_length=200)
+    clarification_id: str = Field(min_length=1, max_length=100)
+    revision: int = Field(ge=1)
+    answer: str = Field(default="", max_length=2000)
+    asset_id: UUID | None = None
+    focus_box: tuple[float, float, float, float] | None = None
+
+    @field_validator("focus_box")
+    @classmethod
+    def region_is_valid(cls, value):
+        if value is not None:
+            Region(box=value)
+        return value
+
+
+class EvidenceView(Contract):
+    recognition: RecognitionResult | None = None
+    location_hint: LocationHint | None = None
+    run_id: UUID
+    result_schema_version: int
+    answer_status: str | None
+    requested_slots: list[RequestedSlot]
+    evidence: list[Evidence]
+    claims: list[CheckedClaim]
+    candidates: list[dict]
+    image_quality: dict
+    regions: list[dict]
+    tool_calls: list[dict]
+
+
+class ClarificationView(Contract):
+    run_id: UUID
+    execution_status: str
+    clarification: Clarification | None
+    continuation_run_id: UUID | None
+
 
 class RunView(Contract):
     run_id: UUID
-    run_kind: Literal["full", "review"] = "full"
+    run_kind: Literal["full", "review", "clarification"] = "full"
     request_id: str | None = None
     trace_id: UUID | None = None
     asset_id: UUID
@@ -71,7 +129,13 @@ class RunView(Contract):
     audience: str
     model_mode: Literal["live", "demo"]
     execution_status: Literal[
-        "queued", "running", "cancel_requested", "succeeded", "failed", "cancelled"
+        "queued",
+        "running",
+        "cancel_requested",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "awaiting_input",
     ]
     result_status: str | None
     bookmarked: bool
@@ -106,9 +170,21 @@ class EventPage(Contract):
 
 
 class ResultView(Contract):
+    recognition: RecognitionResult | None = None
+    location_hint: LocationHint | None = None
+    result_schema_version: int = 1
+    answer_status: str | None = None
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+    requested_slots: list[dict[str, Any]] = Field(default_factory=list)
+    candidates: list[dict[str, Any]] = Field(default_factory=list)
+    image_quality: dict[str, Any] = Field(default_factory=dict)
+    regions: list[dict[str, Any]] = Field(default_factory=list)
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    clarification: dict[str, Any] | None = None
     run_id: UUID
     parent_run_id: UUID | None = None
-    run_kind: Literal["full", "review"] = "full"
+    run_kind: Literal["full", "review", "clarification"] = "full"
     reused_nodes: list[str] = Field(default_factory=list)
     upstream_config_hash: str | None = None
     model_mode: Literal["live", "demo"]
@@ -185,6 +261,7 @@ class ProfileView(Contract):
 
 
 class CapabilitiesView(Contract):
+    accuracy: dict[str, Any] = Field(default_factory=dict)
     api_version: str
     config_hash: str
     model_mode: Literal["live", "demo"]

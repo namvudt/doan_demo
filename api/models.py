@@ -59,10 +59,15 @@ class Run(Base):
     audience: Mapped[str] = mapped_column(String(20))
     profile: Mapped[str] = mapped_column(String(30))
     model_mode: Mapped[str] = mapped_column(String(10))
-    run_kind: Mapped[str] = mapped_column(String(10), default="full", server_default="full")
+    # SQLite ignores VARCHAR widths. Retain its legacy declaration to avoid rebuilding
+    # a referenced table; PostgreSQL needs the wider column for "clarification".
+    run_kind: Mapped[str] = mapped_column(
+        String(20).with_variant(String(10), "sqlite"), default="full", server_default="full"
+    )
     execution_status: Mapped[str] = mapped_column(String(25), index=True)
     result_status: Mapped[str | None] = mapped_column(String(30))
     config_snapshot: Mapped[dict] = mapped_column(Payload)
+    input_context: Mapped[dict | None] = mapped_column(Payload)
     request_hash: Mapped[str] = mapped_column(String(64))
     idempotency_key: Mapped[str | None] = mapped_column(String(128))
     result: Mapped[dict | None] = mapped_column(Payload)

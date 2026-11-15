@@ -70,6 +70,18 @@ class Runtime:
     def check_model_ready(self, roles=None):
         manager = self.manager()
         try:
+            config = getattr(manager, "config", None) or self.config()
+            if roles is None and config.accuracy.enabled:
+                roles = list(
+                    dict.fromkeys(
+                        [
+                            "coordinator",
+                            "visual",
+                            "aggregator",
+                            config.accuracy.verifier_role,
+                        ]
+                    )
+                )
             return ensure_ready(manager, roles)
         except PreflightFailed as error:
             raise StoreError(

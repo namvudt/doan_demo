@@ -3,7 +3,8 @@
 Nếu dùng Postman, có sẵn [collection và environment JSON đầy đủ](postman.md)
 với script tự lưu token/ID, polling và SSE.
 
-Hướng dẫn bao phủ 33 HTTP operations. Chạy `python -m scripts.api_contract_report`
+API có 37 HTTP operations; các API bằng chứng/hỏi bổ sung được mô tả ở
+[accuracy profile](accuracy-profile.md). Chạy `python -m scripts.api_contract_report`
 để sinh bảng `reports/api-contract/results.md` và request/response đã che token
 trong `reports/api-contract/results.json`. Report là artifact local, không commit.
 Khi thử lại, tạo phiên, ảnh và run mới theo các bước dưới đây.

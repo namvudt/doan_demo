@@ -68,6 +68,9 @@ def search_artifact(search):
         "summary": summary,
         "sources": sources,
         "search_status": search.get("status"),
+        "search_queries": search.get("search_queries", []),
+        "rejected_source_count": search.get("rejected_source_count", 0),
+        "entity_filter_applied": search.get("entity_filter_applied", False),
         "error_type": search.get("error"),
         "navigation_links": [
             {"title": item.get("title", "Mở bản đồ"), "url": safe_url(item.get("url"))}
@@ -98,6 +101,8 @@ def stage_artifact(node, update):
         if key in meta
     }
     if node == "scope":
+        if meta.get("image_quality"):
+            artifact["image_quality"] = meta["image_quality"]
         artifact["summary"] = (
             "Câu hỏi nằm ngoài phạm vi hiện hỗ trợ."
             if update.get("out_of_scope")
@@ -115,11 +120,17 @@ def stage_artifact(node, update):
                     "task_categories",
                     "selected_agents",
                     "focus_directives",
+                    "requested_slots",
+                    "candidates",
+                    "regions",
                 )
                 if key in plan
             },
         )
     elif node in {"visual", "knowledge", "generation"}:
+        for key in ("evidence", "regions", "candidate_support"):
+            if key in meta:
+                artifact[key] = meta[key]
         expert = update.get("expert_results", {}).get(node, {})
         artifact.update(
             content=expert.get("text"), summary="Báo cáo trung gian, chưa được đánh giá."
@@ -133,6 +144,15 @@ def stage_artifact(node, update):
                         "status": expert_meta.get("search_status"),
                         "error": expert_meta.get("search_error"),
                         "navigation_links": expert_meta.get("navigation_links", []),
+                        **{
+                            key: expert_meta[key]
+                            for key in (
+                                "search_queries",
+                                "rejected_source_count",
+                                "entity_filter_applied",
+                            )
+                            if key in expert_meta
+                        },
                     }
                 )
             )
@@ -144,6 +164,19 @@ def stage_artifact(node, update):
             summary="Bản nháp chưa được đánh giá; chưa phải câu trả lời cuối.",
         )
     elif node == "judge":
+        for key in (
+            "answer_status",
+            "recognition",
+            "location_hint",
+            "claims",
+            "evidence",
+            "requested_slots",
+            "candidates",
+            "clarification",
+            "tool_calls",
+        ):
+            if key in meta:
+                artifact[key] = meta[key]
         report = update.get("judge_report", {})
         artifact.update(
             summary="Đã thực hiện bước đánh giá tự động.",

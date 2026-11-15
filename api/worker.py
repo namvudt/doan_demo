@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 
 from api.models import Asset, ModelAttempt, Run, SessionToken, WorkerHeartbeat
 from api.settings import Settings
-from api.store import TERMINAL, append_event, locked_run
+from api.store import SEGMENT_END, TERMINAL, append_event, locked_run
 from core.model_errors import failure_info
 from core.runtime_logging import RateLimitedLog, configure_logging, log_context, log_event
 from workflow.service import RunCancelled
@@ -190,9 +190,17 @@ class Worker:
             if event.kind == "completed":
                 run.result = event.result.model_dump(mode="json")
                 run.result_status = event.result.status
-                run.execution_status = "failed" if event.result.status == "failed" else "succeeded"
+                run.execution_status = (
+                    "awaiting_input"
+                    if event.result.clarification
+                    else "failed"
+                    if event.result.status == "failed"
+                    else "succeeded"
+                )
                 run.error_type = "WorkflowFailed" if event.result.status == "failed" else None
                 run.finished_at = time.time()
+                run.worker_token = None
+                run.lease_expires_at = None
                 append_event(
                     session,
                     run,
@@ -293,7 +301,16 @@ class Worker:
                 path = self.runtime.asset_path(asset.storage_key)
             service = self.runtime.service(run)
             with self.runtime.tracing_context(run.model_mode):
-                if run.run_kind == "review":
+                if run.run_kind == "clarification":
+                    parent = self.runtime.store.get_run(run.parent_run_id, run.owner_id)
+                    stream = service.continue_stream(
+                        path.read_bytes(),
+                        parent.result,
+                        run.input_context,
+                        run_id=run.id,
+                        cancel_check=lambda: self.cancellation_check(run.id, token),
+                    )
+                elif run.run_kind == "review":
                     parent = self.runtime.store.get_run(run.parent_run_id, run.owner_id)
                     stream = service.review_stream(
                         path.read_bytes(),
@@ -308,6 +325,8 @@ class Worker:
                         run.audience,
                         run_id=run.id,
                         cancel_check=lambda: self.cancellation_check(run.id, token),
+                        focus_box=(run.input_context or {}).get("focus_box"),
+                        location_hint=(run.input_context or {}).get("location_hint"),
                     )
                 try:
                     for event in stream:
@@ -317,7 +336,7 @@ class Worker:
             # A faulty adapter must not leave a permanently running job.
             with self.runtime.db.session() as session:
                 current = session.get(Run, run.id)
-                if current.execution_status not in TERMINAL:
+                if current.execution_status not in SEGMENT_END:
                     raise RuntimeError("Missing workflow result")
         except Exception as exc:
             self.finish_error(run.id, token, exc)

@@ -2,6 +2,26 @@
 
 Phiên bản 0.2: một LangGraph dùng chung cho Streamlit, CLI, comparison và API worker.
 
+Profile chọn dùng `config/hanoi-evidence.yaml` bổ sung slot/candidate, quan sát ảnh/OCR,
+evidence registry, Verifier theo claim và ghép phần có căn cứ. `workflow/accuracy.py`
+giữ logic dùng chung, `core/evidence.py` giữ hợp đồng/gate, `core/tools.py` thực thi tool
+có budget/cache/trace, `core/ingestion.py` nhập nguồn giới hạn allowlist. Parent/child
+continuation lưu riêng `input_context` và result, không sửa kết quả gốc. Chi tiết flow,
+API, cấu hình, đánh giá và rollback: [accuracy profile](docs/accuracy-profile.md).
+
+Nhận diện ảnh có hợp đồng riêng `recognition`: visual liên kết ứng viên với quan sát,
+Verifier đánh giá mức nhận diện, `core/recognition.py` kiểm tra cơ sở/ID/thực thể.
+`probable` được trả lời có điều kiện, độc lập với kiểm chứng lịch sử và `answer_status`.
+Gợi ý địa điểm có nguồn gốc rõ và không đi vào quan sát ảnh độc lập. Nhãn sample không
+được coi là gold; mặc định Streamlit và evaluation đều nhận diện không dùng nhãn.
+Kế hoạch sửa luồng: [recognition plan](docs/recognition-plan.md).
+
+`core/entities.py` chuẩn hóa alias và qualifier có kiểm tra địa phương/parent, giữ tách
+site/component. Retrieval tìm trang bằng tên ngắn, lấy toàn bài Wikipedia từng trang,
+chọn đoạn theo câu hỏi và lọc entity trước khi gọi Knowledge. Gate thêm `risk_tags` cho
+phiên đọc Hán–Nôm, vật liệu cụ thể và niên đại; các thuộc tính cần nguồn không được bỏ
+qua chỉ bằng cách gắn kind=visual. Giới hạn output và báo cáo trung gian nằm trong YAML.
+
 ```mermaid
 flowchart TD
     START --> scope
