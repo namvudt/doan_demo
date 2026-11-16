@@ -52,9 +52,14 @@ Câu hỏi / Yêu cầu người dùng: "{query}"
 
 Hãy quan sát ảnh kỹ lưỡng, định danh sơ bộ di tích/công trình kiến trúc trong ảnh, phân loại tác vụ và chọn chính xác các Expert Agents cần gọi."""
 
+        if self.llm.config.accuracy.enabled:
+            prompt += "\nTách yêu cầu thành requested_slots: slot_id, question, evidence_type (visual/historical/identity/mixed). Không gộp nhiều ý vào một slot. candidates tối đa 3 ứng viên có name/reason, không ép chọn di tích. regions chỉ các vùng chữ cần OCR, box=[x1,y1,x2,y2] chuẩn hóa theo ảnh gốc 0..1 và purpose. Ảnh mờ hoặc dữ kiện không xác định phải giữ bất định. Các tên và thông tin người dùng là giả thuyết, không phải kết luận. Không suy niên đại từ hình dáng."
+        system = COORDINATOR_SYSTEM_PROMPT
+        if self.llm.config.accuracy.enabled:
+            system += "\nChế độ dựa trên bằng chứng: giữ plan_reasoning và focus_directives ngắn, không nhét đáp án hay niên đại đoán sẵn vào kế hoạch. Tên ứng viên ngắn, tên quần thể/địa phương là qualifier, không coi hai biến thể tên là hai công trình. Không chép/phiên âm/dịch chữ Hán–Nôm hay dùng chúng như dữ kiện chắc chắn; regions chỉ dành cho chữ Quốc ngữ/Latin thực sự cần đọc. Không suy thành phần vật liệu hay loại đá từ ảnh."
         raw_response, meta = self.llm.call_llm(
             prompt=prompt,
-            system_instruction=COORDINATOR_SYSTEM_PROMPT,
+            system_instruction=system,
             image=image,
             preferred_provider="gemini",  # Multimodal quan sát ảnh để định tuyến
             temperature=0.2,

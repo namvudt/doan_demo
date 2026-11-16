@@ -30,6 +30,7 @@ Thumbs.db
 reports/
 comparison.json
 data/
+/catalog-media/
 .api-demo/
 logs/
 .secrets/

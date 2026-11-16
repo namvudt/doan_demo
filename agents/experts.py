@@ -67,7 +67,12 @@ class KnowledgeAgent:
         self.llm = llm_manager
         self.name = "Cultural Knowledge Expert Agent"
         self.search_engine = HeritageSearchEngine(
-            remaining_seconds=getattr(llm_manager, "remaining_seconds", None)
+            remaining_seconds=getattr(llm_manager, "remaining_seconds", None),
+            policy=llm_manager.config.accuracy.retrieval
+            if llm_manager.config.accuracy.enabled
+            else None,
+            entity_catalog=llm_manager.config.accuracy.entity_catalog,
+            cancel_check=getattr(llm_manager, "cancel_check", None),
         )
 
     def retrieve(
@@ -77,9 +82,12 @@ class KnowledgeAgent:
         visual_findings: str = "",
         focus_directive: str = "",
         on_sources=None,
+        search_query=None,
     ) -> Tuple[str, Dict[str, Any]]:
         # Kích hoạt Cơ chế tìm kiếm trực tiếp (Live Direct Search Grounding)
-        search_data = self.search_engine.search_heritage(monument_hint=monument_hint, query=query)
+        search_data = self.search_engine.search_heritage(
+            monument_hint=monument_hint, query=search_query or query
+        )
         if on_sources:
             on_sources(search_data)
         if search_data["status"] != "success":
@@ -90,6 +98,16 @@ class KnowledgeAgent:
                 "search_status": search_data["status"],
                 "search_error": search_data["error"],
                 "navigation_links": search_data.get("navigation_links", []),
+                **{
+                    key: search_data[key]
+                    for key in (
+                        "search_queries",
+                        "rejected_source_count",
+                        "entity_filter_applied",
+                        "retrieval_cache",
+                    )
+                    if key in search_data
+                },
             }
 
         prompt = f"""Dựa trên di tích/công trình được nhận diện dưới đây, hãy truy xuất tri thức chuyên sâu:
@@ -111,6 +129,8 @@ class KnowledgeAgent:
 
 Hãy kết hợp tri thức sử liệu uyên bác cùng dữ liệu tìm kiếm trực tiếp trên để cung cấp thông tin chuẩn xác nhất, có trích dẫn nguồn cụ thể."""
 
+        if self.llm.config.accuracy.enabled:
+            prompt += f"\nBáo cáo tối đa {self.llm.config.accuracy.intermediate_max_chars} ký tự, 4–6 ý ngắn, chỉ trả lời phần đang hỏi. Không kể lịch sử chung hay kiến thức nhớ sẵn. Tách đúng khởi dựng/tái dựng/trùng tu; đoạn nguồn không đủ thì nói rõ, không suy diễn."
         response_text, meta = self.llm.call_llm(
             prompt=prompt,
             system_instruction=KNOWLEDGE_SYSTEM_PROMPT,
@@ -123,6 +143,14 @@ Hãy kết hợp tri thức sử liệu uyên bác cùng dữ liệu tìm kiếm
         meta["search_status"] = search_data["status"]
         meta["search_error"] = search_data["error"]
         meta["navigation_links"] = search_data.get("navigation_links", [])
+        for key in (
+            "search_queries",
+            "rejected_source_count",
+            "entity_filter_applied",
+            "retrieval_cache",
+        ):
+            if key in search_data:
+                meta[key] = search_data[key]
         return response_text, meta
 
 

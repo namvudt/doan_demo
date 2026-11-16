@@ -17,6 +17,11 @@ from core.runtime_logging import context_fields, log_event
 from core.trace_content import sanitize_content
 
 METADATA_KEYS = {
+    "tool",
+    "call_id",
+    "input_hash",
+    "cached",
+    "tool_version",
     "error_category",
     "retryable",
     "role",

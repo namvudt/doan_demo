@@ -4,6 +4,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StrictBool, model_validator
 
+from core.evidence import Candidate, LocationHint, RecognitionResult, Region, RequestedSlot
+
 
 class Contract(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
@@ -22,6 +24,9 @@ class ExecutionPlan(Contract):
     selected_agents: list[Literal["visual_agent", "knowledge_agent", "tool_gen_agent"]]
     plan_reasoning: str = ""
     focus_directives: FocusDirectives = Field(default_factory=FocusDirectives)
+    requested_slots: list[RequestedSlot] = Field(default_factory=list, max_length=12)
+    candidates: list[Candidate] = Field(default_factory=list, max_length=3)
+    regions: list[Region] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="after")
     def normalize_agents(self):
@@ -37,6 +42,12 @@ class SourceRecord(Contract):
     snippet: str = ""
     retrieved_at: str | None = None
     revision_id: str | None = None
+    content_hash: str | None = None
+    locator: str | None = None
+    publisher: str | None = None
+    annotation_status: Literal["retrieved", "draft", "reviewed"] = "retrieved"
+    reviewer: str | None = None
+    reviewed_at: str | None = None
 
 
 class Criterion(Contract):
@@ -87,9 +98,22 @@ class StageEvent(Contract):
 
 
 class RunResult(Contract):
+    result_schema_version: int = 1
+    answer_status: str | None = None
+    recognition: RecognitionResult | None = None
+    location_hint: LocationHint | None = None
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    claims: list[dict[str, Any]] = Field(default_factory=list)
+    requested_slots: list[dict[str, Any]] = Field(default_factory=list)
+    candidates: list[dict[str, Any]] = Field(default_factory=list)
+    image_quality: dict[str, Any] = Field(default_factory=dict)
+    regions: list[dict[str, Any]] = Field(default_factory=list)
+    tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    clarification: dict[str, Any] | None = None
+    continuation_context: dict[str, Any] = Field(default_factory=dict)
     run_id: str
     parent_run_id: str | None = None
-    run_kind: Literal["full", "review"] = "full"
+    run_kind: Literal["full", "review", "clarification"] = "full"
     reused_nodes: list[str] = Field(default_factory=list)
     upstream_config_hash: str | None = None
     fingerprint: str

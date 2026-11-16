@@ -3,7 +3,7 @@
     "_postman_id": "bbdb0c54-6200-5447-b3c5-a74425cd55d2",
     "name": "Heritage VQA - Complete API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "33 API operations + SSE replay/intermediate/Markdown variants. Import an environment, run folders 01-09 in order. Tokens/asset_id/run_id are saved automatically. Optional upload requires choosing a file and enable_upload=true. Folder 10 requires run_lifecycle_actions=true and revokes the session last. Review creates a child run and calls only Judge. See docs/postman.md. No real credentials are included."
+    "description": "81 API operations plus SSE replay/intermediate/Markdown variants. Default flags disable model calls, account creation/updates, editorial writes/review/publication, media writes, role assignment and destructive actions. Model-producing requests recheck live capabilities; live calls additionally require allow_live_model_calls=true AND live_model_consent=true. Source review additionally requires explicit reviewed_against_source attestation. DELETE/archive/withdraw require enable_destructive_actions=true and deletion targets are separate blank variables. Editorial auth accepts editor_access_token or server operations_token; role assignment requires admin_access_token or server operations_token. Session teardown runs last in folder15. Read docs/postman.md for per-feature setup. Templates contain no credentials or passwords."
   },
   "auth": {
     "type": "bearer",
@@ -57,6 +57,26 @@
       "type": "string"
     },
     {
+      "key": "heritage_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "heritage_media_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "heritage_version",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "catalog_write_body",
+      "value": "",
+      "type": "string"
+    },
+    {
       "key": "run_id",
       "value": "",
       "type": "string"
@@ -69,6 +89,51 @@
     {
       "key": "review_run_id",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clarification_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clarification_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clarification_revision",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "clarification_answer",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "selected_candidate",
+      "value": "null",
+      "type": "string"
+    },
+    {
+      "key": "clarification_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "region_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "focus_box",
+      "value": "null",
+      "type": "string"
+    },
+    {
+      "key": "location_hint",
+      "value": "null",
       "type": "string"
     },
     {
@@ -165,6 +230,271 @@
       "key": "run_lifecycle_actions",
       "value": "false",
       "type": "string"
+    },
+    {
+      "key": "enable_catalog_asset_import",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_catalog_writes",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_model_calls",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "allow_live_model_calls",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "live_model_consent",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_accounts",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_account_updates",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_role_changes",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_conversation_writes",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_favorite_writes",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_editorial_writes",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_remote_ingest",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_source_review",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_source_publish",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_media_writes",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "enable_destructive_actions",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "account_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "editor_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "account_email",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "account_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "current_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "new_password",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "display_name",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "account_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "account_version",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "account_role",
+      "value": "user",
+      "type": "string"
+    },
+    {
+      "key": "account_disabled",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "conversation_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "conversation_title",
+      "value": "Postman conversation",
+      "type": "string"
+    },
+    {
+      "key": "conversation_version",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "memory_enabled",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "source_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "version_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "source_version",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "source_title",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "source_url",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "source_text",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "source_publisher",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "source_review_attestation",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "review_note",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "entity_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "parent_heritage_id",
+      "value": "null",
+      "type": "string"
+    },
+    {
+      "key": "binding_note",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "delete_run_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "delete_media_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "delete_conversation_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "archive_heritage_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "resume_idempotency_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "can_resume",
+      "value": "false",
+      "type": "string"
+    },
+    {
+      "key": "run_heritage_id",
+      "value": "null",
+      "type": "string"
+    },
+    {
+      "key": "run_conversation_id",
+      "value": "null",
+      "type": "string"
     }
   ],
   "event": [
@@ -176,9 +506,11 @@
           "const base = String(pm.variables.get('base_url') || '').replace(/\\/+$/, '');",
           "if (!/^https?:\\/\\//.test(base)) throw new Error('Set base_url and select the imported environment.');",
           "pm.variables.set('base_url', base);",
-          "['question', 'feedback_note', 'session_label'].forEach(key => {",
+          "['question', 'feedback_note', 'session_label', 'clarification_answer', 'account_email', 'account_password', 'display_name', 'current_password', 'new_password', 'conversation_title', 'source_title', 'source_url', 'source_text', 'source_publisher', 'source_review_attestation', 'review_note', 'entity_id', 'binding_note', 'account_role'].forEach(key => {",
           "  pm.variables.set(key + '_json', JSON.stringify(String(pm.variables.get(key) || '')));",
-          "});"
+          "});",
+          "pm.variables.set('editorial_token', pm.variables.get('editor_access_token') || pm.variables.get('operations_token') || '');",
+          "pm.variables.set('role_token', pm.variables.get('admin_access_token') || pm.variables.get('operations_token') || '');"
         ]
       }
     },
@@ -339,6 +671,285 @@
       ]
     },
     {
+      "name": "01 Catalog",
+      "item": [
+        {
+          "id": "18ff2380-699e-5371-b609-23f54df94d6a",
+          "name": "List published heritages and save first ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/heritages?limit=100&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "heritages"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true,
+                  "description": "q"
+                },
+                {
+                  "key": "province",
+                  "value": "",
+                  "disabled": true,
+                  "description": "province"
+                },
+                {
+                  "key": "category",
+                  "value": "",
+                  "disabled": true,
+                  "description": "category"
+                },
+                {
+                  "key": "has_location",
+                  "value": "",
+                  "disabled": true,
+                  "description": "has_location"
+                },
+                {
+                  "key": "limit",
+                  "value": "100",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/heritages\n\nList Heritages",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "if (pm.response.code === 200 && !pm.variables.get('heritage_id')) {",
+                  "  const first = pm.response.json().items[0];",
+                  "  if (first) {",
+                  "    pm.environment.set('heritage_id', first.heritage_id);",
+                  "    pm.environment.set('heritage_version', String(first.version));",
+                  "    if (first.media[0]) pm.environment.set('heritage_media_id', first.media[0].media_id);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "4362473e-5e1c-5ee8-be0b-9eeb1a0b72a9",
+          "name": "Published heritage detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/heritages/{{heritage_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "heritages",
+                "{{heritage_id}}"
+              ]
+            },
+            "description": "GET /api/v1/heritages/{heritage_id}\n\nGet Heritage",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.environment.set('heritage_version', String(data.version));",
+                  "  if (data.media[0]) pm.environment.set('heritage_media_id', data.media[0].media_id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "a9349004-7fca-58c4-bc9d-21e983a358a9",
+          "name": "Published catalog image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/heritages/{{heritage_id}}/media/{{heritage_media_id}}/content",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "heritages",
+                "{{heritage_id}}",
+                "media",
+                "{{heritage_media_id}}",
+                "content"
+              ]
+            },
+            "description": "GET /api/v1/heritages/{heritage_id}/media/{media_id}/content\n\nMedia Content",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_media_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "a686d2d3-af27-569e-9a8b-88c55ce6bcb3",
+          "name": "Catalog context is an unverified hint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/heritages/{{heritage_id}}/context",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "heritages",
+                "{{heritage_id}}",
+                "context"
+              ]
+            },
+            "description": "GET /api/v1/heritages/{heritage_id}/context\n\nHeritage Context",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "68a9303d-8aa4-56dd-87d3-a3faa5c6659a",
+          "name": "Published reviewed source excerpts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/heritages/{{heritage_id}}/sources",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "heritages",
+                "{{heritage_id}}",
+                "sources"
+              ]
+            },
+            "description": "GET /api/v1/heritages/{heritage_id}/sources\n\nPublished Sources",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "02 Session",
       "item": [
         {
@@ -398,7 +1009,7 @@
                   "  const data = pm.response.json();",
                   "  pm.environment.set('access_token', data.access_token);",
                   "  pm.environment.set('session_id', data.session_id);",
-                  "  ['asset_id','run_id','retry_run_id','review_run_id','idempotency_key','retry_idempotency_key','review_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
+                  "  ['asset_id','run_id','retry_run_id','review_run_id','clarification_run_id','clarification_id','region_id','idempotency_key','retry_idempotency_key','review_idempotency_key','clarification_idempotency_key','delete_asset_id'].forEach(key => pm.environment.unset(key));",
                   "  ['history_after','sse_after','last_event_id','_poll_attempts'].forEach(key => pm.environment.set(key, '0'));",
                   "}"
                 ]
@@ -580,7 +1191,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('asset_id')) throw new Error('Missing asset_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('asset_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -624,7 +1235,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('asset_id')) throw new Error('Missing asset_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('asset_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -678,6 +1289,55 @@
                 "exec": [
                   "if (String(pm.variables.get('enable_upload')) !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if (pm.response.code === 201) pm.environment.set('asset_id', pm.response.json().asset_id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "77fdb9d8-208c-5862-bbfe-b9eba8ae8b29",
+          "name": "Import catalog image as owned asset - optional",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/heritages/{{heritage_id}}/media/{{heritage_media_id}}/assets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "heritages",
+                "{{heritage_id}}",
+                "media",
+                "{{heritage_media_id}}",
+                "assets"
+              ]
+            },
+            "description": "POST /api/v1/heritages/{heritage_id}/media/{media_id}/assets\n\nImport Media"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_catalog_asset_import')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_media_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -829,7 +1489,7 @@
             "description": "POST /api/v1/runs\n\nCreate Run",
             "body": {
               "mode": "raw",
-              "raw": "{\"asset_id\":\"{{asset_id}}\",\"question\":{{question_json}},\"audience\":\"{{audience}}\",\"profile\":\"{{profile}}\"}",
+              "raw": "{\"asset_id\":\"{{asset_id}}\",\"question\":{{question_json}},\"audience\":\"{{audience}}\",\"profile\":\"{{profile}}\",\"focus_box\":{{focus_box}},\"location_hint\":{{location_hint}},\"heritage_id\":{{run_heritage_id}},\"conversation_id\":{{run_conversation_id}}}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -844,9 +1504,18 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('asset_id')) throw new Error('Missing asset_id; run the earlier setup requests.');",
+                  "if (!pm.variables.get('asset_id')) pm.execution.skipRequest();",
                   "if (!pm.variables.get('idempotency_key')) pm.environment.set('idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
-                  "pm.environment.set('_poll_attempts', '0');"
+                  "pm.environment.set('_poll_attempts', '0');",
+                  "",
+                  "if (String(pm.variables.get('enable_model_calls')) !== 'true') pm.execution.skipRequest();",
+                  "try {",
+                  "  const response = await pm.sendRequest({url: String(pm.variables.get('base_url')).replace(/\\/+$/, '') + '/api/v1/capabilities', method:'GET', auth:{type:'noauth'}});",
+                  "  if (response.code !== 200) pm.execution.skipRequest();",
+                  "  const caps = response.json();",
+                  "  const liveAllowed = String(pm.variables.get('allow_live_model_calls')) === 'true' && String(pm.variables.get('live_model_consent')) === 'true';",
+                  "  if (caps.model_mode !== 'demo' && !(caps.model_mode === 'live' && liveAllowed && caps.model_configured && caps.missing_roles.length === 0)) pm.execution.skipRequest();",
+                  "} catch (_) { pm.execution.skipRequest(); }"
                 ]
               }
             },
@@ -958,7 +1627,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -982,7 +1651,7 @@
                   "      const delay = Math.min(10000, Math.max(100, Number(pm.variables.get('poll_interval_ms') || 1000)));",
                   "      setTimeout(() => {}, delay);",
                   "    }",
-                  "  } else if (state !== 'succeeded') {",
+                  "  } else if (!['succeeded', 'awaiting_input'].includes(state)) {",
                   "    pm.test('Run succeeded', () => pm.expect(state).to.eql('succeeded'));",
                   "    pm.execution.setNextRequest(null);",
                   "  }",
@@ -1047,7 +1716,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1111,7 +1780,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1182,7 +1851,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1243,7 +1912,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1295,7 +1964,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1339,7 +2008,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1349,6 +2018,148 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "94c084b1-c11a-5999-87de-e0b1cdd66981",
+          "name": "Claims and registered evidence",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/evidence",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "evidence"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/evidence\n\nEvidence"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "if (pm.response.code === 200) pm.environment.set('region_id', (pm.response.json().regions[0] || {}).region_id || '');"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "ba772da7-2495-5211-ba05-92b4e56dd6f5",
+          "name": "View evidence crop - optional",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/regions/{{region_id}}/image",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "regions",
+                "{{region_id}}",
+                "image"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/regions/{region_id}/image\n\nRegion Image"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('region_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "6a2210ff-68c3-51c6-ba88-cf644a720e7e",
+          "name": "Pending clarification and revision",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/clarification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "clarification"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/clarification\n\nClarification"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "",
+                  "if (pm.response.code === 200) {",
+                  "  const pending = pm.response.json().clarification;",
+                  "  pm.environment.set('clarification_id', pending ? pending.clarification_id : '');",
+                  "  pm.environment.set('clarification_revision', String(pending ? pending.revision : 1));",
+                  "}"
                 ]
               }
             }
@@ -1391,7 +2202,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1435,7 +2246,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1493,7 +2304,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1551,7 +2362,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1614,7 +2425,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1672,7 +2483,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1730,7 +2541,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1774,7 +2585,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1847,12 +2658,227 @@
             }
           ],
           "response": []
+        },
+        {
+          "id": "bab30b89-3cc5-5261-b8d7-8eb2e74dbc40",
+          "name": "Create heritage - optional operator write",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages"
+              ]
+            },
+            "description": "POST /api/v1/operations/heritages\n\nCreate Heritage",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{catalog_write_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_catalog_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_catalog_writes')) === 'true' && pm.variables.get('operations_token') && !pm.variables.get('catalog_write_body')) throw new Error('Set catalog_write_body to a full HeritageWrite JSON; PUT requires the current version.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "if ([200,201].includes(pm.response.code)) { const data = pm.response.json(); pm.environment.set('heritage_id', data.heritage_id); pm.environment.set('heritage_version', String(data.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "385bc8e4-250c-5668-9cd1-71a16acba344",
+          "name": "Replace heritage with expected version - optional operator write",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{heritage_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{heritage_id}}"
+              ]
+            },
+            "description": "PUT /api/v1/operations/heritages/{heritage_id}\n\nReplace Heritage",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{catalog_write_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_catalog_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_catalog_writes')) === 'true' && pm.variables.get('operations_token') && !pm.variables.get('catalog_write_body')) throw new Error('Set catalog_write_body to a full HeritageWrite JSON; PUT requires the current version.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "if ([200,201].includes(pm.response.code)) { const data = pm.response.json(); pm.environment.set('heritage_id', data.heritage_id); pm.environment.set('heritage_version', String(data.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
         }
       ]
     },
     {
       "name": "10 Lifecycle actions - optional",
       "item": [
+        {
+          "id": "c4bcf635-1024-5bf6-9814-f71bf835ffee",
+          "name": "Answer clarification - saves clarification_run_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{clarification_idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/clarification",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "clarification"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/clarification\n\nContinue from stored evidence. Consumes one pending revision atomically; keeps parent immutable.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clarification_id\":\"{{clarification_id}}\",\"revision\":{{clarification_revision}},\"answer\":{{clarification_answer_json}},\"selected_candidate\":{{selected_candidate}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('clarification_id') || !pm.variables.get('clarification_answer')) pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('clarification_idempotency_key')) pm.environment.set('clarification_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "",
+                  "if (String(pm.variables.get('enable_model_calls')) !== 'true') pm.execution.skipRequest();",
+                  "try {",
+                  "  const response = await pm.sendRequest({url: String(pm.variables.get('base_url')).replace(/\\/+$/, '') + '/api/v1/capabilities', method:'GET', auth:{type:'noauth'}});",
+                  "  if (response.code !== 200) pm.execution.skipRequest();",
+                  "  const caps = response.json();",
+                  "  const liveAllowed = String(pm.variables.get('allow_live_model_calls')) === 'true' && String(pm.variables.get('live_model_consent')) === 'true';",
+                  "  if (caps.model_mode !== 'demo' && !(caps.model_mode === 'live' && liveAllowed && caps.model_configured && caps.missing_roles.length === 0)) pm.execution.skipRequest();",
+                  "} catch (_) { pm.execution.skipRequest(); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "if (pm.response.code === 202) { const id = pm.response.json().run_id; if ('clarification_run_id' === 'run_id' && pm.environment.get('run_id') !== id) ['history_after','sse_after','last_event_id'].forEach(key => pm.environment.set(key, '0')); pm.environment.set('clarification_run_id', id); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
         {
           "id": "25cb6821-704e-5144-a0af-6b8853c2d7b5",
           "name": "Cancel run",
@@ -1882,7 +2908,7 @@
                 "exec": [
                   "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
                 ]
               }
             },
@@ -1932,8 +2958,17 @@
                 "exec": [
                   "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');",
-                  "if (!pm.variables.get('review_idempotency_key')) pm.environment.set('review_idempotency_key', pm.variables.replaceIn('{{$guid}}'));"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('review_idempotency_key')) pm.environment.set('review_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "",
+                  "if (String(pm.variables.get('enable_model_calls')) !== 'true') pm.execution.skipRequest();",
+                  "try {",
+                  "  const response = await pm.sendRequest({url: String(pm.variables.get('base_url')).replace(/\\/+$/, '') + '/api/v1/capabilities', method:'GET', auth:{type:'noauth'}});",
+                  "  if (response.code !== 200) pm.execution.skipRequest();",
+                  "  const caps = response.json();",
+                  "  const liveAllowed = String(pm.variables.get('allow_live_model_calls')) === 'true' && String(pm.variables.get('live_model_consent')) === 'true';",
+                  "  if (caps.model_mode !== 'demo' && !(caps.model_mode === 'live' && liveAllowed && caps.model_configured && caps.missing_roles.length === 0)) pm.execution.skipRequest();",
+                  "} catch (_) { pm.execution.skipRequest(); }"
                 ]
               }
             },
@@ -1984,8 +3019,17 @@
                 "exec": [
                   "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
-                  "if (!pm.variables.get('run_id')) throw new Error('Missing run_id; run the earlier setup requests.');",
-                  "if (!pm.variables.get('retry_idempotency_key')) pm.environment.set('retry_idempotency_key', pm.variables.replaceIn('{{$guid}}'));"
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('retry_idempotency_key')) pm.environment.set('retry_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "",
+                  "if (String(pm.variables.get('enable_model_calls')) !== 'true') pm.execution.skipRequest();",
+                  "try {",
+                  "  const response = await pm.sendRequest({url: String(pm.variables.get('base_url')).replace(/\\/+$/, '') + '/api/v1/capabilities', method:'GET', auth:{type:'noauth'}});",
+                  "  if (response.code !== 200) pm.execution.skipRequest();",
+                  "  const caps = response.json();",
+                  "  const liveAllowed = String(pm.variables.get('allow_live_model_calls')) === 'true' && String(pm.variables.get('live_model_consent')) === 'true';",
+                  "  if (caps.model_mode !== 'demo' && !(caps.model_mode === 'live' && liveAllowed && caps.model_configured && caps.missing_roles.length === 0)) pm.execution.skipRequest();",
+                  "} catch (_) { pm.execution.skipRequest(); }"
                 ]
               }
             },
@@ -2028,6 +3072,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');",
                   "if (!pm.variables.get('delete_asset_id')) pm.variables.set('delete_asset_id', pm.variables.get('asset_id'));"
@@ -2040,6 +3085,2254 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.be.oneOf([204, 409]));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "11 Accounts - opt in",
+      "item": [
+        {
+          "id": "66c361d4-5512-5ee8-a083-a433bfd6fdb1",
+          "name": "Register account - explicit opt in",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/accounts",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "accounts"
+              ]
+            },
+            "description": "POST /api/v1/accounts\n\nRegister",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":{{account_email_json}},\"display_name\":{{display_name_json}},\"password\":{{account_password_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_accounts')) !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('account_id',d.account_id); pm.environment.set('account_version',String(d.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "70f7ae25-2342-5026-9a5d-3e0f3904b104",
+          "name": "Sign in and store account tokens",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/sessions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sessions"
+              ]
+            },
+            "description": "POST /api/v1/auth/sessions\n\nLogin",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":{{account_email_json}},\"password\":{{account_password_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_accounts')) !== 'true') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (pm.response.code === 200) { const d=pm.response.json(); pm.environment.set('account_access_token',d.access_token); pm.environment.set('refresh_token',d.refresh_token); pm.environment.set('account_id',d.account.account_id); pm.environment.set('account_version',String(d.account.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "b680b02f-c5ba-5fed-ae68-de7ec28e57b4",
+          "name": "Account profile and effective role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "GET /api/v1/users/me\n\nMe",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('account_id',d.account_id); pm.environment.set('account_version',String(d.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "796ca900-40d5-59be-af00-5302da0b55dd",
+          "name": "Update account profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me"
+              ]
+            },
+            "description": "PATCH /api/v1/users/me\n\nPatch",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{account_version}},\"display_name\":{{display_name_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_account_updates')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('account_id',d.account_id); pm.environment.set('account_version',String(d.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "ef9029eb-a5f6-5e5c-bf31-e85c26825d25",
+          "name": "Rotate refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/refresh",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "refresh"
+              ]
+            },
+            "description": "POST /api/v1/auth/refresh\n\nRefresh",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refresh_token\":\"{{refresh_token}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_accounts')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('refresh_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if (pm.response.code === 200) { const d=pm.response.json(); pm.environment.set('account_access_token',d.access_token); pm.environment.set('refresh_token',d.refresh_token); pm.environment.set('account_id',d.account.account_id); pm.environment.set('account_version',String(d.account.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "da4c0974-28b1-581d-bee8-e53781ee2e1e",
+          "name": "Change account password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "password"
+              ]
+            },
+            "description": "POST /api/v1/users/me/password\n\nPassword",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"current_password\":{{current_password_json}},\"new_password\":{{new_password_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_account_updates')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "da451649-7ded-5a36-9ae3-7470eeac7ad9",
+          "name": "Assign role - existing admin or server operations",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/accounts/{{account_id}}/role",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "accounts",
+                "{{account_id}}",
+                "role"
+              ]
+            },
+            "description": "PUT /api/v1/operations/accounts/{account_id}/role\n\nRole",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{role_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{account_version}},\"role\":{{account_role_json}},\"disabled\":{{account_disabled}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_role_changes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('role_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('account_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('account_id',d.account_id); pm.environment.set('account_version',String(d.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "12 Conversations - opt in",
+      "item": [
+        {
+          "id": "0394b7a6-67a2-5590-82a0-157131e79e31",
+          "name": "Create owned conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations"
+              ]
+            },
+            "description": "POST /api/v1/conversations\n\nCreate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"title\":{{conversation_title_json}},\"memory_enabled\":{{memory_enabled}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_conversation_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('conversation_id',d.conversation_id); pm.environment.set('conversation_version',String(d.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "e0d9080f-52f0-5dcf-a4d4-f4f1cae41671",
+          "name": "List owned conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/conversations\n\nList Conversations"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "5cfa0b26-2489-5481-89e9-89c464551dde",
+          "name": "Conversation detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations/{{conversation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations",
+                "{{conversation_id}}"
+              ]
+            },
+            "description": "GET /api/v1/conversations/{conversation_id}\n\nGet"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversation_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "ea3d7587-3031-56ed-95db-f78ea8d0e6a6",
+          "name": "Update conversation at expected revision",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations/{{conversation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations",
+                "{{conversation_id}}"
+              ]
+            },
+            "description": "PATCH /api/v1/conversations/{conversation_id}\n\nPatch",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{conversation_version}},\"title\":{{conversation_title_json}},\"memory_enabled\":{{memory_enabled}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_conversation_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversation_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('conversation_id',d.conversation_id); pm.environment.set('conversation_version',String(d.version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "316ca8fe-e259-54e6-9503-a9c4a2d63df3",
+          "name": "Persisted conversation turns",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations/{{conversation_id}}/messages?limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/conversations/{conversation_id}/messages\n\nMessages"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversation_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "2f961cd7-6c09-5bb6-85b3-896add6c6b35",
+          "name": "Bounded unverified conversation memory",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations/{{conversation_id}}/memory",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations",
+                "{{conversation_id}}",
+                "memory"
+              ]
+            },
+            "description": "GET /api/v1/conversations/{conversation_id}/memory\n\nMemory"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversation_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "e737e765-fd3a-5f78-aa86-6fca961ed432",
+          "name": "Forget prior conversation memory",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations/{{conversation_id}}/memory",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations",
+                "{{conversation_id}}",
+                "memory"
+              ]
+            },
+            "description": "DELETE /api/v1/conversations/{conversation_id}/memory\n\nClear Memory"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_conversation_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('conversation_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "f4fbc8f3-9056-5427-a6d2-75d2cef521b6",
+          "name": "Delete explicitly selected conversation",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/conversations/{{delete_conversation_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "conversations",
+                "{{delete_conversation_id}}"
+              ]
+            },
+            "description": "DELETE /api/v1/conversations/{conversation_id}\n\nRemove"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_conversation_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('delete_conversation_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "2514002b-5142-59e8-85d5-6bd164c68a21",
+          "name": "List account heritage favorites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/heritage-favorites?limit=20&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "heritage-favorites"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/users/me/heritage-favorites\n\nFavorites",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "7501d1e0-7c12-50a7-b277-70523998b83b",
+          "name": "Favorite a heritage idempotently",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/heritage-favorites/{{heritage_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "heritage-favorites",
+                "{{heritage_id}}"
+              ]
+            },
+            "description": "PUT /api/v1/users/me/heritage-favorites/{heritage_id}\n\nFavorite",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_favorite_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "cdc3d1ff-ce07-51a9-a0bf-7b7aa69dd456",
+          "name": "Remove heritage favorite",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/users/me/heritage-favorites/{{heritage_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "me",
+                "heritage-favorites",
+                "{{heritage_id}}"
+              ]
+            },
+            "description": "DELETE /api/v1/users/me/heritage-favorites/{heritage_id}\n\nUnfavorite",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_favorite_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "13 Editorial - opt in",
+      "item": [
+        {
+          "id": "07e95dd1-d8b2-513f-90ac-34e4ca694486",
+          "name": "List editorial sources",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources?limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources"
+              ],
+              "query": [
+                {
+                  "key": "heritage_id",
+                  "value": "",
+                  "disabled": true,
+                  "description": "heritage_id"
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/operations/content-sources\n\nList Sources",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "06f828e1-8ce4-5bf4-9439-da2f740fd198",
+          "name": "Create an immutable draft source",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources"
+              ]
+            },
+            "description": "POST /api/v1/operations/content-sources\n\nCreate Source",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"heritage_id\":\"{{heritage_id}}\",\"title\":{{source_title_json}},\"url\":{{source_url_json}},\"publisher\":{{source_publisher_json}},\"text\":{{source_text_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "d03d8011-a3ac-5a93-9983-10706bec3ee7",
+          "name": "Fetch allowlisted URL into a draft",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources/ingest",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources",
+                "ingest"
+              ]
+            },
+            "description": "POST /api/v1/operations/content-sources/ingest\n\nIngest Source",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"heritage_id\":\"{{heritage_id}}\",\"url\":{{source_url_json}},\"title\":{{source_title_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_remote_ingest')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "98ba5246-8f70-560f-b140-623a2fac47b5",
+          "name": "Read source revisions for human review",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources/{{source_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources",
+                "{{source_id}}"
+              ]
+            },
+            "description": "GET /api/v1/operations/content-sources/{source_id}\n\nGet Source",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('source_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "7edcf2ce-a07d-54c6-88fa-046485a60d5c",
+          "name": "Add source revision",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources/{{source_id}}/versions",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources",
+                "{{source_id}}",
+                "versions"
+              ]
+            },
+            "description": "POST /api/v1/operations/content-sources/{source_id}/versions\n\nAdd Version",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{source_version}},\"text\":{{source_text_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('source_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "aa29b3a7-3707-5e33-8a2f-66e1b4b9bba3",
+          "name": "Record explicit human source review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources/{{source_id}}/versions/{{version_id}}/review",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources",
+                "{{source_id}}",
+                "versions",
+                "{{version_id}}",
+                "review"
+              ]
+            },
+            "description": "POST /api/v1/operations/content-sources/{source_id}/versions/{version_id}/review\n\nReview Version",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{source_version}},\"attestation\":{{source_review_attestation_json}},\"note\":{{review_note_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_source_review')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('source_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('version_id')) pm.execution.skipRequest();",
+                  "if (pm.variables.get('source_review_attestation') !== 'reviewed_against_source') pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "928a23d9-0b57-504e-ad99-cda597b9c1bd",
+          "name": "Publish reviewed version",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources/{{source_id}}/versions/{{version_id}}/publish",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources",
+                "{{source_id}}",
+                "versions",
+                "{{version_id}}",
+                "publish"
+              ]
+            },
+            "description": "POST /api/v1/operations/content-sources/{source_id}/versions/{version_id}/publish\n\nPublish Version",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{source_version}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_source_publish')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('source_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('version_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "19382149-b4cf-5066-be02-9b0fc92416bf",
+          "name": "Withdraw explicitly selected publication",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/content-sources/{{source_id}}/versions/{{version_id}}/withdraw",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "content-sources",
+                "{{source_id}}",
+                "versions",
+                "{{version_id}}",
+                "withdraw"
+              ]
+            },
+            "description": "POST /api/v1/operations/content-sources/{source_id}/versions/{version_id}/withdraw\n\nWithdraw Version",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{source_version}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('source_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('version_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if ([200,201].includes(pm.response.code)) { const d=pm.response.json(); if(d.source_id) { pm.environment.set('source_id',d.source_id); pm.environment.set('source_version',String(d.version)); if(d.versions[0])pm.environment.set('version_id',d.versions[0].version_id); } }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "0c9013ba-69bd-58e8-a45c-b3fefef03bde",
+          "name": "Bind catalog to canonical entity",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{heritage_id}}/entity-binding",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{heritage_id}}",
+                "entity-binding"
+              ]
+            },
+            "description": "PUT /api/v1/operations/heritages/{heritage_id}/entity-binding\n\nBind Entity",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{heritage_version}},\"entity_id\":{{entity_id_json}},\"parent_heritage_id\":{{parent_heritage_id}},\"note\":{{binding_note_json}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if(pm.response.code===200)pm.environment.set('heritage_version',String(pm.response.json().heritage_version));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "fe0a885e-af7e-5f65-b0a5-bb739bcabfb6",
+          "name": "Read editorial audit history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{heritage_id}}/audit?limit=50&offset=0",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{heritage_id}}",
+                "audit"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false,
+                  "description": "limit"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "disabled": false,
+                  "description": "offset"
+                }
+              ]
+            },
+            "description": "GET /api/v1/operations/heritages/{heritage_id}/audit\n\nEditorial History",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "65f848e0-9002-5ae0-9b79-c4aaa2969514",
+          "name": "Upload catalog image",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{heritage_id}}/media",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{heritage_id}}",
+                "media"
+              ]
+            },
+            "description": "POST /api/v1/operations/heritages/{heritage_id}/media\n\nUpload Media",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Choose a JPEG/PNG/WebP; uploaded copy is normalized."
+                },
+                {
+                  "key": "version",
+                  "type": "text",
+                  "value": "{{heritage_version}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_media_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(201));",
+                  "if([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('heritage_media_id',d.media_id); pm.environment.set('heritage_version',String(d.heritage_version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "e32711bc-f48c-5a1b-ac23-897f71b61296",
+          "name": "Replace catalog image",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{heritage_id}}/media/{{heritage_media_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{heritage_id}}",
+                "media",
+                "{{heritage_media_id}}"
+              ]
+            },
+            "description": "PUT /api/v1/operations/heritages/{heritage_id}/media/{media_id}\n\nReplace Media",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "",
+                  "description": "Choose a JPEG/PNG/WebP; uploaded copy is normalized."
+                },
+                {
+                  "key": "version",
+                  "type": "text",
+                  "value": "{{heritage_version}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_media_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_media_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if([200,201].includes(pm.response.code)) { const d=pm.response.json(); pm.environment.set('heritage_media_id',d.media_id); pm.environment.set('heritage_version',String(d.heritage_version)); }"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "d38113fb-50d7-5780-ba98-de17bd00e77e",
+          "name": "Delete explicitly selected catalog image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{heritage_id}}/media/{{delete_media_id}}?version={{heritage_version}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{heritage_id}}",
+                "media",
+                "{{delete_media_id}}"
+              ],
+              "query": [
+                {
+                  "key": "version",
+                  "value": "{{heritage_version}}",
+                  "disabled": false,
+                  "description": "version"
+                }
+              ]
+            },
+            "description": "DELETE /api/v1/operations/heritages/{heritage_id}/media/{media_id}\n\nRemove Media",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_media_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('heritage_id')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('delete_media_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "735c5146-9d50-5097-acc1-4defa79ec7c3",
+          "name": "Archive explicitly selected heritage",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/operations/heritages/{{archive_heritage_id}}/archive",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "operations",
+                "heritages",
+                "{{archive_heritage_id}}",
+                "archive"
+              ]
+            },
+            "description": "POST /api/v1/operations/heritages/{heritage_id}/archive\n\nArchive Heritage",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{editorial_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"version\":{{heritage_version}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_editorial_writes')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('editorial_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('archive_heritage_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "14 Recovery and deletion - opt in",
+      "item": [
+        {
+          "id": "883e4d6d-1c01-54cc-b703-26250bd1faaf",
+          "name": "Completed checkpoints and resume eligibility",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/recovery",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "recovery"
+              ]
+            },
+            "description": "GET /api/v1/runs/{run_id}/recovery\n\nRecovery Status"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(200));",
+                  "if(pm.response.code===200)pm.environment.set('can_resume',String(pm.response.json().can_resume));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "30875357-43e8-5a7b-8dcc-56cdfe803c14",
+          "name": "Resume interrupted worker run",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "{{resume_idempotency_key}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{run_id}}/resume",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{run_id}}",
+                "resume"
+              ]
+            },
+            "description": "POST /api/v1/runs/{run_id}/resume\n\nResume Run"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('run_id')) pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('can_resume')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('resume_idempotency_key')) pm.environment.set('resume_idempotency_key', pm.variables.replaceIn('{{$guid}}'));",
+                  "",
+                  "if (String(pm.variables.get('enable_model_calls')) !== 'true') pm.execution.skipRequest();",
+                  "try {",
+                  "  const response = await pm.sendRequest({url: String(pm.variables.get('base_url')).replace(/\\/+$/, '') + '/api/v1/capabilities', method:'GET', auth:{type:'noauth'}});",
+                  "  if (response.code !== 200) pm.execution.skipRequest();",
+                  "  const caps = response.json();",
+                  "  const liveAllowed = String(pm.variables.get('allow_live_model_calls')) === 'true' && String(pm.variables.get('live_model_consent')) === 'true';",
+                  "  if (caps.model_mode !== 'demo' && !(caps.model_mode === 'live' && liveAllowed && caps.model_configured && caps.missing_roles.length === 0)) pm.execution.skipRequest();",
+                  "} catch (_) { pm.execution.skipRequest(); }"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(202));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "id": "5f7e0b68-bdff-57c9-964d-fcd076f757f5",
+          "name": "Soft-delete explicitly selected run",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/runs/{{delete_run_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "runs",
+                "{{delete_run_id}}"
+              ]
+            },
+            "description": "DELETE /api/v1/runs/{run_id}\n\nRemove Run"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('access_token')) pm.execution.skipRequest();",
+                  "if (!pm.variables.get('delete_run_id')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "15 Session teardown - opt in",
+      "item": [
+        {
+          "id": "1731bdea-8dde-547e-929e-f4790b74828d",
+          "name": "Sign out account session",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/sessions/current",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "sessions",
+                "current"
+              ]
+            },
+            "description": "DELETE /api/v1/auth/sessions/current\n\nLogout",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{account_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (String(pm.variables.get('enable_accounts')) !== 'true') pm.execution.skipRequest();",
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
+                  "if (!pm.variables.get('account_access_token')) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Expected HTTP status', () => pm.expect(pm.response.code).to.equal(204));"
                 ]
               }
             }
@@ -2072,6 +5365,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "if (String(pm.variables.get('enable_destructive_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (String(pm.variables.get('run_lifecycle_actions')) !== 'true') pm.execution.skipRequest();",
                   "if (!pm.variables.get('access_token')) throw new Error('Run Create session first.');"
                 ]

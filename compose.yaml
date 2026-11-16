@@ -23,12 +23,16 @@ services:
 
   api:
     logging: *bounded-logging
-    build: .
+    build:
+      context: .
+      args:
+        HERITAGE_BUILD_REVISION: ${HERITAGE_BUILD_REVISION:-development}
     image: heritage-vqa-api:local
     env_file: .env
     environment: &runtime
       API_ENV: production
       API_MODEL_MODE: ${API_MODEL_MODE:-live}
+      HERITAGE_CONFIG: ${HERITAGE_CONFIG:-config/hanoi-evidence.yaml}
       API_EMBEDDED_WORKER: "false"
       API_DATA_DIR: /app/data
       DATABASE_URL: postgresql+psycopg://heritage:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/heritage
@@ -51,7 +55,10 @@ services:
   worker:
     logging: *bounded-logging
     image: heritage-vqa-api:local
-    build: .
+    build:
+      context: .
+      args:
+        HERITAGE_BUILD_REVISION: ${HERITAGE_BUILD_REVISION:-development}
     command: ["python", "-m", "api.worker"]
     env_file: .env
     environment: *runtime
@@ -60,6 +67,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://api:8000/health/ready', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     restart: unless-stopped
 
 volumes:
