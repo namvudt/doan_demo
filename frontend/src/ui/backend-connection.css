@@ -1,0 +1,77 @@
+.backend-connect {
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  background: #11211b;
+  padding: 16px;
+  border-radius: 12px;
+}
+.backend-connect.offline,
+.backend-connect.limited {
+  background: #1d211b;
+}
+.backend-connect-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.backend-connect-heading > div {
+  flex: 1;
+  min-width: 0;
+}
+.backend-connect-heading strong {
+  font-size: 0.84rem;
+}
+.backend-connect-heading p {
+  font-size: 0.76rem;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 5px 0 0;
+}
+.backend-connect-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #263d30;
+  color: #b3d6bd;
+}
+.backend-connect.offline .backend-connect-icon {
+  color: #d4c18c;
+  background: #393728;
+}
+.backend-service-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 15px 0 0 48px;
+}
+.backend-service-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #b2d8bf;
+  font-size: 0.72rem;
+}
+.backend-service-list .pending {
+  color: #d4c18c;
+}
+.backend-connect-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+.connection-pill {
+  cursor: pointer;
+  background: #13231b;
+}
+.connection-pill:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}

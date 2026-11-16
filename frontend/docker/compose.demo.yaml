@@ -1,0 +1,99 @@
+name: heritage-fe-local
+
+x-runtime: &runtime
+  API_ENV: development
+  API_MODEL_MODE: demo
+  HERITAGE_CONFIG: config/hanoi-evidence.yaml
+  API_EMBEDDED_WORKER: "false"
+  PYTHON_DOTENV_DISABLED: "1"
+  DATABASE_URL: postgresql+psycopg://heritage_demo:local-demo-only@db:5432/heritage_demo
+  API_DATA_DIR: /app/data
+  API_CATALOG_MEDIA_DIR: /app/catalog-media
+  API_LOG_DIR: /app/data/logs
+  API_RETENTION_CLEANUP_INTERVAL_SECONDS: "3600"
+  API_CORS_ORIGINS: http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://127.0.0.1:5175
+  API_BOOTSTRAP_TOKEN: ""
+  API_OPERATIONS_TOKEN: ""
+  LANGSMITH_TRACING: "false"
+  LANGSMITH_CAPTURE_CONTENT: "false"
+  LANGSMITH_API_KEY: ""
+  GEMINI_API_KEY: ""
+  OPENAI_API_KEY: ""
+  KNOWLEDGE_API_KEY: ""
+  JUDGE_API_KEY: ""
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    logging: *logging
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: heritage_demo
+      POSTGRES_USER: heritage_demo
+      POSTGRES_PASSWORD: local-demo-only
+    volumes:
+      - demo_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heritage_demo -d heritage_demo"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  api:
+    logging: *logging
+    image: heritage-frontend-backend:demo
+    build:
+      context: ../..
+      dockerfile: frontend/docker/Backend.Dockerfile
+      args:
+        HERITAGE_BUILD_REVISION: ${HERITAGE_BUILD_REVISION:-development}
+    environment: *runtime
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - demo_assets:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  worker:
+    logging: *logging
+    image: heritage-frontend-backend:demo
+    pull_policy: never
+    command: ["python", "-m", "api.worker"]
+    environment: *runtime
+    volumes:
+      - demo_assets:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://api:8000/health/ready', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  seed-catalog:
+    profiles: ["tools"]
+    image: heritage-frontend-backend:demo
+    pull_policy: never
+    logging: *logging
+    command: ["python", "-m", "scripts.seed_catalog"]
+    environment: *runtime
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  demo_postgres:
+  demo_assets:
