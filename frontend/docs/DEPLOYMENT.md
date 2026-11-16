@@ -3,9 +3,10 @@
 ## Matching backend
 
 Frontend changes after baseline `6d614e3` require
-`be/evidence-product-platform` (`06f44d4`) for the new API journeys. The target
-`dev` integration combines both branches; a fresh merged-checkout verification
-is pending. The matching server publishes 81 OpenAPI operations and migration
+`be/evidence-product-platform` (`06f44d4`) for the new API journeys. The
+`dev` integration combines both branches; fresh merged-checkout verification
+is recorded in [DEV_INTEGRATION.md](../../docs/DEV_INTEGRATION.md).
+The matching server publishes 81 OpenAPI operations and migration
 head `0009_runtime_state`. Check its build identity, readiness and capability
 flags rather than inferring compatibility from a port or an older image tag.
 Preview remains usable without this backend. See
@@ -176,5 +177,6 @@ made. Provider billing and usage policy depend on the selected configuration.
 
 The 16 November deployment observed 60 frontend unit tests and 16 UI cases
 passing across five suites. These are retained validation records, not results
-of a fresh `dev` merge or a production-hosting test. See
-[VALIDATION.md](VALIDATION.md) for the exact scope and pending checks.
+of a fresh `dev` merge or a production-hosting test. Fresh merge checks and
+remaining limits are distinguished in [VALIDATION.md](VALIDATION.md) and
+[DEV_INTEGRATION.md](../../docs/DEV_INTEGRATION.md).

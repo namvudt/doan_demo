@@ -10,7 +10,9 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 from PIL import Image
+from pydantic import ValidationError
 
+from core.config import config_validation_issues
 from core.gateway import LLMManager
 from core.images import image_bytes, validate_image
 from core.observability import TraceSettings
@@ -224,7 +226,23 @@ def image_input(config):
     return normalized
 
 
-def execute(manager, image_data, query, audience, mode, show_stages, show_draft, *, review_of=None):
+def execute(
+    manager,
+    image_data,
+    query,
+    audience,
+    mode,
+    show_stages,
+    show_draft,
+    *,
+    review_of=None,
+    continue_of=None,
+    answer="",
+    new_image=False,
+    focus_box=None,
+    location_hint=None,
+    selected_candidate=None,
+):
     st.session_state.pop("run_error", None)
     placeholder = st.empty()
     st.session_state["live_events"] = []
@@ -233,23 +251,66 @@ def execute(manager, image_data, query, audience, mode, show_stages, show_draft,
             with st.spinner("Đang chạy các phương pháp; chưa chấm độ chính xác..."):
                 st.session_state["comparison"] = compare(image_data, query, manager, audience)
         else:
-            stream = (
-                (
-                    manager.remote_review_stream(image_data, review_of)
+            if continue_of:
+                stream = (
+                    manager.remote_continue_stream(
+                        image_data,
+                        continue_of,
+                        answer,
+                        new_image=new_image,
+                        focus_box=focus_box,
+                        selected_candidate=selected_candidate,
+                    )
                     if isinstance(manager, RemoteManager)
-                    else RunService(manager).review_stream(image_data, review_of)
+                    else RunService(manager).continue_stream(
+                        image_data,
+                        continue_of,
+                        {
+                            "answer": answer,
+                            "rounds": continue_of["clarification"]["rounds"] + 1,
+                            **({"focus_box": focus_box} if focus_box else {}),
+                            **(
+                                {"selected_candidate": selected_candidate}
+                                if selected_candidate
+                                else {}
+                            ),
+                        },
+                    )
                 )
-                if review_of
-                else (
-                    manager.remote_stream(image_data, query, audience)
-                    if isinstance(manager, RemoteManager)
-                    else RunService(manager).stream(image_data, query, audience)
+            else:
+                stream = (
+                    (
+                        manager.remote_review_stream(image_data, review_of)
+                        if isinstance(manager, RemoteManager)
+                        else RunService(manager).review_stream(image_data, review_of)
+                    )
+                    if review_of
+                    else (
+                        manager.remote_stream(
+                            image_data,
+                            query,
+                            audience,
+                            focus_box=focus_box,
+                            location_hint=location_hint,
+                        )
+                        if isinstance(manager, RemoteManager)
+                        else RunService(manager).stream(
+                            image_data,
+                            query,
+                            audience,
+                            focus_box=focus_box,
+                            location_hint=location_hint,
+                        )
+                    )
                 )
-            )
             for event in stream:
                 if event.kind == "completed":
                     result = event.result.model_dump(mode="json")
                     st.session_state["result"] = result
+                    if continue_of:
+                        st.session_state.setdefault("answered_clarifications", {})[
+                            continue_of["run_id"]
+                        ] = result["run_id"]
                     st.session_state["history"] = remember_run(
                         st.session_state.get("history", []),
                         result,
@@ -315,6 +376,30 @@ def main():
     except Exception as exc:
         log_event("ui.initialization_failed", level=logging.ERROR, error=exc)
         st.error(f"Cấu hình chưa hợp lệ ({type(exc).__name__}). Kiểm tra HERITAGE_CONFIG.")
+        if isinstance(exc, ValidationError):
+            descriptions = {
+                "extra_forbidden": "Trường chưa được schema đang chạy hỗ trợ.",
+                "literal_error": "Giá trị không thuộc các lựa chọn được hỗ trợ.",
+                "int_parsing": "Cần một giá trị số nguyên.",
+                "greater_than_equal": "Giá trị thấp hơn giới hạn cho phép.",
+                "less_than_equal": "Giá trị vượt giới hạn cho phép.",
+            }
+            for issue in config_validation_issues(exc):
+                log_event(
+                    "ui.configuration_invalid",
+                    level=logging.ERROR,
+                    config_field=issue["field"],
+                    error_code=issue["code"],
+                )
+                st.write(
+                    issue["field"]
+                    + ": "
+                    + descriptions.get(issue["code"], "Giá trị không phù hợp với schema cấu hình.")
+                )
+            st.info(
+                "Nếu vừa cập nhật code hoặc schema, hãy dừng và khởi động lại tiến trình Streamlit. "
+                "Refresh trang hoặc Rerun có thể vẫn dùng module Python đã nạp trước đó."
+            )
         st.stop()
     if st.session_state.pop("_review_finished", False):
         current_view()
@@ -322,6 +407,45 @@ def main():
     image_column, question_column = st.columns([1, 1.35], gap="large")
     with image_column, st.container(border=True):
         image_data = image_input(manager.config)
+        focus_box = None
+        location_hint = None
+        if manager.config.accuracy.enabled:
+            sample = st.session_state.get("sample")
+            if st.session_state.get("image_source") == "Ảnh mẫu" and sample:
+                guided = st.checkbox(
+                    "Dùng nhãn ảnh mẫu làm gợi ý địa điểm",
+                    key="guided_sample",
+                    value=False,
+                    help="Mặc định nhận diện độc lập. Nhãn mẫu chưa phải đáp án đã kiểm chứng.",
+                )
+                if guided:
+                    label = SAMPLE_NAMES.get(sample.stem, sample.stem.replace("_", " "))
+                    location_hint = {"name": label, "provenance": "sample_label"}
+                    st.caption(f"Gợi ý từ nhãn mẫu: {label} · chưa được kiểm chứng.")
+            else:
+                hint = st.text_input(
+                    "Tên hoặc khu vực bạn biết (tùy chọn)",
+                    key="location_hint",
+                    max_chars=200,
+                    help="Được lưu như thông tin bạn cung cấp; hệ thống vẫn đối chiếu ảnh độc lập.",
+                ).strip()
+                if hint:
+                    location_hint = {"name": hint, "provenance": "user"}
+            with st.expander("Chọn vùng cần hỏi (tùy chọn)"):
+                st.caption(
+                    "Tọa độ theo phần trăm ảnh đang hiển thị. Chọn vùng chỉ dẫn hướng xử lý, chưa gọi model."
+                )
+                if st.checkbox("Ưu tiên đọc chữ trong vùng chọn", key="focus_enabled"):
+                    x = st.slider("Khoảng ngang (%)", 0, 100, (0, 100), key="focus_x")
+                    y = st.slider("Khoảng dọc (%)", 0, 100, (0, 100), key="focus_y")
+                    if x[0] < x[1] and y[0] < y[1]:
+                        focus_box = [x[0] / 100, y[0] / 100, x[1] / 100, y[1] / 100]
+                        if image_data:
+                            from core.tools import crop_root
+
+                            st.image(
+                                crop_root(image_data, focus_box), caption="Xem trước vùng chọn"
+                            )
     with question_column, st.container(border=True):
         st.markdown("### 2. Bạn muốn khám phá điều gì?")
         st.caption("Chọn gợi ý hoặc đặt câu hỏi riêng; các gợi ý chỉ điền câu hỏi, chưa gọi model.")
@@ -370,6 +494,8 @@ def main():
                 manager.capabilities["config_hash"]
                 if isinstance(manager, RemoteManager)
                 else manager.config.snapshot()["config_hash"],
+                focus_box,
+                location_hint,
             ]
         ).encode()
     ).hexdigest()
@@ -378,7 +504,17 @@ def main():
         st.session_state["input_key"] = input_key
     if start:
         historical = None
-        execute(manager, image_data, query, audience, mode, show_stages, show_draft)
+        execute(
+            manager,
+            image_data,
+            query,
+            audience,
+            mode,
+            show_stages,
+            show_draft,
+            focus_box=focus_box,
+            location_hint=location_hint,
+        )
         if st.session_state.get("result") or st.session_state.get("comparison"):
             st.rerun()
     if error := st.session_state.get("run_error"):
@@ -410,10 +546,67 @@ def main():
             None,
         )
         review_image = stored.get("image_data") if stored else None
+        pending = result.get("clarification")
+        if pending and manager.config.accuracy.enabled:
+            with st.container(border=True):
+                st.info(pending["question"])
+                consumed = result["run_id"] in st.session_state.get("answered_clarifications", {})
+                with st.form("clarification_" + result["run_id"]):
+                    choice = st.selectbox(
+                        "Ứng viên để bạn đối chiếu",
+                        ["Chưa xác định", *pending.get("options", [])],
+                        key="candidate_" + result["run_id"],
+                    )
+                    answer = st.text_input(
+                        "Thông tin bổ sung: địa phương, tên hoặc chi tiết bạn biết",
+                        key="clarification_answer_" + result["run_id"],
+                    )
+                    additional = st.file_uploader(
+                        "Ảnh bổ sung (tùy chọn)",
+                        type=["jpg", "jpeg", "png", "webp"],
+                        key="additional_" + result["run_id"],
+                    )
+                    submitted = st.form_submit_button(
+                        "Tiếp tục với thông tin bổ sung",
+                        disabled=consumed or (review_image is None and additional is None),
+                    )
+                if consumed:
+                    st.caption("Lượt này đã có phản hồi; xem lượt tiếp tục trong lịch sử.")
+                if submitted:
+                    response_text = answer.strip()
+                    selected_candidate = choice if choice != "Chưa xác định" else None
+                    if not response_text and additional is None and not selected_candidate:
+                        st.warning("Hãy bổ sung thông tin hoặc một ảnh khác.")
+                    else:
+                        try:
+                            next_image = (
+                                validate_image(additional.getvalue(), manager.config)
+                                if additional is not None
+                                else review_image
+                            )
+                            execute(
+                                manager,
+                                next_image,
+                                result["query"],
+                                result["audience"],
+                                "continue",
+                                show_stages,
+                                show_draft,
+                                continue_of=result,
+                                answer=response_text,
+                                new_image=additional is not None,
+                                selected_candidate=selected_candidate,
+                            )
+                            st.session_state["_review_finished"] = True
+                            st.rerun()
+                        except ValueError:
+                            st.error(
+                                "Ảnh bổ sung chưa hợp lệ; chọn JPEG, PNG hoặc WebP trong giới hạn."
+                            )
         if st.button(
             "Đánh giá lại",
             key="review_again",
-            disabled=not review_ready or review_image is None,
+            disabled=not review_ready or review_image is None or bool(pending),
             help="Chỉ gọi Judge với bản nháp, ảnh và nguồn đã lưu. Giữ nguyên lượt gốc.",
         ):
             execute(
@@ -441,7 +634,11 @@ def main():
             args=(st.session_state, run_id),
         )
         render_result(
-            result, show_stages=show_stages, show_draft=show_draft, history=bool(historical)
+            result,
+            show_stages=show_stages,
+            show_draft=show_draft,
+            history=bool(historical),
+            image_data=review_image,
         )
     elif st.session_state.get("comparison"):
         st.divider()

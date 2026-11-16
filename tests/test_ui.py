@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
 from streamlit.testing.v1 import AppTest
 
 from tests.conftest import FakeLLM
@@ -78,6 +80,94 @@ def test_ui_boots_without_key():
     app = AppTest.from_file(APP_PATH, default_timeout=20).run()
     assert not app.exception
     assert app.button(key="start").disabled
+
+
+def test_real_manager_boots_current_evidence_schema_without_calling_models(monkeypatch):
+    monkeypatch.setenv("HERITAGE_CONFIG", str(APP_PATH.parent / "config/hanoi-evidence.yaml"))
+    app = AppTest.from_file(APP_PATH, default_timeout=20).run()
+    assert not app.exception and not app.error
+    assert app.text_area(key="query") and app.selectbox(key="sample")
+    app.selectbox(key="sample").set_value(APP_PATH.parent / "samples/chua_huong.jpg").run()
+    assert not app.exception and not app.error
+    assert not app.checkbox(key="guided_sample").value
+
+
+def test_config_error_shows_fields_without_exposing_values_or_unknown_keys(monkeypatch, caplog):
+    from core.config import AppConfig
+    from core.runtime_logging import JsonFormatter
+
+    private_value, private_field = "PRIVATE_CONFIG_VALUE", "PRIVATE_CONFIG_FIELD"
+    with pytest.raises(ValidationError) as failure:
+        AppConfig.model_validate(
+            {
+                "budget": {"max_llm_calls": private_value},
+                "accuracy": {"recognition": {"min_observations": 0}},
+                private_field: private_value,
+            }
+        )
+
+    def invalid_manager():
+        raise failure.value
+
+    monkeypatch.setattr("ui_app.LLMManager", invalid_manager)
+    monkeypatch.setattr("ui_app.configure_local_logging", lambda: None)
+    app = AppTest.from_file(APP_PATH, default_timeout=20).run()
+    assert not app.exception
+    assert app.error and "ValidationError" in app.error[0].value
+    rendered = "\n".join(element.value for element in [*app.error, *app.markdown, *app.info])
+    assert "budget.max_llm_calls" in rendered
+    assert "accuracy.recognition.min_observations" in rendered
+    assert "khởi động lại" in rendered
+    records = [
+        record
+        for record in caplog.records
+        if getattr(record, "operational_event", None) == "ui.configuration_invalid"
+    ]
+    assert {record.operational_fields["config_field"] for record in records} == {
+        "budget.max_llm_calls",
+        "accuracy.recognition.min_observations",
+        "unknown_field",
+    }
+    logs = "\n".join(JsonFormatter().format(record) for record in caplog.records)
+    assert all(private not in rendered + logs for private in (private_value, private_field))
+
+
+def test_evidence_ui_continues_clarification_and_shows_claims(monkeypatch, fake_search):
+    from api.demo import DemoSearch
+    from tests.test_accuracy_profile import ambiguous, config
+
+    monkeypatch.setattr(
+        "core.search.HeritageSearchEngine.search_heritage", DemoSearch().search_heritage
+    )
+
+    app = prepared_app(monkeypatch, FakeLLM(ambiguous, config()))
+    app.button(key="start").click().run()
+    assert not app.exception
+    parent = app.session_state.result
+    assert parent["answer_status"] == "needs_clarification"
+    assert app.button(key="review_again").disabled
+    app.selectbox(key="candidate_" + parent["run_id"]).set_value("DEMO")
+    button = next(b for b in app.button if b.label == "Tiếp tục với thông tin bổ sung")
+    button.click().run()
+    assert not app.exception
+    child = app.session_state.result
+    assert child["answer_status"] == "answered" and child["parent_run_id"] == parent["run_id"]
+    assert (
+        child["claims"]
+        and app.session_state.answered_clarifications[parent["run_id"]] == child["run_id"]
+    )
+
+
+def test_evidence_ui_sends_selected_root_region(monkeypatch, fake_search):
+    from tests.test_accuracy_profile import config
+
+    app = prepared_app(monkeypatch, FakeLLM(config=config()))
+    app.checkbox(key="focus_enabled").check().run()
+    app.slider(key="focus_x").set_value((10, 60)).run()
+    app.button(key="start").click().run()
+    assert not app.exception
+    result = app.session_state.result
+    assert any(r["box"] == [0.1, 0, 0.6, 1] for r in result["regions"])
 
 
 def test_local_ui_initializes_json_log_once_and_keeps_run_ids(monkeypatch, fake_search, tmp_path):

@@ -6,9 +6,10 @@ the repository root .env.
 
 The frontend changes after baseline `6d614e3` depend on
 `be/evidence-product-platform` at `06f44d4` for the new API journeys (81 OpenAPI
-operations, migration head `0009_runtime_state`). The target `dev` integration
-combines both branches. Its fresh verification is pending; the previously
-observed 60 unit/16 UI results are recorded in [VALIDATION.md](VALIDATION.md).
+operations, migration head `0009_runtime_state`). The `dev` integration
+combines both branches. Fresh merged-tree checks are recorded in
+[DEV_INTEGRATION.md](../../docs/DEV_INTEGRATION.md); the earlier 16-case UI
+deployment record retains its original scope in [VALIDATION.md](VALIDATION.md).
 Preview needs no backend. New product actions require the matching capability
 flags and do not fall back to Preview data on older servers.
 

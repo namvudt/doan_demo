@@ -12,8 +12,9 @@ These APIs do not imply that the React application has a complete web CMS.
 The frontend changes after baseline `6d614e3` require the matching
 `be/evidence-product-platform` backend (`06f44d4`, 81 OpenAPI operations,
 migration head `0009_runtime_state`) for the new API journeys. The `dev`
-integration combines the frontend and backend branches; verification of that
-merged checkout is pending. Preview can run without a backend. Older servers
+integration combines the frontend and backend branches; fresh checks are
+recorded in [DEV_INTEGRATION.md](../docs/DEV_INTEGRATION.md).
+Preview can run without a backend. Older servers
 remain capability-gated and never trigger a fixture fallback.
 
 ## Modes
@@ -260,9 +261,10 @@ npm run test:e2e
 
 The 16 November product-platform verification observed 60 unit tests and 16 UI
 cases passing across Preview/API/catalog/evidence/product suites. These are
-recorded results from that deployment, not a fresh run of the pending merged
-`dev` checkout. Exact scope and historical results are in
-[docs/VALIDATION.md](docs/VALIDATION.md).
+recorded results from that deployment. Fresh merged `dev` checks passed 60 unit
+tests and 7 Preview browser cases; the full 16-case deployment UI set was not
+rerun. Exact scope is recorded in [docs/VALIDATION.md](docs/VALIDATION.md) and
+[DEV_INTEGRATION.md](../docs/DEV_INTEGRATION.md).
 
 Run the successful-tile map regression suite separately in PowerShell:
 

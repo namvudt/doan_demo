@@ -5,9 +5,10 @@
 The pre-merge product-platform worktree was verified against the real local
 Docker demo backend. The frontend changes after baseline `6d614e3` require
 `be/evidence-product-platform` at `06f44d4` (81 OpenAPI operations, migration
-head `0009_runtime_state`). The target `dev` integration combines both branches;
-its fresh verification is pending. No result below claims that the new merged
-checkout has already been tested.
+head `0009_runtime_state`). The `dev` integration combines both branches;
+fresh merged-tree results are recorded in
+[DEV_INTEGRATION.md](../../docs/DEV_INTEGRATION.md). The deployment observations
+below retain their original build and scope.
 
 | Observed check | Result and scope |
 | --- | --- |
@@ -35,10 +36,12 @@ that the new evidence clarification flow succeeded live. Human review of the
 exported gold cases, full CMS/admin screens, email-based recovery/verification
 and production hosting remain outside the observed acceptance.
 
-Pending after branch integration: rerun static/unit/build checks, the isolated
-Streamlit adapter module and selected real-demo UI suites on the merged `dev`
-checkout. Record those new commands/results separately before updating this
-section.
+Fresh `dev` verification passed 360 Python tests (including the Streamlit
+adapter tests), 60 frontend unit tests, typecheck/lint/build, 7 Preview UI cases
+and 165 isolated HTTP cases covering all 81 operations. Production dependency
+audit was clean; npm reported seven moderate advisories in development
+dependencies. The earlier 16-case Docker UI record above was not rerun as a
+complete set during the merge; the fresh browser run used Preview fixtures.
 
 ## Historical baseline — 15 November 2026
 
