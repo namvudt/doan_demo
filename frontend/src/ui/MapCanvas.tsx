@@ -13,6 +13,8 @@ import {
   WifiOff,
 } from "lucide-react";
 import { createSchematicPoints, isValidMapPoint } from "./mapGeometry";
+import { getMapViewportRequest } from "./mapViewport";
+import { getMapProviderConfig } from "./mapProvider";
 import "./map-experience.css";
 
 export type MapItem = {
@@ -27,30 +29,25 @@ type Props = {
   items: MapItem[];
   selectedId?: string;
   focusSelected?: boolean;
+  visible?: boolean;
   onSelect: (id: string) => void;
   onTileFailure?: () => void;
   onLocationError?: (message: string) => void;
 };
 
-const configuredTileUrl = import.meta.env.VITE_MAP_TILE_URL;
-const tileUrl =
-  configuredTileUrl === undefined
-    ? import.meta.env.DEV
-      ? "https://tile.openstreetmap.de/{z}/{x}/{y}.png"
-      : "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-    : configuredTileUrl;
-const usesOsmDe = (() => {
-  try {
-    return new URL(tileUrl).hostname === "tile.openstreetmap.de";
-  } catch {
-    return false;
-  }
-})();
+const provider = getMapProviderConfig({
+  provider: import.meta.env.VITE_MAP_PROVIDER,
+  tileUrl: import.meta.env.VITE_MAP_TILE_URL,
+  mapboxToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+  development: import.meta.env.DEV,
+});
+const tileUrl = provider.tileUrl;
 
 export function MapCanvas({
   items,
   selectedId,
   focusSelected = true,
+  visible = true,
   onSelect,
   onTileFailure,
   onLocationError,
@@ -59,6 +56,15 @@ export function MapCanvas({
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
   const locationMarker = useRef<L.CircleMarker | null>(null);
+  const markersById = useRef(
+    new globalThis.Map<
+      string,
+      { marker: L.Marker; item: MapItem; selected: boolean }
+    >(),
+  );
+  const tilesHealthy = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   const selectRef = useRef(onSelect);
   const failureRef = useRef(onTileFailure);
   const manualSchematic = useRef(false);
@@ -70,9 +76,20 @@ export function MapCanvas({
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const [attempt, setAttempt] = useState(0);
+  const [hasOnlineTiles, setHasOnlineTiles] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState("");
   const validItems = useMemo(() => items.filter(isValidMapPoint), [items]);
+  const itemsRef = useRef(validItems);
+  itemsRef.current = validItems;
+  const viewportRequest = useMemo(
+    () => getMapViewportRequest(validItems, selectedId, focusSelected),
+    [validItems, selectedId, focusSelected],
+  );
+  const viewportRequestRef = useRef(viewportRequest);
+  viewportRequestRef.current = viewportRequest;
+  const viewportKey = viewportRequest?.key;
+  const appliedViewportKey = useRef<string | undefined>(undefined);
   const schematic = useMemo(
     () => createSchematicPoints(validItems),
     [validItems],
@@ -80,57 +97,158 @@ export function MapCanvas({
 
   const fitVisible = useCallback(() => {
     const instance = map.current;
-    if (!instance || !validItems.length) return;
+    const points = itemsRef.current;
+    if (!instance || !points.length) return;
     instance.stop();
-    if (validItems.length === 1) {
-      instance.setView([validItems[0].latitude, validItems[0].longitude], 13, {
+    if (points.length === 1) {
+      instance.setView([points[0].latitude, points[0].longitude], 13, {
         animate: false,
       });
     } else {
+      const size = instance.getSize();
       instance.fitBounds(
-        L.latLngBounds(
-          validItems.map((item) => [item.latitude, item.longitude]),
-        ),
+        L.latLngBounds(points.map((item) => [item.latitude, item.longitude])),
         {
-          paddingTopLeft: [70, 100],
-          paddingBottomRight: [60, 200],
+          // Keep the usable map area positive in compact and mobile layouts.
+          paddingTopLeft: [
+            Math.min(56, size.x * 0.09),
+            Math.min(84, size.y * 0.16),
+          ],
+          paddingBottomRight: [
+            Math.min(48, size.x * 0.08),
+            Math.min(164, size.y * 0.36),
+          ],
           maxZoom: 13,
           animate: false,
         },
       );
     }
-  }, [validItems]);
+  }, []);
 
   useEffect(() => {
     if (!element.current) return;
     const instance = L.map(element.current, {
       attributionControl: true,
       zoomControl: false,
-      // CSS zoom transitions can finish after a React route unmounts. Selection
-      // uses the cancellable flyTo path below; hidden maps never animate.
+      // Leaflet's CSS zoom timeout cannot be cancelled on route unmount.
+      // Controls use cancellable flyTo; tile transforms stay smooth during it.
       zoomAnimation: false,
-      fadeAnimation: false,
+      fadeAnimation: !window.matchMedia("(prefers-reduced-motion: reduce)")
+        .matches,
       markerZoomAnimation: false,
+      wheelDebounceTime: 80,
+      wheelPxPerZoomLevel: 100,
       minZoom: 2,
       maxZoom: 19,
-    }).setView([16.4, 107.6], 5);
+    });
     map.current = instance;
     layer.current = L.layerGroup().addTo(instance);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let disposed = false;
-    if (tileUrl) {
-      let loaded = 0;
-      let failed = 0;
-      const tiles = L.tileLayer(tileUrl, {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' +
-          (usesOsmDe
-            ? ' · Tiles: <a href="https://www.openstreetmap.de/" target="_blank" rel="noopener noreferrer">OpenStreetMap Deutschland</a>'
-            : ""),
-        maxZoom: 19,
-        ...(usesOsmDe ? { maxNativeZoom: 18 } : {}),
+    const markerEntries = markersById.current;
+    let resizeFrame = 0;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrame || !visibleRef.current) return;
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = 0;
+        // Raw pane compensation preserves the geographic center on resize.
+        // No animation or camera refocus is started by layout changes.
+        if (visibleRef.current)
+          instance.invalidateSize({
+            animate: false,
+            pan: true,
+            debounceMoveend: true,
+          });
       });
-      const showSchematic = () => {
+    });
+    observer.observe(element.current);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(resizeFrame);
+      instance.stop();
+      instance.remove();
+      markerEntries.clear();
+      appliedViewportKey.current = undefined;
+      map.current = null;
+      layer.current = null;
+      locationMarker.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance) return;
+    if (!visible) {
+      instance.stop();
+      return;
+    }
+    const frame = requestAnimationFrame(() => {
+      instance.invalidateSize({
+        animate: false,
+        pan: true,
+        debounceMoveend: true,
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [visible]);
+
+  useEffect(() => {
+    const instance = map.current;
+    const request = viewportRequestRef.current;
+    if (
+      !instance ||
+      !visible ||
+      !request ||
+      appliedViewportKey.current === request.key
+    )
+      return;
+    appliedViewportKey.current = request.key;
+    if (request.selected) {
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const selected = request.selected;
+      instance.stop();
+      if (reducedMotion || modeRef.current !== "online")
+        instance.setView([selected.latitude, selected.longitude], 14, {
+          animate: false,
+        });
+      else
+        instance.flyTo([selected.latitude, selected.longitude], 14, {
+          duration: 0.45,
+        });
+    } else fitVisible();
+  }, [viewportKey, visible, fitVisible]);
+
+  // A retry replaces only the provider layer. Camera and marker instances survive.
+  // Camera setup runs first, so initial tiles belong to the intended viewport.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !tileUrl) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let fallbackFrame = 0;
+    let disposed = false;
+    let loaded = 0;
+    let failed = 0;
+    tilesHealthy.current = false;
+    setHasOnlineTiles(false);
+    const tiles = L.tileLayer(tileUrl, {
+      attribution: provider.attribution,
+      maxZoom: 19,
+      tileSize: provider.tileSize,
+      zoomOffset: provider.zoomOffset,
+      ...(provider.maxNativeZoom
+        ? { maxNativeZoom: provider.maxNativeZoom }
+        : {}),
+      // Retain nearby tiles already visited; never prefetch outside the viewport.
+      updateWhenIdle: true,
+      updateWhenZooming: false,
+      keepBuffer: L.Browser.mobile ? 2 : 3,
+    });
+    const showSchematic = () => {
+      if (disposed || loaded || fallbackFrame) return;
+      // Leaflet still reads its map after emitting `load`. Detach the provider
+      // after that callback stack, and cancel the work if the route unmounts.
+      fallbackFrame = requestAnimationFrame(() => {
+        fallbackFrame = 0;
         if (disposed || loaded) return;
         instance.stop();
         setMode("schematic");
@@ -138,76 +256,113 @@ export function MapCanvas({
         tiles.remove();
         failureRef.current?.();
         if (timer) clearTimeout(timer);
-      };
-      tiles.on("tileload", () => {
-        loaded += 1;
-        if (!disposed && !manualSchematic.current) setMode("online");
-        if (timer) clearTimeout(timer);
       });
-      tiles.on("tileerror", () => {
-        failed += 1;
-        if (failed >= 2) showSchematic();
-      });
-      tiles.addTo(instance);
-      timer = setTimeout(showSchematic, 7_000);
-    }
-    const observer = new ResizeObserver(() => instance.invalidateSize());
-    observer.observe(element.current);
+    };
+    tiles.on("loading", () => {
+      // Background pan/zoom requests do not reset a healthy map's status.
+      if (!loaded && !timer) timer = setTimeout(showSchematic, 10_000);
+    });
+    tiles.on("tileload", () => {
+      loaded += 1;
+      if (disposed || tilesHealthy.current) return;
+      tilesHealthy.current = true;
+      setHasOnlineTiles(true);
+      if (!manualSchematic.current) setMode("online");
+      if (timer) clearTimeout(timer);
+    });
+    tiles.on("tileerror", () => {
+      failed += 1;
+    });
+    tiles.on("load", () => {
+      if (!loaded && failed) showSchematic();
+    });
+    tiles.addTo(instance);
     return () => {
       disposed = true;
       if (timer) clearTimeout(timer);
-      observer.disconnect();
-      instance.stop();
-      instance.remove();
-      map.current = null;
-      layer.current = null;
-      locationMarker.current = null;
+      cancelAnimationFrame(fallbackFrame);
+      tiles.off();
+      tiles.remove();
     };
   }, [attempt]);
 
   useEffect(() => {
     const markers = layer.current;
     if (!markers) return;
-    markers.clearLayers();
+    const entries = markersById.current;
+    const ids = new Set(validItems.map((item) => item.id));
+    for (const [id, entry] of entries) {
+      if (ids.has(id)) continue;
+      entry.marker.off();
+      markers.removeLayer(entry.marker);
+      entries.delete(id);
+    }
     for (const item of validItems) {
       const selected = item.id === selectedId;
-      const icon = L.divIcon({
-        className: `heritage-pin ${selected ? "selected" : ""} ${item.coordinateVerified ? "verified" : "illustrative"}`,
-        html: '<span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18M5 18h14M7 16V9h10v7M4 9h16L12 3zM10 16v-4h4v4"/></svg></span>',
-        iconSize: [38, 44],
-        iconAnchor: [19, 44],
-      });
-      const marker = L.marker([item.latitude, item.longitude], {
-        icon,
-        title: item.name,
-        keyboard: true,
-        alt: item.name,
-      }).addTo(markers);
-      marker.getElement()?.setAttribute("aria-pressed", String(selected));
-      const tooltip = document.createElement("span");
-      tooltip.textContent = item.name;
-      marker.bindTooltip(tooltip, { direction: "top", offset: [0, -40] });
-      marker.on("click", () => selectRef.current(item.id));
+      let entry = entries.get(item.id);
+      if (!entry) {
+        const icon = L.divIcon({
+          className: `heritage-pin ${selected ? "selected" : ""} ${item.coordinateVerified ? "verified" : "illustrative"}`,
+          html: '<span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18M5 18h14M7 16V9h10v7M4 9h16L12 3zM10 16v-4h4v4"/></svg></span>',
+          iconSize: [38, 44],
+          iconAnchor: [19, 44],
+        });
+        const marker = L.marker([item.latitude, item.longitude], {
+          icon,
+          title: item.name,
+          keyboard: true,
+          alt: item.name,
+          zIndexOffset: selected ? 1000 : 0,
+        }).addTo(markers);
+        const tooltip = document.createElement("span");
+        tooltip.textContent = item.name;
+        marker.bindTooltip(tooltip, { direction: "top", offset: [0, -40] });
+        marker.on("click", () => selectRef.current(item.id));
+        entry = { marker, item, selected };
+        entries.set(item.id, entry);
+      } else {
+        if (
+          entry.item.latitude !== item.latitude ||
+          entry.item.longitude !== item.longitude
+        )
+          entry.marker.setLatLng([item.latitude, item.longitude]);
+        if (entry.item.name !== item.name) {
+          const tooltip = document.createElement("span");
+          tooltip.textContent = item.name;
+          entry.marker.setTooltipContent(tooltip);
+          entry.marker.options.title = item.name;
+          entry.marker.options.alt = item.name;
+        }
+        if (entry.selected !== selected)
+          entry.marker.setZIndexOffset(selected ? 1000 : 0);
+        entry.item = item;
+        entry.selected = selected;
+      }
+      const node = entry.marker.getElement();
+      if (node) {
+        node.classList.toggle("selected", selected);
+        node.classList.toggle("verified", Boolean(item.coordinateVerified));
+        node.classList.toggle("illustrative", !item.coordinateVerified);
+        node.setAttribute("aria-pressed", String(selected));
+        node.setAttribute("aria-label", item.name);
+        node.title = item.name;
+      }
     }
-  }, [validItems, selectedId, attempt]);
+  }, [validItems, selectedId, visible]);
 
-  useEffect(() => {
-    const selected = validItems.find((item) => item.id === selectedId);
-    if (focusSelected && selected) {
-      const reducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches;
-      map.current?.stop();
-      if (reducedMotion || modeRef.current !== "online")
-        map.current?.setView([selected.latitude, selected.longitude], 14, {
-          animate: false,
-        });
-      else
-        map.current?.flyTo([selected.latitude, selected.longitude], 14, {
-          duration: 0.6,
-        });
-    } else fitVisible();
-  }, [fitVisible, validItems, selectedId, focusSelected, attempt]);
+  const zoomBy = (delta: number) => {
+    const instance = map.current;
+    if (!instance || !appliedViewportKey.current) return;
+    const zoom = Math.max(
+      instance.getMinZoom(),
+      Math.min(instance.getMaxZoom(), Math.round(instance.getZoom()) + delta),
+    );
+    const center = instance.getCenter();
+    instance.stop();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      instance.setView(center, zoom, { animate: false });
+    else instance.flyTo(center, zoom, { duration: 0.25 });
+  };
 
   const locate = () => {
     if (!navigator.geolocation) {
@@ -251,14 +406,35 @@ export function MapCanvas({
     <div
       className="map-canvas-shell map-canvas map-experience"
       data-map-mode={mode}
+      data-map-provider={provider.id}
+      aria-hidden={!visible}
+      inert={!visible}
+      style={{ visibility: visible ? undefined : "hidden" }}
     >
       <div
         ref={element}
-        className={`map-leaflet-canvas ${mode === "schematic" ? "is-covered" : ""}`}
+        // Leaflet owns additional classes on this node; keep React's class stable.
+        className="map-leaflet-canvas"
+        style={{ visibility: mode === "schematic" ? "hidden" : undefined }}
         aria-label="Bản đồ tương tác các di sản"
-        aria-hidden={mode === "schematic"}
-        inert={mode === "schematic"}
+        aria-hidden={mode === "schematic" || !visible}
+        inert={mode === "schematic" || !visible}
       />
+      {provider.logo && mode !== "schematic" && (
+        <a
+          className="map-provider-logo"
+          href={provider.logo.href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img
+            src={provider.logo.src}
+            alt={provider.logo.alt}
+            width="89"
+            height="20"
+          />
+        </a>
+      )}
       {mode === "schematic" ? (
         <section
           className="offline-atlas"
@@ -272,6 +448,11 @@ export function MapCanvas({
               </span>
               <h2>Khám phá không gián đoạn</h2>
               <p>Chọn một điểm đến để tiếp tục hành trình của bạn.</p>
+              {provider.message && (
+                <span className="map-provider-message" role="status">
+                  {provider.message}
+                </span>
+              )}
             </div>
             {tileUrl && (
               <button
@@ -279,11 +460,16 @@ export function MapCanvas({
                 className="atlas-retry"
                 onClick={() => {
                   manualSchematic.current = false;
+                  if (tilesHealthy.current) {
+                    setMode("online");
+                    return;
+                  }
                   setMode("loading");
                   setAttempt((value) => value + 1);
                 }}
               >
-                <RefreshCw size={14} /> Thử tải bản đồ
+                <RefreshCw size={14} />{" "}
+                {hasOnlineTiles ? "Quay lại bản đồ" : "Thử tải bản đồ"}
               </button>
             )}
           </div>
@@ -359,7 +545,7 @@ export function MapCanvas({
       ) : (
         <div className="map-live-status" role="status">
           <Map size={13} />{" "}
-          {mode === "loading" ? "Đang mở bản đồ…" : "Bản đồ trực tuyến"}
+          {mode === "loading" ? "Đang mở bản đồ…" : provider.label}
           <button
             type="button"
             onClick={() => {
@@ -381,14 +567,14 @@ export function MapCanvas({
             <button
               type="button"
               aria-label="Phóng to"
-              onClick={() => map.current?.zoomIn()}
+              onClick={() => zoomBy(1)}
             >
               <Plus size={18} />
             </button>
             <button
               type="button"
               aria-label="Thu nhỏ"
-              onClick={() => map.current?.zoomOut()}
+              onClick={() => zoomBy(-1)}
             >
               <Minus size={18} />
             </button>

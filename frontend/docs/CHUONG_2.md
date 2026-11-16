@@ -38,6 +38,12 @@ VITE_FRONTEND_MODE=api dùng backend FastAPI thật. Backend hiện có guest se
 asset, sample, run, event, kết quả, nguồn, stage snapshot, model attempt,
 cancel/retry/review, bookmark run, feedback và export.
 
+Catalog di sản, metadata nguồn/ảnh và tọa độ tùy chọn cũng được lưu trong DB;
+danh sách, chi tiết và bản đồ đọc cùng API `GET /api/v1/heritages`. Ảnh catalog
+có thể được sao chép thành asset thuộc phiên khách trước khi gửi câu hỏi. Dữ
+liệu seed vẫn là minh họa, nguồn chưa lập chỉ mục RAG; operations write chỉ
+dành cho công cụ server, không tạo quyền admin trong trình duyệt.
+
 Frontend phải đọc model_mode từ /api/v1/capabilities. Chỉ khi giá trị là demo
 mới được tạo run, retry hoặc Judge-only review trong quy trình kiểm thử này.
 Không được tự chuyển sang fixture khi HTTP thất bại.

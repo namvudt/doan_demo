@@ -1,0 +1,24 @@
+{
+  "provider": "mapbox",
+  "tileSize": 512,
+  "zoomOffset": -1,
+  "desktop": {
+    "documents": 1,
+    "tileRequests": 18,
+    "tileResponses": 18,
+    "tileErrors": 0,
+    "pageErrors": []
+  },
+  "mobile": {
+    "documents": 1,
+    "tileRequests": 2,
+    "tileErrors": 0,
+    "pageErrors": []
+  },
+  "desktopPaneRetained": true,
+  "retainedMarkers": 7,
+  "limitations": [
+    "Local UI smoke test, not an FPS or multi-provider latency benchmark.",
+    "Only counters retained; no token or tile URL is recorded."
+  ]
+}

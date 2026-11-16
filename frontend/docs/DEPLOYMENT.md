@@ -1,5 +1,17 @@
 # Frontend deployment
 
+## Matching backend
+
+Frontend changes after baseline `6d614e3` require
+`be/evidence-product-platform` (`06f44d4`) for the new API journeys. The target
+`dev` integration combines both branches; a fresh merged-checkout verification
+is pending. The matching server publishes 81 OpenAPI operations and migration
+head `0009_runtime_state`. Check its build identity, readiness and capability
+flags rather than inferring compatibility from a port or an older image tag.
+Preview remains usable without this backend. See
+[product deployment](../../docs/PRODUCT_PLATFORM_DEPLOYMENT.md) for the observed
+local deployment and preserved-data checks.
+
 ## Development topology
 
 The default Vite development server is http://127.0.0.1:5173. Its proxy sends
@@ -37,8 +49,10 @@ npm run build
 ~~~
 
 The output is dist/. VITE_* values are embedded at build time and are public.
-Do not put guest tokens, bootstrap tokens, operations tokens, provider keys,
-database credentials, or passwords in them.
+Do not put guest/account tokens, refresh tokens, bootstrap/operations tokens,
+model-provider keys, database credentials, or passwords in them. An optional
+Mapbox public `pk.` token is public configuration; use provider URL restrictions
+and never substitute a secret `sk.` token.
 
 Set VITE_API_BASE_URL=/api/v1 for a same-origin production deployment. Hosting
 must return index.html for frontend deep links while leaving /api, /health, and
@@ -104,8 +118,10 @@ If the frontend and API use different origins:
 - verify that Authorization is attached only to the configured API
   origin/prefix.
 
-Do not configure wildcard origins. The existing backend uses Bearer guest
-tokens, not browser cookies.
+Do not configure wildcard origins. Guest and account access use Bearer tokens;
+the frontend omits browser cookies. Account access/refresh credentials stay in
+tab memory. Reload requires login again, while account-owned server data
+remains available after login.
 
 ## Session bootstrap
 
@@ -114,8 +130,13 @@ must remain server/operator-side. The browser must receive only an
 operator-issued guest access token or use a future authorized server flow.
 Never expose X-Bootstrap-Token through VITE_* configuration.
 
-API_OPERATIONS_TOKEN is also server-only. /api/v1/operations/metrics is not a
-product admin endpoint.
+API_OPERATIONS_TOKEN is also server-only. Editorial source/media APIs accept
+server-verified editor/admin account bearers; role assignment by an account
+requires admin. Bootstrap/grant roles through the server-only operator flow
+documented in the product deployment guide, then use account authorization.
+Never embed operations credentials in the frontend. Operational metrics are
+separate from product administration. The React `/admin/*` screens remain
+Preview fixtures; a full web CMS and user/moderation dashboard are future work.
 
 ## Map provider
 
@@ -125,7 +146,9 @@ For an offline deployment, build with VITE_MAP_TILE_URL empty. The
 application must retain its synchronized list and no-location/tile-failure
 states.
 
-No paid map credential or hidden geocoding call is required by this frontend.
+Mapbox is an optional provider with an explicitly configured public token.
+Default/offline modes require no Mapbox token, and no hidden geocoding call is
+made. Provider billing and usage policy depend on the selected configuration.
 
 ## Deployment checklist
 
@@ -137,10 +160,21 @@ No paid map credential or hidden geocoding call is required by this frontend.
 - /api/v1/assets/{id}/content works through authenticated Blob fetch.
 - SSE arrives incrementally, resumes by sequence, and is not cached.
 - X-Request-ID and Location are exposed where cross-origin access is used.
-- Unsupported account/catalog/map/admin features remain unavailable in API
-  mode.
+- Catalog migration/seed and API_CATALOG_MEDIA_DIR are deployed together;
+  illustrative data keeps its verification labels.
+- Accounts, conversations and heritage favorites use the matching capability
+  flags and server ownership checks. Verify refresh/logout, persisted account
+  data after login and optional memory separately from guest run bookmarks.
+- Editorial REST permissions are enforced on the server; Preview role
+  switching never grants real permissions. Complete CMS UI and email-based
+  password recovery/verification remain unimplemented.
 - Preview banner remains present in Preview builds.
 - Source maps, logs, screenshots, and monitoring contain no tokens or private
   uploads.
 - HTTPS, backups, retention, CORS, and provider/tile policies are reviewed by
   the deployment owner.
+
+The 16 November deployment observed 60 frontend unit tests and 16 UI cases
+passing across five suites. These are retained validation records, not results
+of a fresh `dev` merge or a production-hosting test. See
+[VALIDATION.md](VALIDATION.md) for the exact scope and pending checks.

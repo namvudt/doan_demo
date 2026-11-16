@@ -1,18 +1,27 @@
 # Di sản Việt Nam — frontend
 
 Vietnamese-first React frontend for the repository’s Heritage VQA backend. It
-supports the real owner-scoped guest/run API and an explicitly isolated UI
-Preview for product journeys that the backend does not implement.
+supports real guest/account identities, owner-scoped runs, conversations,
+heritage favorites and a persisted catalog. UI Preview remains an explicitly
+isolated fixture mode, including the full administration screens.
 
-This directory is frontend-only. It does not add account, catalog, map,
-administration, or RAG endpoints to the Python backend.
+The matching Python backend provides evidence-v2, editorial source/media APIs,
+server-enforced user/editor/admin roles and recovery/lifecycle operations.
+These APIs do not imply that the React application has a complete web CMS.
+
+The frontend changes after baseline `6d614e3` require the matching
+`be/evidence-product-platform` backend (`06f44d4`, 81 OpenAPI operations,
+migration head `0009_runtime_state`) for the new API journeys. The `dev`
+integration combines the frontend and backend branches; verification of that
+merged checkout is pending. Preview can run without a backend. Older servers
+remain capability-gated and never trigger a fixture fallback.
 
 ## Modes
 
 | Mode | Environment | Purpose |
 | --- | --- | --- |
 | UI Preview | VITE_FRONTEND_MODE=preview | Deterministic browser fixtures for account, heritage, favorites, map, and admin journeys. |
-| API integration | VITE_FRONTEND_MODE=api | Actual FastAPI guest sessions, assets, samples, runs, progress, results, evidence, retry/review, bookmarks, feedback, and export. |
+| API integration | VITE_FRONTEND_MODE=api | Actual FastAPI guest/account access, profile/refresh/logout, conversations/memory, heritage favorites, catalog/map, assets/samples, runs, evidence, retry/review/clarification, bookmarks, feedback, and export. |
 
 Preview always displays:
 
@@ -31,13 +40,13 @@ tab-local user consent. A frontend setting cannot change backend model mode.
 
 | Route | Purpose |
 | --- | --- |
-| /login, /register | Preview accounts and real API guest-access entry |
+| /login, /register | Preview accounts; real API account registration/login or guest access |
 | /forgot-password, /reset-password | Complete Preview states; unavailable honestly in API mode |
-| /profile | Preview profile or API guest-session metadata/logout |
-| /chat | Image/sample selection and question workspace |
+| /profile | Preview profile or API account profile/refresh/logout and guest-session metadata |
+| /chat | Image/sample question workspace and owned conversation selection/history/memory controls |
 | /chat/runs/:runId | Run status, answer, evidence, stages, model attempts, actions |
-| /heritages, /heritages/:heritageId | Shared Preview catalog; honest unavailable state in API mode |
-| /map | Preview list/map synchronization and list-only fallback |
+| /heritages, /heritages/:heritageId | Preview catalog or persisted public API catalog/detail/media |
+| /map | Catalog list/map synchronization in both modes, with offline coordinate fallback |
 | /favorites | Heritage favorites and saved runs as separate resource types |
 | /admin | Preview dashboard |
 | /admin/users | Preview user/role/status management |
@@ -46,9 +55,10 @@ tab-local user consent. A frontend setting cannot change backend model mode.
 | /admin/runs | Preview-only run monitoring; API owner history stays under /chat |
 | /admin/feedback | Preview feedback review |
 
-Preview admin routes require the visible Preview admin role. API mode has no
-real admin principal or RBAC, so real administration remains unavailable.
-Frontend route guards are presentation controls only.
+Preview admin routes require the visible Preview admin role and stay
+Preview-only. The backend enforces real user/editor/admin permissions for
+editorial and role operations; complete React CMS/admin screens remain future
+work. Frontend route guards are presentation controls only.
 
 ## Local UI Preview
 
@@ -98,9 +108,14 @@ npm run test:e2e
 Remove-Item Env:RUN_API_INTEGRATION
 ~~~
 
-Accounts, heritage catalog/coordinates, heritage favorites and admin APIs are
-not implemented by the current backend. Their integration tests are explicitly
-skipped; their UI journeys remain available in Preview.
+The catalog requires the database seed in
+[the catalog deployment guide](../docs/CATALOG_DATABASE.md). Run its dedicated
+browser suite with `RUN_CATALOG_API=1`; it checks catalog/detail/media/map and
+the guest-owned photo bridge without creating an AI run. Use
+`RUN_PRODUCT_API=1` for account/conversation/favorite journeys and
+`RUN_EVIDENCE_API=1` for evidence/crop/clarification UI coverage. Each flag runs
+a separate demo-only suite. Account and guest credentials stay in tab memory;
+reload requires a new login/session, while account data remains on the server.
 
 ### Python alternative
 
@@ -189,7 +204,29 @@ production builds default to the standard OSM URL. The local demo provider
 permits noncommercial/small web embedding and forbids bulk/offline tile
 downloads. See its [usage policy](https://openstreetmap.de/germanstyle/).
 Choose a suitable provider before commercial deployment. No tiles are cached
-or shipped with this frontend; the offline view is a separate coordinate diagram.
+offline or shipped with this frontend; the offline view is a separate coordinate
+diagram. Leaflet retains nearby tiles in memory during ordinary navigation.
+
+The map supports a collapsible results pane, compact/expanded place details,
+and an expanded workspace (Escape restores it). Switching to list-only mode
+preserves the map viewport. On phones the results open as a bottom sheet.
+
+For an opt-in Mapbox trial, put the following in an ignored
+`frontend/.env.map.local` file, replacing the token on your own machine:
+
+~~~dotenv
+VITE_MAP_PROVIDER=mapbox
+VITE_MAPBOX_ACCESS_TOKEN=YOUR_PUBLIC_PK_TOKEN
+VITE_FRONTEND_MODE=preview
+VITE_ALLOW_LIVE_MODEL_CALLS=false
+~~~
+
+Run `npm run dev -- --mode map --port 5175 --strictPort` from `frontend`.
+Mapbox uses Streets v12 raster tiles at 512px with a zoom offset of -1,
+including its logo and text attribution. Existing camera/marker retention
+and offline fallback also apply. Only public `pk.` tokens are accepted;
+the browser configuration must never contain a secret `sk.` token.
+The trial stays separate from the normal development mode.
 
 All seven published Preview records have local photos. Image loading uses a
 placeholder animation, accessible error state and retry on detail pages.
@@ -217,7 +254,61 @@ npm run test:e2e
 - build type-checks and creates dist/.
 - test:e2e runs only app.spec.ts in Preview mode, regardless of a stale
   VITE_FRONTEND_MODE. Set RUN_API_INTEGRATION=1 to run only api-live.spec.ts
-  against an already-running isolated demo API.
+  against an already-running isolated demo API. Select only one explicit suite
+  flag at a time; catalog, evidence and product flags select their own API
+  suites. See [docs/TESTING.md](docs/TESTING.md) for commands and prerequisites.
+
+The 16 November product-platform verification observed 60 unit tests and 16 UI
+cases passing across Preview/API/catalog/evidence/product suites. These are
+recorded results from that deployment, not a fresh run of the pending merged
+`dev` checkout. Exact scope and historical results are in
+[docs/VALIDATION.md](docs/VALIDATION.md).
+
+Run the successful-tile map regression suite separately in PowerShell:
+
+~~~powershell
+$env:RUN_MAP_PERF='1'
+npm run test:e2e
+Remove-Item Env:RUN_MAP_PERF
+~~~
+
+This suite fulfills map tiles locally and checks drag/zoom, stable map and
+marker nodes, retained camera position, resize, and responsive controls. It
+does not call a map provider, backend, or AI model. See
+[the map and layout review](../docs/MAP_LAYOUT_REVIEW.md) for the diagnosis.
+
+For native scroll and image-loading feedback regressions:
+
+~~~powershell
+$env:RUN_SCROLL_PERF='1'
+npm run test:e2e
+Remove-Item Env:RUN_SCROLL_PERF
+~~~
+
+Both map and scroll regression flags isolate Preview from stale backend/live
+test flags. The scroll profiler and its before/after data are documented in
+[the scroll review](../docs/SCROLL_PERFORMANCE_REVIEW.md). A bounded MapTiler
+experiment, including the current credential limitation, is documented in
+[the provider experiment](../docs/MAP_PROVIDER_EXPERIMENT.md).
+
+Set `RUN_MAPBOX_UI=1` for the dedicated Mapbox UI regression suite. It forces
+`pk.fixture` and intercepts tiles locally; default, map and scroll suites clear
+the Mapbox token and use their own tile configuration. Real provider tests
+are separate, explicitly invoked benchmark commands from the provider report.
+
+The AI question workspace uses a compact shared image/question composer,
+on-demand history, and an answer-first result page with expandable processing
+details. Preview and API retain distinct data/model modes. See
+[the chat UI redesign](../docs/CHAT_UI_REDESIGN.md) for screenshots and validation.
+
+~~~powershell
+$env:RUN_CHAT_UI='1'
+npm run test:e2e
+Remove-Item Env:RUN_CHAT_UI
+~~~
+
+This suite checks image selection/drop/removal, drafts, history, source context,
+and desktop/mobile layouts without backend or paid model requests.
 
 Playwright owns a separate Vite server at http://127.0.0.1:5174 and never
 reuses an existing server. You can leave your development server on port 5173
@@ -236,8 +327,9 @@ tracks and reporting rules are in [docs/TESTING.md](docs/TESTING.md).
 
 ## Security and transport
 
-- Guest Bearer tokens are kept in memory and attached only to the configured
-  API origin/prefix.
+- Guest/account access tokens and account refresh tokens stay in tab memory.
+  Bearer authorization is attached only to the configured API origin/prefix;
+  refresh is explicit and rotates the device session credentials.
 - Protected asset images are fetched as authorized Blobs.
 - SSE uses authenticated fetch streaming with sequence replay; native
   EventSource cannot supply the required Authorization header.
@@ -247,28 +339,49 @@ tracks and reporting rules are in [docs/TESTING.md](docs/TESTING.md).
 - Generated Markdown is rendered without raw HTML execution.
 - External links use safe schemes and opener isolation.
 - Browser geolocation is requested only after an explicit user action.
-- Paid map credentials and hidden geocoding calls are not used.
+- Mapbox is opt-in through an explicitly configured public token; no hidden
+  geocoding calls are made.
 
 ## Backend boundaries
 
-The current backend provides guest sessions, capabilities/workflow, assets,
-sample images, owner-scoped runs, SSE/history, results, sources, workflow-stage
-snapshots, model attempts, cancellation, full retry, Judge-only review, run
-bookmarks, feedback, and export.
+The matching 81-operation backend provides guest sessions and email/password
+accounts, access/refresh rotation, profile/password update, server-checked
+roles, owned conversations/turns/messages with optional bounded unverified
+memory, and heritage favorites distinct from run bookmarks. React exposes
+account login/register/profile/refresh/logout, conversation controls and
+favorites when the corresponding capability flags are enabled.
 
-It does not provide email/password accounts, account roles, a heritage catalog,
-verified coordinates, heritage favorites, conversation memory, admin APIs,
-source/RAG management, tool-call traces, or cross-user monitoring. UI Preview
-may simulate these features but never claims backend persistence.
+It also provides capabilities/workflow, assets/samples, owner-scoped runs,
+SSE/history, evidence/claims/image regions/tool traces, sources, stage snapshots,
+model attempts, cancellation, retry/review/clarification, bookmarks, feedback,
+export, soft deletion and bounded completed-node recovery.
+
+It also provides a persisted public heritage catalog, local image content,
+optional coordinates with explicit verification metadata, a catalog-photo
+bridge into owned assets, plus versioned editorial source ingestion,
+review/publication/withdrawal and media management. Editorial APIs accept
+authorized editor/admin accounts or server operations credentials; role
+assignment restricts account callers to admins. Operations secrets never
+belong in the browser. The seed records remain illustrative; persistence and
+automated evidence checks do not establish historical accuracy.
+
+Email-based password recovery/verification, external SSO, complete web CMS and
+cross-user moderation dashboards remain future work. Preview may simulate
+those screens but never claims backend persistence. The user will review the
+exported draft gold cases; model output is not a human-approved answer set.
 
 ## Documentation
 
 - [docs/API_INTEGRATION.md](docs/API_INTEGRATION.md) — implemented backend
   contract, auth, SSE, errors, modes, and security.
+- [../docs/CATALOG_DATABASE.md](../docs/CATALOG_DATABASE.md) — catalog schema,
+  seed, Docker volumes, provenance and verification.
 - [docs/FEATURE_MATRIX.md](docs/FEATURE_MATRIX.md) — route, role, endpoint, and
   support-status matrix.
 - [docs/MISSING_BACKEND_CAPABILITIES.md](docs/MISSING_BACKEND_CAPABILITIES.md) —
-  clearly labeled PROPOSED contracts that are not implemented.
+  delivered backend features and clearly labeled remaining proposals.
+- [../docs/PRODUCT_PLATFORM_DEPLOYMENT.md](../docs/PRODUCT_PLATFORM_DEPLOYMENT.md) —
+  product API deployment, migrations, test evidence and current limits.
 - [docs/TESTING.md](docs/TESTING.md) — isolated API demo, Preview, build, and
   browser verification.
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — static hosting and reverse proxy.

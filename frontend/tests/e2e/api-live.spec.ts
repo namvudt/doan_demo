@@ -8,6 +8,8 @@ test.skip(
   "Set RUN_API_INTEGRATION=1 only for an isolated backend in demo mode.",
 );
 
+test.use({ trace: "off" });
+
 type GuestSession = { token: string; sessionsUrl: string; revoked: boolean };
 const question = "Đây là di sản nào và có ý nghĩa gì?";
 const completedResults = new WeakMap<Page, Set<string>>();
@@ -49,7 +51,7 @@ async function guestLogin(page: Page): Promise<GuestSession> {
   const session = await sessionResponse.json();
   await expect(page).toHaveURL(/\/chat$/);
   await expect(
-    page.getByRole("heading", { name: "Hỏi backend bằng một ảnh" }),
+    page.getByRole("heading", { name: "Khám phá di sản cùng AI" }),
   ).toBeVisible();
   // Ephemeral tokens stay in memory and are never included in assertions.
   return {
@@ -129,10 +131,12 @@ test("@api real demo sample VQA, evidence, feedback, exports, retry and Judge-on
       .getByRole("button", { name: "Đóng", exact: true })
       .last()
       .click();
-    const sample = page.getByLabel("Sample thật từ backend");
+    const sample = page.getByLabel("Ảnh mẫu từ hệ thống");
     await expect(sample.locator("option").nth(1)).toBeAttached();
     await sample.selectOption({ index: 1 });
-    await page.getByLabel("Câu hỏi").fill(question);
+    await page
+      .getByRole("textbox", { name: "Câu hỏi", exact: true })
+      .fill(question);
     const preflightPromise = waitForApi(page, "/preflight", "POST");
     await page.getByRole("button", { name: "Kiểm tra sẵn sàng" }).click();
     const preflight = await (await preflightPromise).json();
@@ -140,7 +144,7 @@ test("@api real demo sample VQA, evidence, feedback, exports, retry and Judge-on
     expect(preflight.scope).toBe("offline_demo");
 
     const createPromise = waitForApi(page, /\/runs$/, "POST", 202);
-    await page.getByRole("button", { name: "Tạo run" }).click();
+    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
     const createResponse = await createPromise;
     const original: RunView = await createResponse.json();
     expect(original.model_mode).toBe("demo");
@@ -272,7 +276,12 @@ test("@api real demo sample VQA, evidence, feedback, exports, retry and Judge-on
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Mở hồ sơ" }).click();
-    await expect(page.getByText("Bearer owner scope")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Không gian của bạn", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Phiên khách không có quyền biên tập", { exact: true }),
+    ).toBeVisible();
     const revokePromise = waitForApi(page, "/sessions/me", "DELETE", 204);
     await page.getByRole("button", { name: "Thu hồi và đăng xuất" }).click();
     await revokePromise;
@@ -301,11 +310,11 @@ test("@api uploaded image is owner-scoped and reload discards browser credential
     );
     await page.locator('input[type="file"]').setInputFiles(imagePath);
     await page
-      .getByLabel("Câu hỏi")
+      .getByRole("textbox", { name: "Câu hỏi", exact: true })
       .fill("Mô tả các chi tiết kiến trúc nhìn thấy trong ảnh.");
     const uploadPromise = waitForApi(page, /\/assets$/, "POST", 201);
     const runPromise = waitForApi(page, /\/runs$/, "POST", 202);
-    await page.getByRole("button", { name: "Tạo run" }).click();
+    await page.getByRole("button", { name: "Gửi câu hỏi" }).click();
     const asset = await (await uploadPromise).json();
     expect(asset.width).toBeGreaterThan(0);
     expect(asset.height).toBeGreaterThan(0);

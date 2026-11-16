@@ -37,9 +37,23 @@
 }
 .image-loading {
   color: #9bab9080;
-  background: linear-gradient(110deg, #16231e 20%, #24372b 45%, #16231e 70%);
-  background-size: 220% 100%;
+  background: #16231e;
+}
+.image-loading::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    #9bb88b20 45%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
   animation: heritage-image-shimmer 1.7s ease-in-out infinite;
+}
+.image-loading > svg {
+  position: relative;
 }
 .image-fallback {
   color: #adbead;
@@ -116,7 +130,7 @@
 }
 @keyframes heritage-image-shimmer {
   to {
-    background-position: -220% 0;
+    transform: translateX(100%);
   }
 }
 @media (max-width: 760px) {
@@ -126,8 +140,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .image-loading {
+  .image-loading::before {
     animation: none;
+    display: none;
   }
   .resilient-image > img {
     transition: none;

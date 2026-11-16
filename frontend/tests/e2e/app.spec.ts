@@ -133,7 +133,7 @@ test("admin CRUD immediately updates the public catalog and map", async ({
   await expect(page.getByRole("heading", { name: initialName })).toBeVisible();
 
   await page.locator('.main-nav a[href="/map"]').click();
-  await page.getByPlaceholder("Tên hoặc địa phương…").fill(initialName);
+  await page.getByRole("textbox", { name: "Tìm trên bản đồ" }).fill(initialName);
   await page
     .locator(".map-results")
     .getByRole("button", { name: new RegExp(initialName) })
@@ -268,7 +268,7 @@ test("catalog tag search and the offline map keep selection and filters in sync"
     .click();
   await expect(page).toHaveURL(/selected=preview-heritage-van-mieu/);
 
-  await page.getByPlaceholder("Tên hoặc địa phương…").fill("");
+  await page.getByRole("textbox", { name: "Tìm trên bản đồ" }).fill("");
   await expect(page.locator(".map-result")).toHaveCount(7);
   await page
     .locator(".map-results")
@@ -285,7 +285,7 @@ test("catalog tag search and the offline map keep selection and filters in sync"
   await page
     .getByRole("button", { name: "Chỉ danh sách", exact: true })
     .click();
-  await expect(page.getByTestId("offline-map")).toHaveCount(0);
+  await expect(page.getByTestId("offline-map")).toBeHidden();
   await expect(page.locator(".map-results")).toBeVisible();
   await page.getByRole("button", { name: "Hiện bản đồ", exact: true }).click();
   await expect(page.getByTestId("offline-map")).toBeVisible();

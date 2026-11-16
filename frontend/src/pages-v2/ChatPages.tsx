@@ -19,18 +19,14 @@ import {
   CircleStop,
   Download,
   FileImage,
-  ImagePlus,
-  Info,
   Landmark,
   MessageSquareText,
   RefreshCw,
   RotateCcw,
   SearchCheck,
-  Send,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
-  Upload,
   Workflow,
   X,
 } from "lucide-react";
@@ -39,6 +35,7 @@ import {
   createIdempotencyKey,
   evaluateRunModelMode,
   isExecutionTerminal,
+  isExecutionSettled,
 } from "../api/contracts";
 import type {
   AssetView,
@@ -57,6 +54,11 @@ import { usePreview } from "../preview/PreviewProvider";
 import { Markdown } from "../ui/Markdown";
 import { Badge, Button, EmptyState, Field, StatusCard } from "../ui/Ui";
 import { ResilientImage } from "../ui/ResilientImage";
+import { ChatComposer } from "../ui/ChatComposer";
+import { ChatWorkspace } from "../ui/ChatWorkspace";
+import { useHeritageRecord } from "../ui/useHeritageCatalog";
+import type { Conversation, ConversationMessage } from "../api/product";
+import { ClarificationForm, EvidencePanel } from "../ui/EvidencePanel";
 import "../ui/chat-experience.css";
 
 type PreviewRun = {
@@ -97,6 +99,7 @@ const executionLabels: Record<string, string> = {
   succeeded: "Đã chạy xong",
   failed: "Thất bại",
   cancelled: "Đã hủy",
+  awaiting_input: "Chờ bạn bổ sung",
 };
 const resultLabels: Record<string, string> = {
   reviewed: "Đã được đánh giá tự động",
@@ -104,6 +107,9 @@ const resultLabels: Record<string, string> = {
   insufficient_evidence: "Chưa đủ bằng chứng",
   out_of_scope: "Ngoài phạm vi hỗ trợ",
   failed: "Kết quả gặp lỗi",
+  answered: "Đã trả lời theo bằng chứng",
+  partial: "Đã trả lời một phần",
+  needs_clarification: "Cần bổ sung thông tin",
 };
 
 function LiveModelConsent() {
@@ -145,6 +151,8 @@ function PreviewChat() {
   );
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const previewTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(previewTimer.current), []);
   const [fileUrl, setFileUrl] = useState<string>();
   useEffect(() => {
     if (!file) {
@@ -158,9 +166,9 @@ function PreviewChat() {
   const previewUrl = fileUrl || heritage?.media[0]?.url;
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!question.trim()) return;
+    if (!question.trim() || previewTimer.current !== undefined) return;
     setBusy(true);
-    window.setTimeout(() => {
+    previewTimer.current = window.setTimeout(() => {
       const sources = heritage
         ? preview.contentSources.filter((source) =>
             heritage.sourceIds.includes(source.id),
@@ -225,109 +233,22 @@ function PreviewChat() {
         ],
       };
       savePreviewRun(run);
+      previewTimer.current = undefined;
       setBusy(false);
       navigate(`/chat/runs/${run.id}`);
     }, 650);
   };
+  const recentRuns = readPreviewRuns();
   return (
-    <div className="chat-workspace">
-      <section className="chat-compose-column">
-        <header className="chat-heading">
-          <span className="eyebrow">HỎI ĐÁP HÌNH ẢNH</span>
-          <h1>Một bức ảnh, nhiều lớp câu chuyện</h1>
-          <p>
-            Đặt câu hỏi rõ ràng và kiểm tra trạng thái đánh giá cùng nguồn hỗ
-            trợ.
-          </p>
-        </header>
-        {heritage && (
-          <div className="context-chip">
-            <Landmark size={16} />
-            <span>
-              <small>Ngữ cảnh Preview</small>
-              <strong>{heritage.name}</strong>
-            </span>
-            <Link to="/chat" aria-label="Bỏ ngữ cảnh">
-              <X size={15} />
-            </Link>
-          </div>
-        )}
-        <form className="composer-card" onSubmit={submit}>
-          <label className={`image-dropzone ${previewUrl ? "has-image" : ""}`}>
-            {previewUrl ? (
-              <>
-                <ResilientImage
-                  src={previewUrl}
-                  alt="Ảnh đã chọn để hỏi"
-                  loading="eager"
-                  retryable={false}
-                />
-                <span className="image-overlay">
-                  <ImagePlus size={18} /> Đổi ảnh
-                </span>
-              </>
-            ) : (
-              <>
-                <ImagePlus size={28} />
-                <strong>Chọn một ảnh di sản</strong>
-                <span>JPEG, PNG hoặc WebP · chỉ mô phỏng trong Preview</span>
-              </>
-            )}
-            <input
-              className="sr-only"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
-          </label>
-          <Field
-            label="Bạn muốn tìm hiểu điều gì?"
-            hint={`${question.length}/4000 ký tự`}
-          >
-            <textarea
-              rows={5}
-              maxLength={4000}
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ví dụ: Những chi tiết kiến trúc nào có thể quan sát trong ảnh?"
-            />
-          </Field>
-          <div className="composer-footer">
-            <p>
-              <Info size={14} /> Preview không gọi AI, không xác minh ảnh và
-              không lưu backend.
-            </p>
-            <Button type="submit" disabled={busy || !question.trim()}>
-              {busy ? "Đang mô phỏng…" : "Khám phá"}
-              <Send size={16} />
-            </Button>
-          </div>
-        </form>
-        <div className="suggestion-row">
-          <span>Gợi ý:</span>
-          {[
-            "Mô tả chi tiết nhìn thấy trong ảnh",
-            "Thông tin nào cần kiểm chứng thêm?",
-            "Các nguồn nào đang hỗ trợ câu trả lời?",
-          ].map((text) => (
-            <button key={text} onClick={() => setQuestion(text)}>
-              {text}
-            </button>
-          ))}
-        </div>
-      </section>
-      <aside className="chat-history-panel">
-        <div className="section-head">
-          <div>
-            <span className="eyebrow">LỊCH SỬ PREVIEW</span>
-            <h2>Run gần đây</h2>
-          </div>
-        </div>
-        {readPreviewRuns().length ? (
+    <ChatWorkspace
+      modeLabel="UI Preview"
+      historyCount={recentRuns.length}
+      history={
+        recentRuns.length ? (
           <div className="history-list">
-            {readPreviewRuns().map((run) => (
+            {recentRuns.map((run) => (
               <Link to={`/chat/runs/${run.id}`} key={run.id}>
-                <MessageSquareText size={16} />
+                <MessageSquareText size={17} />
                 <span>
                   <strong>{run.question}</strong>
                   <small>
@@ -339,22 +260,81 @@ function PreviewChat() {
           </div>
         ) : (
           <EmptyState
-            title="Chưa có run"
+            title="Chưa có câu hỏi"
             icon={<MessageSquareText size={26} />}
           >
-            Kết quả mô phỏng trong tab này sẽ xuất hiện ở đây.
+            Những cuộc khám phá trong tab này sẽ xuất hiện ở đây.
           </EmptyState>
-        )}
-      </aside>
-    </div>
+        )
+      }
+    >
+      <header className="chat-welcome">
+        <span className="chat-welcome-mark" aria-hidden="true">
+          <Landmark size={30} />
+        </span>
+        <span className="eyebrow">BẮT ĐẦU TỪ ĐIỀU BẠN TÒ MÒ</span>
+        <h1>Khám phá di sản cùng AI</h1>
+        <p>
+          Thêm ảnh, đặt câu hỏi và tìm hiểu câu chuyện phía sau những điều bạn
+          nhìn thấy.
+        </p>
+      </header>
+      <ChatComposer
+        question={question}
+        onQuestionChange={setQuestion}
+        onSubmit={submit}
+        questionLabel="Bạn muốn tìm hiểu điều gì?"
+        placeholder="Ví dụ: Những chi tiết kiến trúc nào có thể quan sát trong ảnh?"
+        imageUrl={previewUrl}
+        imageName={
+          file?.name ||
+          (heritage ? `${heritage.name} · ảnh minh họa` : undefined)
+        }
+        imageHint="JPEG, PNG, WebP · tối đa 10 MB"
+        onFileChange={setFile}
+        onRemoveImage={file ? () => setFile(null) : undefined}
+        busy={busy}
+        submitLabel="Khám phá"
+        busyLabel="Đang mô phỏng…"
+        notice="UI Preview mô phỏng trải nghiệm, không gọi AI thật và không lưu lên máy chủ."
+        context={
+          heritage ? (
+            <div className="context-chip">
+              <Landmark size={16} />
+              <span>
+                <small>Đang khám phá</small>
+                <strong>{heritage.name}</strong>
+              </span>
+              <Link to="/chat" aria-label="Bỏ ngữ cảnh">
+                <X size={16} />
+              </Link>
+            </div>
+          ) : undefined
+        }
+        suggestions={[
+          "Mô tả chi tiết nhìn thấy trong ảnh",
+          "Thông tin nào cần kiểm chứng thêm?",
+          "Các nguồn nào đang hỗ trợ câu trả lời?",
+        ]}
+      />
+      <p className="chat-grounding-note">
+        <SearchCheck size={15} /> Luôn xem trạng thái đánh giá và nguồn trước
+        khi sử dụng câu trả lời.
+      </p>
+    </ChatWorkspace>
   );
 }
 
 function ApiChat() {
   const app = useApp();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const heritageId = params.get("heritage") || "";
+  const heritage = useHeritageRecord(heritageId || undefined);
+  const [dismissedHeritage, setDismissedHeritage] = useState("");
+  const [heritageImageLoading, setHeritageImageLoading] = useState(false);
   const [question, setQuestion] = useState("");
+  const [locationHint, setLocationHint] = useState("");
   const [audience, setAudience] = useState<"tourist" | "student">("tourist");
   const [file, setFile] = useState<File | null>(null);
   const [selectedSample, setSelectedSample] = useState(
@@ -368,6 +348,90 @@ function ApiChat() {
   const [error, setError] = useState("");
   const [preflight, setPreflight] = useState<PreflightView | null>(null);
   const [checking, setChecking] = useState(false);
+  const selectedConversation = params.get("conversation") || "";
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationMessages, setConversationMessages] = useState<
+    ConversationMessage[]
+  >([]);
+  const [conversationTitle, setConversationTitle] = useState("");
+  const [memoryEnabled, setMemoryEnabled] = useState(false);
+  const [conversationBusy, setConversationBusy] = useState(false);
+  const [conversationError, setConversationError] = useState("");
+  const conversationSupported =
+    app.capabilities?.features?.conversations === true;
+  useEffect(() => {
+    if (!app.apiSession || !conversationSupported) {
+      setConversations([]);
+      return;
+    }
+    const controller = new AbortController();
+    void app.product
+      .conversations(controller.signal)
+      .then((page) => {
+        if (!controller.signal.aborted) setConversations(page.items);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted)
+          setConversationError(
+            reason instanceof Error
+              ? reason.message
+              : "Không tải được hội thoại.",
+          );
+      });
+    return () => controller.abort();
+  }, [app.product, app.apiSession, conversationSupported]);
+  useEffect(() => {
+    setConversationMessages([]);
+    if (!app.apiSession || !conversationSupported || !selectedConversation)
+      return;
+    const controller = new AbortController();
+    setConversationError("");
+    void app.product
+      .messages(selectedConversation, controller.signal)
+      .then((page) => {
+        if (!controller.signal.aborted) setConversationMessages(page.items);
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted)
+          setConversationError(
+            reason instanceof Error
+              ? reason.message
+              : "Không tải được tin nhắn.",
+          );
+      });
+    return () => controller.abort();
+  }, [
+    app.product,
+    app.apiSession,
+    conversationSupported,
+    selectedConversation,
+  ]);
+  const chooseConversation = (id: string) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set("conversation", id);
+    else next.delete("conversation");
+    setParams(next, { replace: true });
+  };
+  const createConversation = async () => {
+    setConversationBusy(true);
+    setConversationError("");
+    try {
+      const created = await app.product.createConversation(
+        conversationTitle.trim() || "Hội thoại mới",
+        memoryEnabled,
+      );
+      setConversations((current) => [created, ...current]);
+      chooseConversation(created.conversation_id);
+      setConversationTitle("");
+      app.notify("Đã tạo hội thoại. Chưa gửi câu hỏi tới model.");
+    } catch (reason) {
+      setConversationError(
+        reason instanceof Error ? reason.message : "Không tạo được hội thoại.",
+      );
+    } finally {
+      setConversationBusy(false);
+    }
+  };
   const createIntent = useRef<{ fingerprint: string; key: string } | null>(
     null,
   );
@@ -376,16 +440,22 @@ function ApiChat() {
     liveModelConsent: app.liveModelConsent,
   });
 
+  const historyGeneration = useRef(0);
   const loadRuns = useCallback(async () => {
+    const generation = ++historyGeneration.current;
     if (!app.apiSession) return setRuns([]);
     try {
-      setRuns((await app.api.runs({ limit: 12 })).items);
+      const page = await app.api.runs({ limit: 12 });
+      if (generation === historyGeneration.current) setRuns(page.items);
     } catch {
       /* surfaced by actions */
     }
   }, [app.api, app.apiSession]);
   useEffect(() => {
     void loadRuns();
+    return () => {
+      historyGeneration.current += 1;
+    };
   }, [loadRuns]);
   useEffect(() => {
     if (!file) return;
@@ -436,14 +506,77 @@ function ApiChat() {
     };
   }, [app.api, selectedSample, sessionId]);
 
+  const importCatalogImage =
+    app.capabilities?.features?.heritage_asset_import === true;
+  const heritageMedia = heritage.record?.media[0];
+  const activeHeritage = Boolean(
+    heritageId && dismissedHeritage !== heritageId && !selectedSample && !file,
+  );
+  useEffect(() => {
+    if (
+      !activeHeritage ||
+      !importCatalogImage ||
+      !heritageMedia ||
+      !sessionId
+    ) {
+      setHeritageImageLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    let objectUrl: string | undefined;
+    setHeritageImageLoading(true);
+    setAsset(null);
+    setImageUrl(undefined);
+    setError("");
+    void (async () => {
+      try {
+        const selectedAsset = await app.api.useHeritageMedia(
+          heritageId,
+          heritageMedia.media_id,
+          controller.signal,
+        );
+        const blob = await app.api.assetContent(
+          selectedAsset.asset_id,
+          controller.signal,
+        );
+        if (controller.signal.aborted) return;
+        objectUrl = URL.createObjectURL(blob);
+        setAsset(selectedAsset);
+        setImageUrl(objectUrl);
+      } catch (reason) {
+        if (!controller.signal.aborted)
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "Không tải được ảnh di sản. Hãy chọn ảnh khác.",
+          );
+      } finally {
+        if (!controller.signal.aborted) setHeritageImageLoading(false);
+      }
+    })();
+    return () => {
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [
+    app.api,
+    activeHeritage,
+    importCatalogImage,
+    heritageId,
+    heritageMedia,
+    sessionId,
+  ]);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
     if (!app.apiSession)
-      return navigate("/login", { state: { from: "/chat" } });
+      return navigate("/login", {
+        state: { from: `/chat${params.size ? `?${params}` : ""}` },
+      });
     if (!gate.allowed) return setError(gate.message);
     if (!question.trim()) return setError("Hãy nhập câu hỏi.");
-    if (sampleLoading) return;
+    if (sampleLoading || heritageImageLoading) return;
     if (!asset && !file && !selectedSample)
       return setError("Hãy tải ảnh hoặc chọn sample thật từ backend.");
     setLoading(true);
@@ -458,6 +591,16 @@ function ApiChat() {
         asset_id: activeAsset.asset_id,
         question: question.trim(),
         audience,
+        conversation_id: conversationSupported ? selectedConversation : "",
+        heritage_id:
+          activeHeritage &&
+          app.capabilities?.features?.content_editorial &&
+          app.capabilities?.accuracy?.enabled
+            ? heritageId
+            : "",
+        location_hint: app.capabilities?.accuracy?.enabled
+          ? locationHint.trim()
+          : "",
       });
       if (createIntent.current?.fingerprint !== fingerprint) {
         createIntent.current = {
@@ -471,6 +614,23 @@ function ApiChat() {
           question: question.trim(),
           audience,
           profile: "default",
+          ...(conversationSupported && selectedConversation
+            ? { conversation_id: selectedConversation }
+            : {}),
+          ...(activeHeritage &&
+          heritageId &&
+          app.capabilities?.features?.content_editorial &&
+          app.capabilities?.accuracy?.enabled
+            ? { heritage_id: heritageId }
+            : {}),
+          ...(app.capabilities?.accuracy?.enabled && locationHint.trim()
+            ? {
+                location_hint: {
+                  name: locationHint.trim(),
+                  provenance: "user" as const,
+                },
+              }
+            : {}),
         },
         createIntent.current.key,
       );
@@ -513,201 +673,25 @@ function ApiChat() {
         </header>
         <EmptyState title="Cần một phiên khách" icon={<Archive size={28} />}>
           Tạo hoặc gắn guest access token để sở hữu asset và run.{" "}
-          <Link to="/login">Truy cập phiên khách</Link>.
+          <Link
+            to="/login"
+            state={{ from: `/chat${params.size ? `?${params}` : ""}` }}
+          >
+            Truy cập phiên khách
+          </Link>
+          .
         </EmptyState>
       </div>
     );
   return (
-    <div className="chat-workspace api-chat-workspace">
-      <section className="chat-compose-column">
-        <header className="chat-heading">
-          <span className="eyebrow">API INTEGRATION · MULTI-AGENT VQA</span>
-          <h1>Hỏi backend bằng một ảnh</h1>
-          <p>
-            {app.capabilities?.model_mode === "live"
-              ? "Đang kết nối AI thật theo cấu hình server. Kiểm tra sẵn sàng và xác nhận chi phí trước khi bắt đầu."
-              : "Backend sẽ xử lý ảnh và câu hỏi; chế độ demo sử dụng kết quả AI mô phỏng."}
-          </p>
-        </header>
-        <LiveModelConsent />
-        {!gate.allowed && (
-          <StatusCard
-            kind={
-              gate.code === "LIVE_MODEL_CONSENT_REQUIRED" ? "warning" : "error"
-            }
-            title="Đã khóa thao tác tạo run"
-          >
-            {gate.message}
-          </StatusCard>
-        )}
-        {preflight && (
-          <StatusCard
-            kind={preflight.ready ? "success" : "warning"}
-            title={
-              preflight.ready
-                ? "Các role đã sẵn sàng theo preflight"
-                : "Một số role chưa sẵn sàng"
-            }
-          >
-            {preflight.roles
-              .map(
-                (role) =>
-                  `${role.role}: ${role.ready ? "ready" : role.error_code || "not ready"}`,
-              )
-              .join(" · ")}
-            <br />
-            <span className="small">
-              Preflight không xác minh quota sinh nội dung.
-            </span>
-          </StatusCard>
-        )}
-        {params.get("heritage") && (
-          <StatusCard
-            kind="info"
-            title="Ngữ cảnh di sản không được gửi tới API"
-          >
-            Backend không hỗ trợ <code>heritage_id</code>. Hãy chọn/tải một
-            asset thật và đặt câu hỏi có nội dung đầy đủ.
-          </StatusCard>
-        )}
-        <form className="composer-card" onSubmit={submit}>
-          <div className="api-image-picker">
-            <label className={`image-dropzone ${imageUrl ? "has-image" : ""}`}>
-              {imageUrl ? (
-                <>
-                  <ResilientImage
-                    src={imageUrl}
-                    alt="Ảnh tải lên"
-                    loading="eager"
-                    retryable={false}
-                  />
-                  <span className="image-overlay">
-                    <Upload size={17} /> Đổi ảnh
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Upload size={27} />
-                  <strong>Tải ảnh của bạn</strong>
-                  <span>
-                    JPEG, PNG, WebP · tối đa{" "}
-                    {app.capabilities
-                      ? Math.round(
-                          app.capabilities.max_upload_bytes / 1_048_576,
-                        )
-                      : "?"}{" "}
-                    MB
-                  </span>
-                </>
-              )}
-              <input
-                className="sr-only"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] || null);
-                  setAsset(null);
-                  setSelectedSample("");
-                }}
-              />
-            </label>
-            <div className="or-divider">
-              <span>hoặc</span>
-            </div>
-            <Field label="Sample thật từ backend">
-              <select
-                value={selectedSample}
-                onChange={(e) => {
-                  setSelectedSample(e.target.value);
-                  setFile(null);
-                  setAsset(null);
-                  setImageUrl(undefined);
-                }}
-              >
-                <option value="">Chọn sample…</option>
-                {app.apiSamples.map((sample) => (
-                  <option value={sample.sample_id} key={sample.sample_id}>
-                    {sample.title}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            {sampleLoading && (
-              <p className="small muted" role="status">
-                Đang chuẩn bị ảnh mẫu của bạn…
-              </p>
-            )}
-          </div>
-          <div className="form-grid-2 composer-fields">
-            <Field
-              label="Câu hỏi"
-              hint={`${question.length}/${app.capabilities?.max_question_characters || 4000}`}
-            >
-              <textarea
-                rows={5}
-                maxLength={app.capabilities?.max_question_characters || 4000}
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Bạn muốn tìm hiểu điều gì từ ảnh?"
-              />
-            </Field>
-            <Field label="Đối tượng câu trả lời">
-              <select
-                value={audience}
-                onChange={(e) =>
-                  setAudience(e.target.value as "tourist" | "student")
-                }
-              >
-                <option value="tourist">Khách tham quan</option>
-                <option value="student">Học sinh/sinh viên</option>
-              </select>
-            </Field>
-          </div>
-          {error && (
-            <p className="form-alert" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="composer-footer">
-            <p>
-              <Info size={14} /> Không có conversation_id hay heritage_id trong
-              request.
-            </p>
-            <div className="button-row">
-              <Button
-                type="button"
-                tone="secondary"
-                onClick={checkReadiness}
-                disabled={checking}
-              >
-                {checking ? "Đang kiểm tra…" : "Kiểm tra sẵn sàng"}
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || sampleLoading || !gate.allowed}
-              >
-                {loading ? "Đang tạo run…" : "Tạo run"}
-                <Send size={16} />
-              </Button>
-            </div>
-          </div>
-        </form>
-      </section>
-      <aside className="chat-history-panel">
-        <div className="section-head">
-          <div>
-            <span className="eyebrow">RUN CỦA PHIÊN</span>
-            <h2>Lịch sử backend</h2>
-          </div>
-          <button
-            className="icon-button"
-            aria-label="Tải lại"
-            onClick={loadRuns}
-          >
-            <RefreshCw size={16} />
-          </button>
-        </div>
-        {runs.length ? (
+    <ChatWorkspace
+      modeLabel={
+        app.capabilities?.model_mode === "live" ? "AI thật" : "Demo API"
+      }
+      historyCount={runs.length}
+      onRefreshHistory={() => void loadRuns()}
+      history={
+        runs.length ? (
           <div className="history-list">
             {runs.map((run) => (
               <Link to={`/chat/runs/${run.run_id}`} key={run.run_id}>
@@ -724,14 +708,300 @@ function ApiChat() {
           </div>
         ) : (
           <EmptyState
-            title="Chưa có run"
+            title="Chưa có câu hỏi"
             icon={<MessageSquareText size={26} />}
           >
-            Run thuộc phiên khách này sẽ xuất hiện ở đây.
+            Các câu hỏi thuộc phiên hiện tại sẽ xuất hiện ở đây.
           </EmptyState>
+        )
+      }
+    >
+      <header className="chat-welcome">
+        <span className="chat-welcome-mark" aria-hidden="true">
+          <Landmark size={30} />
+        </span>
+        <span className="eyebrow">BẮT ĐẦU TỪ ĐIỀU BẠN TÒ MÒ</span>
+        <h1>Khám phá di sản cùng AI</h1>
+        <p>
+          Thêm ảnh của bạn hoặc chọn một ảnh mẫu. Đặt câu hỏi và theo dõi nguồn
+          hỗ trợ cho câu trả lời.
+        </p>
+      </header>
+      <div className="chat-notices">
+        <LiveModelConsent />
+        {!gate.allowed && (
+          <StatusCard
+            kind={
+              gate.code === "LIVE_MODEL_CONSENT_REQUIRED" ? "warning" : "error"
+            }
+            title="Chưa thể gửi câu hỏi"
+          >
+            {gate.message}
+          </StatusCard>
         )}
-      </aside>
-    </div>
+        {preflight && (
+          <StatusCard
+            kind={preflight.ready ? "success" : "warning"}
+            title={
+              preflight.ready
+                ? "Hệ thống sẵn sàng"
+                : "Hệ thống cần được kiểm tra"
+            }
+          >
+            <p>
+              {preflight.ready
+                ? "Các thành phần xử lý đã sẵn sàng. Kiểm tra này chưa xác nhận quota cho tác vụ AI."
+                : "Một số thành phần xử lý chưa sẵn sàng. Hãy kiểm tra lại trước khi gửi."}
+            </p>
+            <details className="chat-readiness-details">
+              <summary>Thông tin kết nối</summary>
+              {preflight.roles
+                .map(
+                  (role) =>
+                    `${role.role}: ${role.ready ? "ready" : role.error_code || "not ready"}`,
+                )
+                .join(" · ")}
+            </details>
+          </StatusCard>
+        )}
+        {heritageId && activeHeritage && (
+          <StatusCard
+            kind={heritage.loading || heritageImageLoading ? "loading" : "info"}
+            title={
+              heritageImageLoading
+                ? "Đang chuẩn bị ảnh di sản…"
+                : asset && importCatalogImage
+                  ? "Đã chọn ảnh từ hồ sơ di sản"
+                  : "Chọn ảnh cho câu hỏi này"
+            }
+          >
+            {heritage.error ||
+              (asset && importCatalogImage
+                ? `Ảnh ${heritage.record?.name || "di sản"} đã được gắn vào phiên của bạn. Hãy nhập câu hỏi để bắt đầu. Nguồn metadata trong hồ sơ chưa được dùng làm bằng chứng RAG.`
+                : "Hãy chọn hoặc tải ảnh và viết đầy đủ nội dung bạn muốn hỏi.")}
+          </StatusCard>
+        )}
+      </div>
+      <ChatComposer
+        question={question}
+        onQuestionChange={setQuestion}
+        onSubmit={submit}
+        questionLabel="Câu hỏi"
+        maxLength={app.capabilities?.max_question_characters || 4000}
+        imageUrl={imageUrl}
+        imageName={
+          file?.name ||
+          app.apiSamples.find((sample) => sample.sample_id === selectedSample)
+            ?.title ||
+          (activeHeritage && asset ? heritage.record?.name : undefined) ||
+          (asset ? "Ảnh đã sẵn sàng" : undefined)
+        }
+        imageAlt="Ảnh tải lên"
+        imageBusy={sampleLoading || heritageImageLoading}
+        imageHint={`JPEG, PNG, WebP · tối đa ${app.capabilities ? Math.round(app.capabilities.max_upload_bytes / 1_048_576) : "?"} MB`}
+        maxUploadBytes={app.capabilities?.max_upload_bytes}
+        context={
+          <>
+            {conversationSupported && (
+              <details className="chat-readiness-details">
+                <summary>Hội thoại và ngữ cảnh (tùy chọn)</summary>
+                <Field label="Hội thoại đang dùng">
+                  <select
+                    value={selectedConversation}
+                    disabled={loading || conversationBusy}
+                    onChange={(event) => chooseConversation(event.target.value)}
+                  >
+                    <option value="">Câu hỏi độc lập</option>
+                    {conversations.map((chat) => (
+                      <option
+                        key={chat.conversation_id}
+                        value={chat.conversation_id}
+                        disabled={chat.archived}
+                      >
+                        {chat.title}
+                        {chat.memory_enabled ? " · có ngữ cảnh" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Tên hội thoại mới">
+                  <input
+                    value={conversationTitle}
+                    maxLength={160}
+                    onChange={(event) =>
+                      setConversationTitle(event.target.value)
+                    }
+                    disabled={conversationBusy}
+                    placeholder="Đặt tên để dễ tìm lại"
+                  />
+                </Field>
+                <label className="checkbox-row conversation-memory-option">
+                  <input
+                    type="checkbox"
+                    checked={memoryEnabled}
+                    onChange={(event) => setMemoryEnabled(event.target.checked)}
+                    disabled={conversationBusy}
+                  />{" "}
+                  Cho hội thoại mới dùng ngữ cảnh có giới hạn
+                </label>
+                <p className="small muted">
+                  Ngữ cảnh tối đa 8 tin nhắn và 4.000 ký tự; lời người dùng và
+                  đáp án trước vẫn cần kiểm chứng.
+                </p>
+                <Button
+                  type="button"
+                  tone="secondary"
+                  disabled={loading || conversationBusy}
+                  onClick={() => void createConversation()}
+                >
+                  Tạo hội thoại
+                </Button>
+                {selectedConversation && (
+                  <>
+                    <Button
+                      type="button"
+                      tone="ghost"
+                      onClick={() =>
+                        void app.product
+                          .clearMemory(selectedConversation)
+                          .then(() =>
+                            app.notify(
+                              "Các lượt tiếp theo không dùng ngữ cảnh cũ.",
+                            ),
+                          )
+                          .catch((reason: unknown) =>
+                            setConversationError(
+                              reason instanceof Error
+                                ? reason.message
+                                : "Không xóa được ngữ cảnh.",
+                            ),
+                          )
+                      }
+                    >
+                      Quên ngữ cảnh cũ
+                    </Button>
+                    <details>
+                      <summary>
+                        Lịch sử hội thoại ({conversationMessages.length})
+                      </summary>
+                      {conversationMessages.map((message) => (
+                        <article key={message.message_id}>
+                          <strong>
+                            {message.role === "user" ? "Bạn" : "Trợ lý"}
+                          </strong>
+                          <p>{message.content.slice(0, 700)}</p>
+                          <Link to={`/chat/runs/${message.run_id}`}>
+                            Xem lượt xử lý
+                          </Link>
+                        </article>
+                      ))}
+                    </details>
+                  </>
+                )}
+                {conversationError && (
+                  <p className="form-alert" role="alert">
+                    {conversationError}
+                  </p>
+                )}
+              </details>
+            )}
+            {app.capabilities?.accuracy?.enabled ? (
+              <details className="chat-readiness-details">
+                <summary>Gợi ý địa điểm (tùy chọn)</summary>
+                <Field label="Địa điểm bạn nghĩ tới">
+                  <input
+                    aria-label="Địa điểm bạn nghĩ tới"
+                    maxLength={200}
+                    value={locationHint}
+                    disabled={loading}
+                    onChange={(event) => setLocationHint(event.target.value)}
+                    placeholder="Có thể để trống để nhận diện từ ảnh"
+                  />
+                </Field>
+                <small>
+                  Được gửi như gợi ý từ bạn, không phải đáp án hoặc bằng chứng
+                  đã xác minh.
+                </small>
+              </details>
+            ) : null}
+          </>
+        }
+        onFileChange={(nextFile) => {
+          setDismissedHeritage(heritageId);
+          setFile(nextFile);
+          setAsset(null);
+          setSelectedSample("");
+          setImageUrl(undefined);
+          setError("");
+        }}
+        onRemoveImage={() => {
+          setDismissedHeritage(heritageId);
+          setFile(null);
+          setSelectedSample("");
+          setAsset(null);
+          setImageUrl(undefined);
+          setError("");
+        }}
+        sourceControl={
+          <Field label="Ảnh mẫu từ hệ thống">
+            <select
+              value={selectedSample}
+              disabled={loading}
+              onChange={(event) => {
+                setDismissedHeritage(heritageId);
+                setSelectedSample(event.target.value);
+                setFile(null);
+                setAsset(null);
+                setImageUrl(undefined);
+                setError("");
+              }}
+            >
+              <option value="">Chọn ảnh mẫu…</option>
+              {app.apiSamples.map((sample) => (
+                <option value={sample.sample_id} key={sample.sample_id}>
+                  {sample.title}
+                </option>
+              ))}
+            </select>
+          </Field>
+        }
+        audience={{ value: audience, onChange: setAudience }}
+        error={error}
+        busy={loading}
+        disabled={
+          sampleLoading ||
+          heritageImageLoading ||
+          !gate.allowed ||
+          (!asset && !file && !selectedSample)
+        }
+        submitLabel="Gửi câu hỏi"
+        busyLabel="Đang gửi…"
+        notice={
+          app.capabilities?.model_mode === "live"
+            ? "Ảnh và câu hỏi được gửi tới AI theo cấu hình hệ thống; mỗi tác vụ có thể phát sinh chi phí."
+            : "Chế độ demo trả kết quả mô phỏng; ảnh và câu hỏi được gửi tới máy chủ."
+        }
+        auxiliaryAction={
+          <Button
+            type="button"
+            tone="secondary"
+            onClick={checkReadiness}
+            disabled={checking || loading}
+          >
+            {checking ? "Đang kiểm tra…" : "Kiểm tra sẵn sàng"}
+          </Button>
+        }
+        suggestions={[
+          "Những chi tiết kiến trúc nào có thể quan sát trong ảnh?",
+          "Thông tin nào về địa điểm này cần kiểm chứng thêm?",
+          "Hãy giải thích ngắn gọn cho người lần đầu tìm hiểu.",
+        ]}
+      />
+      <p className="chat-grounding-note">
+        <SearchCheck size={15} /> Đối chiếu mức độ kiểm chứng và nguồn hỗ trợ
+        trước khi sử dụng câu trả lời.
+      </p>
+    </ChatWorkspace>
   );
 }
 
@@ -756,6 +1026,12 @@ function PreviewRunDetail({ runId }: { runId: string }) {
         </EmptyState>
       </div>
     );
+  const linkedHeritage = preview.heritages.find(
+    (item) => item.id === run.heritageId,
+  );
+  const linkedSources = preview.contentSources.filter((source) =>
+    linkedHeritage?.sourceIds.includes(source.id),
+  );
   const feedback = (rating: "helpful" | "needs_review") => {
     preview.submitFeedback({
       runId: run.id,
@@ -768,7 +1044,7 @@ function PreviewRunDetail({ runId }: { runId: string }) {
     app.notify("Đã lưu phản hồi trong UI Preview, chưa gửi backend.");
   };
   return (
-    <div className="run-page page-shell">
+    <div className="run-page page-shell chat-result-page">
       <header className="run-header">
         <div>
           <span className="eyebrow">KẾT QUẢ UI PREVIEW</span>
@@ -784,8 +1060,17 @@ function PreviewRunDetail({ runId }: { runId: string }) {
           <MessageSquareText size={16} /> Câu hỏi mới
         </Link>
       </header>
+      <div className="run-context-strip">
+        <span>
+          <FileImage size={15} /> {run.imageName || "Câu hỏi không kèm ảnh"}
+        </span>
+        <span>{new Date(run.createdAt).toLocaleString("vi-VN")}</span>
+      </div>
       <div className="run-layout">
-        <main className="answer-column">
+        <section
+          className="answer-column"
+          aria-label="Câu trả lời và nguồn hỗ trợ"
+        >
           <section className="answer-card">
             <div className="answer-card-head">
               <span>
@@ -795,10 +1080,47 @@ function PreviewRunDetail({ runId }: { runId: string }) {
             </div>
             <Markdown>{run.answer}</Markdown>
           </section>
+          <section className="sources-section">
+            <div className="section-head">
+              <div>
+                <span className="eyebrow">TƯ LIỆU MINH HỌA</span>
+                <h2>Nguồn hỗ trợ</h2>
+              </div>
+              <Badge>{linkedSources.length} nguồn</Badge>
+            </div>
+            {linkedSources.length ? (
+              <div className="source-cards">
+                {linkedSources.map((source, index) => (
+                  <article key={source.id}>
+                    <span className="source-number">{index + 1}</span>
+                    <div>
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <strong>{source.title}</strong>
+                      </a>
+                      <p>{source.summary}</p>
+                      <small>
+                        {source.publisher} · Metadata hồ sơ Preview, chưa phải
+                        kết quả truy xuất AI
+                      </small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">
+                Chưa có tư liệu minh họa liên kết. Kết quả này chưa đủ nguồn để
+                đối chiếu.
+              </p>
+            )}
+          </section>
           <section className="feedback-card">
             <div>
               <strong>Kết quả mô phỏng này có rõ ràng không?</strong>
-              <p>Phản hồi chỉ xuất hiện trong khu vực quản trị Preview.</p>
+              <p>Phản hồi được lưu trong bản Preview của phiên này.</p>
             </div>
             <div>
               <Button tone="secondary" onClick={() => feedback("helpful")}>
@@ -809,40 +1131,51 @@ function PreviewRunDetail({ runId }: { runId: string }) {
               </Button>
             </div>
           </section>
-        </main>
-        <aside className="execution-column">
-          <section className="panel">
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">THỰC THI</span>
-                <h2>Workflow stages</h2>
-              </div>
-            </div>
-            <div className="stage-list">
-              {run.stages.map((stage) => (
-                <div key={stage.id} className={stage.status}>
-                  <span>
-                    {stage.status === "completed" ? (
-                      <CheckCircle2 size={16} />
-                    ) : (
-                      <CircleStop size={16} />
-                    )}
-                  </span>
-                  <div>
-                    <strong>{stage.title}</strong>
-                    <p>{stage.summary}</p>
-                  </div>
+        </section>
+        <details className="execution-details">
+          <summary>
+            <span>
+              <Workflow size={18} /> Chi tiết xử lý
+            </span>
+            <span className="execution-summary-hint">
+              Các bước và trạng thái
+            </span>
+            <ChevronDown size={17} />
+          </summary>
+          <aside className="execution-column">
+            <section className="panel">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">THỰC THI</span>
+                  <h2>Workflow stages</h2>
                 </div>
-              ))}
-            </div>
-          </section>
-          <section className="panel limitation-panel">
-            <h3>Model calls / attempts</h3>
-            <p>Dữ liệu Preview không gọi model.</p>
-            <h3>Tool / API calls</h3>
-            <p>Không có trace tool; frontend không dựng lại dữ liệu giả.</p>
-          </section>
-        </aside>
+              </div>
+              <div className="stage-list">
+                {run.stages.map((stage) => (
+                  <div key={stage.id} className={stage.status}>
+                    <span>
+                      {stage.status === "completed" ? (
+                        <CheckCircle2 size={16} />
+                      ) : (
+                        <CircleStop size={16} />
+                      )}
+                    </span>
+                    <div>
+                      <strong>{stage.title}</strong>
+                      <p>{stage.summary}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="panel limitation-panel">
+              <h3>Model calls / attempts</h3>
+              <p>Dữ liệu Preview không gọi model.</p>
+              <h3>Tool / API calls</h3>
+              <p>Không có trace tool; frontend không dựng lại dữ liệu giả.</p>
+            </section>
+          </aside>
+        </details>
       </div>
     </div>
   );
@@ -882,7 +1215,7 @@ function useApiRun(runId: string) {
           api.workflow().catch(() => undefined),
         ]);
       let result: ResultView | undefined;
-      if (isExecutionTerminal(run.execution_status)) {
+      if (isExecutionSettled(run.execution_status)) {
         try {
           result = await api.result(runId);
         } catch (reason) {
@@ -923,7 +1256,7 @@ function useApiRun(runId: string) {
       let snapshot = await refresh();
       if (!snapshot) return;
       let cursor = snapshot.cursor;
-      while (!disposed && !isExecutionTerminal(snapshot.run.execution_status)) {
+      while (!disposed && !isExecutionSettled(snapshot.run.execution_status)) {
         try {
           await api.streamRunEvents(runId, {
             signal: controller.signal,
@@ -958,7 +1291,7 @@ function useApiRun(runId: string) {
         if (!next) return;
         snapshot = next;
         cursor = Math.max(cursor, next.cursor);
-        if (!isExecutionTerminal(snapshot.run.execution_status)) {
+        if (!isExecutionSettled(snapshot.run.execution_status)) {
           await new Promise((resolve) => window.setTimeout(resolve, 800));
         }
       }
@@ -1072,7 +1405,7 @@ function ApiRunDetail({ runId }: { runId: string }) {
     state.workflow?.stages.map((stage) => [stage.id, stage.title]),
   );
   return (
-    <div className="run-page page-shell">
+    <div className="run-page page-shell chat-result-page">
       <header className="run-header">
         <div className="run-title-with-image">
           {assetImageUrl ? (
@@ -1093,7 +1426,9 @@ function ApiRunDetail({ runId }: { runId: string }) {
               RUN ·{" "}
               {run.run_kind === "review"
                 ? "JUDGE-ONLY REVIEW"
-                : "FULL WORKFLOW"}
+                : run.run_kind === "clarification"
+                  ? "BỔ SUNG THÔNG TIN"
+                  : "FULL WORKFLOW"}
             </span>
             <h1>{run.question}</h1>
             <div className="detail-badges">
@@ -1153,7 +1488,7 @@ function ApiRunDetail({ runId }: { runId: string }) {
       )}
       <LiveModelConsent />
       {!gate.allowed && (
-        <StatusCard kind="warning" title="Retry và review đang bị khóa">
+        <StatusCard kind="warning" title="Tác vụ AI mới đang bị khóa">
           {gate.message}
         </StatusCard>
       )}
@@ -1168,7 +1503,7 @@ function ApiRunDetail({ runId }: { runId: string }) {
         </StatusCard>
       ) : null}
       <div className="run-action-bar">
-        {!isExecutionTerminal(run.execution_status) && (
+        {!isExecutionSettled(run.execution_status) && (
           <Button
             tone="danger"
             disabled={Boolean(busy)}
@@ -1255,12 +1590,18 @@ function ApiRunDetail({ runId }: { runId: string }) {
         </button>
       </div>
       <div className="run-layout">
-        <main className="answer-column">
+        <section
+          className="answer-column"
+          aria-label="Câu trả lời và nguồn hỗ trợ"
+        >
           {state.result?.final_response ? (
             <section className="answer-card">
               <div className="answer-card-head">
                 <span>
-                  <Sparkles size={18} /> Câu trả lời cuối
+                  <Sparkles size={18} />{" "}
+                  {run.execution_status === "awaiting_input"
+                    ? "Phần trả lời hiện có"
+                    : "Câu trả lời cuối"}
                 </span>
                 <span>{state.result.duration.toFixed(2)} giây</span>
               </div>
@@ -1269,13 +1610,13 @@ function ApiRunDetail({ runId }: { runId: string }) {
           ) : (
             <StatusCard
               kind={
-                isExecutionTerminal(run.execution_status)
-                  ? "warning"
-                  : "loading"
+                isExecutionSettled(run.execution_status) ? "warning" : "loading"
               }
               title={
-                isExecutionTerminal(run.execution_status)
-                  ? "Không có câu trả lời cuối khả dụng"
+                isExecutionSettled(run.execution_status)
+                  ? run.execution_status === "awaiting_input"
+                    ? "Cần bạn bổ sung để tiếp tục"
+                    : "Không có câu trả lời cuối khả dụng"
                   : "Workflow đang xử lý"
               }
             >
@@ -1284,6 +1625,14 @@ function ApiRunDetail({ runId }: { runId: string }) {
                 : `Đã ghi nhận ${state.events.length} sự kiện.`}
             </StatusCard>
           )}
+          {state.result && run.execution_status === "awaiting_input" && (
+            <ClarificationForm
+              key={runId}
+              runId={runId}
+              result={state.result}
+            />
+          )}
+          {state.result && <EvidencePanel result={state.result} />}
           <section className="sources-section">
             <div className="section-head">
               <div>
@@ -1320,17 +1669,13 @@ function ApiRunDetail({ runId }: { runId: string }) {
                 ))}
               </div>
             ) : (
-              <p className="muted">
-                Chưa có nguồn chứng cứ được API công khai.
-              </p>
+              <p className="muted">Chưa có nguồn hỗ trợ để đối chiếu.</p>
             )}
           </section>
           <section className="feedback-card feedback-form">
             <div>
               <strong>Đánh giá câu trả lời</strong>
-              <p>
-                Đây là feedback owner-scoped của run, không phải moderation.
-              </p>
+              <p>Đánh dấu thông tin hữu ích hoặc cần kiểm tra lại.</p>
             </div>
             <textarea
               aria-label="Ghi chú phản hồi"
@@ -1369,101 +1714,114 @@ function ApiRunDetail({ runId }: { runId: string }) {
               </Button>
             </div>
           </section>
-        </main>
-        <aside className="execution-column">
-          <section className="panel execution-panel">
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">MỨC 1</span>
-                <h2>Workflow stages</h2>
+        </section>
+        <details className="execution-details">
+          <summary>
+            <span>
+              <Workflow size={18} /> Chi tiết xử lý
+            </span>
+            <span className="execution-summary-hint">
+              Các bước và trạng thái
+            </span>
+            <ChevronDown size={17} />
+          </summary>
+          <aside className="execution-column">
+            <section className="panel execution-panel">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">MỨC 1</span>
+                  <h2>Workflow stages</h2>
+                </div>
+                <Workflow size={20} />
               </div>
-              <Workflow size={20} />
-            </div>
-            {stages.length ? (
-              <div className="stage-list">
-                {stages.map(([id, raw]) => {
-                  const stage = raw as Record<string, unknown>;
-                  const payload = (stage.payload || {}) as Record<
-                    string,
-                    unknown
-                  >;
-                  return (
-                    <details key={id}>
-                      <summary>
-                        <span
-                          className={`status-dot ${String(stage.status || "waiting")}`}
-                        />
-                        <span>
-                          <strong>{stageTitles.get(id) || id}</strong>
-                          <small>{String(stage.status || "waiting")}</small>
-                        </span>
-                        <ChevronDown size={15} />
-                      </summary>
-                      <p>
-                        {String(
-                          payload.summary || "Không có tóm tắt công khai.",
-                        )}
-                      </p>
-                      <pre>{JSON.stringify(stage, null, 2)}</pre>
-                    </details>
-                  );
-                })}
+              {stages.length ? (
+                <div className="stage-list">
+                  {stages.map(([id, raw]) => {
+                    const stage = raw as Record<string, unknown>;
+                    const payload = (stage.payload || {}) as Record<
+                      string,
+                      unknown
+                    >;
+                    return (
+                      <details key={id}>
+                        <summary>
+                          <span
+                            className={`status-dot ${String(stage.status || "waiting")}`}
+                          />
+                          <span>
+                            <strong>{stageTitles.get(id) || id}</strong>
+                            <small>{String(stage.status || "waiting")}</small>
+                          </span>
+                          <ChevronDown size={15} />
+                        </summary>
+                        <p>
+                          {String(
+                            payload.summary || "Không có tóm tắt công khai.",
+                          )}
+                        </p>
+                        <pre>{JSON.stringify(stage, null, 2)}</pre>
+                      </details>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="muted">Chưa có snapshot giai đoạn.</p>
+              )}
+            </section>
+            <section className="panel execution-panel">
+              <div className="section-head">
+                <div>
+                  <span className="eyebrow">MỨC 2</span>
+                  <h2>Model attempts</h2>
+                </div>
+                <Badge>{calls.length}</Badge>
               </div>
-            ) : (
-              <p className="muted">Chưa có snapshot giai đoạn.</p>
-            )}
-          </section>
-          <section className="panel execution-panel">
-            <div className="section-head">
-              <div>
-                <span className="eyebrow">MỨC 2</span>
-                <h2>Model attempts</h2>
-              </div>
-              <Badge>{calls.length}</Badge>
-            </div>
-            {calls.length ? (
-              <div className="call-list">
-                {calls.map((raw, index) => {
-                  const call = raw as Record<string, unknown>;
-                  return (
-                    <details
-                      key={`${String(call.agent_role || "call")}-${String(call.attempt || index)}`}
-                    >
-                      <summary>
-                        <span>
-                          <strong>
-                            {String(call.agent_role || "Model call")}
-                          </strong>
-                          <small>
-                            {String(call.status || "unknown")} ·{" "}
-                            {String(
-                              call.actual_provider ||
-                                "provider không công khai",
-                            )}
-                          </small>
-                        </span>
-                        <ChevronDown size={15} />
-                      </summary>
-                      <pre>{JSON.stringify(call, null, 2)}</pre>
-                    </details>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="muted">
-                API chưa ghi nhận model attempt công khai.
+              {calls.length ? (
+                <div className="call-list">
+                  {calls.map((raw, index) => {
+                    const call = raw as Record<string, unknown>;
+                    return (
+                      <details
+                        key={`${String(call.agent_role || "call")}-${String(call.attempt || index)}`}
+                      >
+                        <summary>
+                          <span>
+                            <strong>
+                              {String(call.agent_role || "Model call")}
+                            </strong>
+                            <small>
+                              {String(call.status || "unknown")} ·{" "}
+                              {String(
+                                call.actual_provider ||
+                                  "provider không công khai",
+                              )}
+                            </small>
+                          </span>
+                          <ChevronDown size={15} />
+                        </summary>
+                        <pre>{JSON.stringify(call, null, 2)}</pre>
+                      </details>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="muted">
+                  API chưa ghi nhận model attempt công khai.
+                </p>
+              )}
+            </section>
+            <section className="panel limitation-panel">
+              <span className="eyebrow">MỨC 3</span>
+              <h3>Tool / API calls</h3>
+              <p>
+                {state.result?.tool_calls?.length
+                  ? `${state.result.tool_calls.length} lần dùng công cụ được backend ghi nhận; xem phần Nhận diện và bằng chứng.`
+                  : "Chưa có lần dùng công cụ được backend ghi nhận cho lượt này."}{" "}
+                Frontend không tái dựng prompt hay hidden reasoning.
               </p>
-            )}
-          </section>
-          <section className="panel limitation-panel">
-            <span className="eyebrow">MỨC 3</span>
-            <h3>Tool / API calls</h3>
-            <p>
-              Backend hiện không có endpoint trace tool call hoặc input/output
-              từng call. Frontend không tái dựng prompt hay hidden reasoning.
-            </p>
-          </section>
-        </aside>
+            </section>
+          </aside>
+        </details>
       </div>
     </div>
   );
@@ -1475,6 +1833,6 @@ export function RunDetailPage() {
   return app.mode === "preview" ? (
     <PreviewRunDetail runId={runId} />
   ) : (
-    <ApiRunDetail runId={runId} />
+    <ApiRunDetail key={runId} runId={runId} />
   );
 }

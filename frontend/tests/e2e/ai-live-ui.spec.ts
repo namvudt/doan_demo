@@ -126,18 +126,18 @@ test("@ai-live one consented UI workflow calls the configured live model", async
     sessionsUrl = sessionResponse.url();
     await expect(page).toHaveURL(/\/chat$/);
     const createButton = page.getByRole("button", {
-      name: "Tạo run",
+      name: "Gửi câu hỏi",
       exact: true,
     });
     await expect(
       createButton,
       "A live workflow must be disabled before session consent",
     ).toBeDisabled();
-    const sample = page.getByLabel("Sample thật từ backend");
+    const sample = page.getByLabel("Ảnh mẫu từ hệ thống");
     await expect(sample.locator('option[value="chua_mot_cot"]')).toBeAttached();
     await sample.selectOption("chua_mot_cot");
     await page
-      .getByLabel("Câu hỏi")
+      .getByRole("textbox", { name: "Câu hỏi", exact: true })
       .fill(
         "Trong phạm vi di sản kiến trúc Việt Nam, hãy mô tả ngắn gọn các chi tiết kiến trúc quan sát trực tiếp trong ảnh này; nêu rõ điểm chưa chắc chắn, không suy đoán lịch sử khi thiếu nguồn.",
       );

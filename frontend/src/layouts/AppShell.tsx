@@ -189,7 +189,7 @@ export function AppShell() {
               {app.mode === "preview"
                 ? preview.currentRole
                 : app.apiSession
-                  ? "Phiên khách"
+                  ? app.account?.role || "Phiên khách"
                   : "API Integration"}
             </small>
           </div>

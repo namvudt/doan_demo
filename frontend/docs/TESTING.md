@@ -1,8 +1,16 @@
 # Frontend verification
 
-This document gives reproducible, secret-free commands for the two frontend
-tracks. Run them from a fresh terminal. Do not print, copy, rename, or modify
+This document gives reproducible, secret-free commands for Preview and the
+explicit API suites. Run them from a fresh terminal. Do not print, copy, rename, or modify
 the repository root .env.
+
+The frontend changes after baseline `6d614e3` depend on
+`be/evidence-product-platform` at `06f44d4` for the new API journeys (81 OpenAPI
+operations, migration head `0009_runtime_state`). The target `dev` integration
+combines both branches. Its fresh verification is pending; the previously
+observed 60 unit/16 UI results are recorded in [VALIDATION.md](VALIDATION.md).
+Preview needs no backend. New product actions require the matching capability
+flags and do not fall back to Preview data on older servers.
 
 ## Prerequisites
 
@@ -104,8 +112,11 @@ npm run dev
 Open http://127.0.0.1:5173. The frontend must:
 
 - read capabilities and visibly identify backend demo output;
-- create or accept only a guest session, never call account APIs;
-- refuse create, retry, and review if capabilities cannot prove model_mode=demo;
+- offer guest access and capability-gated real account registration/login;
+- keep account access/refresh credentials in tab memory and support explicit
+  refresh/logout without migrating Preview or guest data into an account;
+- refuse run-producing actions unless the model-mode gate permits them
+  (the demo suites require model_mode=demo and disable live calls);
 - never switch to Preview fixtures after an HTTP error;
 - fetch protected images with Bearer authorization;
 - follow new IDs returned by retry and Judge-only review;
@@ -122,11 +133,13 @@ npm run test:e2e
 Remove-Item Env:RUN_API_INTEGRATION
 ~~~
 
-The live test creates and revokes its own guest session, selects a genuine
+The API browser test creates and revokes its own guest session, selects a genuine
 backend sample, runs the demo workflow, reads the protected asset and result,
 and verifies stages, model attempts, bookmarking, feedback, and JSON export.
-RUN_API_INTEGRATION=1 selects only api-live.spec.ts and forces API mode;
-otherwise the configuration selects only app.spec.ts and forces Preview.
+RUN_API_INTEGRATION=1 selects only api-live.spec.ts and forces API mode.
+RUN_CATALOG_API=1, RUN_EVIDENCE_API=1 and RUN_PRODUCT_API=1 select their own
+API suites. Choose one explicit flag at a time and clear it after the run.
+With no suite flag the configuration selects app.spec.ts and forces Preview.
 With a direct API URL, its CORS origins must include http://127.0.0.1:5174.
 
 If session_bootstrap_required is true, stop. Do not place the bootstrap secret
@@ -151,8 +164,9 @@ Verify in one owner session:
 10. Full retry and Judge-only review as separate child runs.
 11. Session expiration/revocation, subscription cleanup, and loss of access to
     owned history.
-12. Unsupported account, catalog, map-location, and admin actions show honest
-    unavailable states.
+12. Missing account/conversation/favorite capabilities show honest unavailable
+    states; catalog capability failures do not use fixtures. React admin/CMS
+    pages remain Preview-only even though authorized editorial REST exists.
 
 Also verify these failures without switching data source:
 
@@ -167,6 +181,61 @@ Also verify these failures without switching data source:
 
 The 429 and provider error views may be covered with typed adapter/component
 fixtures rather than changing backend quotas or contacting a provider.
+
+### Persisted catalog against Docker PostgreSQL
+
+Deploy and seed the local stack using
+[CATALOG_DATABASE.md](../../docs/CATALOG_DATABASE.md), then run:
+
+~~~powershell
+Set-Location frontend
+$env:RUN_CATALOG_API = "1"
+npm run test:e2e
+Remove-Item Env:RUN_CATALOG_API
+~~~
+
+This suite reads the actual API catalog and image bytes, verifies one record's
+identity across list/detail/map, checks filter state after reload, and imports
+a catalog photo into an ephemeral guest composer. It revokes that session,
+blocks non-local traffic and asserts no run was submitted. Map tiles use the
+offline schematic, so this does not measure a map provider.
+
+The temporary SQLite setup above starts with an empty catalog unless seeded.
+Backend catalog tests in tests/test_catalog.py cover persistence after creating
+a fresh application instance, draft/public visibility, operations auth and
+version conflict, coordinate proof validation, safe media paths, bridge
+ownership and repeatable seed behavior.
+
+### Product and evidence suites against the matching demo backend
+
+Use the deployed and seeded matching backend, with a ready worker and
+`model_mode=demo`. The product suite also requires the accounts, conversations
+and heritage_favorites flags; the evidence suite requires the evidence profile
+and public catalog. Run separately from `frontend/`:
+
+~~~powershell
+$env:RUN_PRODUCT_API = "1"
+npm run test:e2e
+Remove-Item Env:RUN_PRODUCT_API
+
+$env:RUN_EVIDENCE_API = "1"
+npm run test:e2e
+Remove-Item Env:RUN_EVIDENCE_API
+~~~
+
+Product tests exercise synthetic account registration, refresh, logout/login,
+persisted heritage favorites and conversations. Guest conversation coverage
+opts into memory, explicitly submits one demo run, reads history and forgets
+future memory without erasing messages. Creating/selecting a conversation or
+favorite never silently creates an AI run. Tests block non-local traffic and
+revoke test sessions. Account IDs only are recorded in the ignored QA cleanup
+manifest; an operator may disable those exact synthetic accounts afterwards.
+Bearer traces are disabled for these suites.
+
+Evidence tests exercise actual API evidence and crop bytes. The pending-state
+UI case is explicitly a fixture; it does not prove a live model generated a
+clarification. Neither suite invokes paid providers. Full CMS screens, email
+reset/verification and human approval of gold cases remain separate work.
 
 ## Track B — UI Preview
 
@@ -225,6 +294,14 @@ Run browser tests:
 
 ~~~powershell
 Remove-Item Env:RUN_API_INTEGRATION -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_CATALOG_API -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_EVIDENCE_API -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_PRODUCT_API -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_LIVE_UI -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_MAP_PERF -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_SCROLL_PERF -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_MAPBOX_UI -ErrorAction SilentlyContinue
+Remove-Item Env:RUN_CHAT_UI -ErrorAction SilentlyContinue
 npm run test:e2e
 ~~~
 
@@ -243,8 +320,20 @@ Fixture HTTP tests do not prove compatibility with the real FastAPI process.
 Run backend contract regression tests from the repository root:
 
 ~~~powershell
-uv run --locked pytest tests/test_api.py tests/test_review_recovery.py tests/test_postman_export.py
+uv run --locked pytest tests/test_api.py tests/test_catalog.py tests/test_review_recovery.py tests/test_postman_export.py
 ~~~
+
+After merging both branches, the legacy Streamlit HTTP adapter regressions
+are isolated from backend tests in a frontend-owned module:
+
+~~~powershell
+uv run --locked pytest tests/test_ui.py tests/test_ui_remote_evidence.py
+~~~
+
+These tests use fake model responses and an in-process TestClient with
+MockTransport. They require the matching backend Python code but no running
+server or provider credentials. Do not report them as browser or deployed
+HTTP verification.
 
 Run the complete repository suite when time permits:
 

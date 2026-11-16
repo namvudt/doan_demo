@@ -6,11 +6,14 @@ name: heritage-fe-live
 x-live-runtime: &live-runtime
   API_ENV: development
   API_MODEL_MODE: live
+  HERITAGE_CONFIG: config/hanoi-evidence.yaml
   API_EMBEDDED_WORKER: "false"
   PYTHON_DOTENV_DISABLED: "1"
   DATABASE_URL: postgresql+psycopg://heritage_live:local-live-test-only@db:5432/heritage_live
   API_DATA_DIR: /app/data
+  API_CATALOG_MEDIA_DIR: /app/catalog-media
   API_LOG_DIR: /app/data/logs
+  API_RETENTION_CLEANUP_INTERVAL_SECONDS: "3600"
   API_CORS_ORIGINS: http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://127.0.0.1:5175
   API_BOOTSTRAP_TOKEN: ""
   API_OPERATIONS_TOKEN: ""
@@ -20,8 +23,15 @@ x-live-runtime: &live-runtime
   LANGSMITH_CAPTURE_CONTENT: "false"
   LANGSMITH_API_KEY: ""
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
+    logging: *logging
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: heritage_live
@@ -36,6 +46,7 @@ services:
       retries: 30
 
   api:
+    logging: *logging
     image: heritage-frontend-backend:demo
     pull_policy: never
     env_file: ../../.env
@@ -54,6 +65,7 @@ services:
       retries: 30
 
   worker:
+    logging: *logging
     image: heritage-frontend-backend:demo
     pull_policy: never
     command: ["python", "-m", "api.worker"]
@@ -63,6 +75,24 @@ services:
       - live_test_assets:/app/data
     depends_on:
       api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://api:8000/health/ready', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  seed-catalog:
+    profiles: ["tools"]
+    image: heritage-frontend-backend:demo
+    pull_policy: never
+    logging: *logging
+    command: ["python", "-m", "scripts.seed_catalog"]
+    environment:
+      <<: *live-runtime
+      API_MODEL_MODE: demo
+    depends_on:
+      db:
         condition: service_healthy
 
 volumes:

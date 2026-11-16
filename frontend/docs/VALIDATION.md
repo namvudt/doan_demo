@@ -1,6 +1,50 @@
-# Local system validation — 15 November 2026
+# Local system validation
 
-Verified on branch `fe`, Windows, Node 24.13.1, Chrome and Docker Desktop.
+## Product-platform observations — 16 November 2026
+
+The pre-merge product-platform worktree was verified against the real local
+Docker demo backend. The frontend changes after baseline `6d614e3` require
+`be/evidence-product-platform` at `06f44d4` (81 OpenAPI operations, migration
+head `0009_runtime_state`). The target `dev` integration combines both branches;
+its fresh verification is pending. No result below claims that the new merged
+checkout has already been tested.
+
+| Observed check | Result and scope |
+| --- | --- |
+| Frontend unit tests | 60/60 passed; transport, schemas, ownership-sensitive identity state, maps and model gates |
+| Static/build checks | Typecheck, ESLint and production build passed; production dependency audit reported 0 vulnerabilities |
+| Preview UI | 7/7 passed; fixture-only product/admin journeys and responsive layouts |
+| API demo UI | 2/2 passed; actual sample/run/owner/evidence/feedback/export/retry/review flow |
+| Catalog UI | 3/3 passed; actual catalog/media/map identity and photo bridge without an automatic run |
+| Evidence UI | 2/2 passed; actual evidence/crop bytes and a clearly labelled pending-state UI fixture |
+| Product UI | 2/2 passed; real account/refresh/logout/login, persisted favorites/conversations, explicit guest demo run and memory forgetting |
+
+The five UI suites total **16/16 observed passes** at their final individual
+runs against build `product-20261116-7f1b77dd55f9`. Product was rerun after the
+checkbox/copy fixes. The later backend build `product-20261116-4a2f804ba27f`
+changed provider backoff and was checked separately; the full 16-case UI set
+was not rerun against that final image. No paid calls were made by these demo
+UI suites. The synthetic QA accounts were disabled and their sessions revoked;
+audit/history were preserved.
+
+Detailed deployment, contract results, screenshot links, preservation checks
+and the live-provider 429 limitation are recorded in
+[PRODUCT_PLATFORM_DEPLOYMENT.md](../../docs/PRODUCT_PLATFORM_DEPLOYMENT.md).
+The earlier successful live UI run below is historical and does not establish
+that the new evidence clarification flow succeeded live. Human review of the
+exported gold cases, full CMS/admin screens, email-based recovery/verification
+and production hosting remain outside the observed acceptance.
+
+Pending after branch integration: rerun static/unit/build checks, the isolated
+Streamlit adapter module and selected real-demo UI suites on the merged `dev`
+checkout. Record those new commands/results separately before updating this
+section.
+
+## Historical baseline — 15 November 2026
+
+The following records describe the earlier branch `fe` baseline, Windows,
+Node 24.13.1, Chrome and Docker Desktop. They are retained historical evidence,
+not the current product-platform test count.
 The backend ran in a dedicated `heritage-fe-local` Compose project using
 PostgreSQL 17 and separate API/worker containers with demo-only volumes. This
 stack does not load the repository `.env`. Capabilities confirmed
@@ -15,9 +59,11 @@ Use [TESTING.md](TESTING.md) for exact commands and the two independent tracks:
    database, asset directory, queue, guest session, assets, runs, SSE, results,
    retry/review, feedback, bookmarks, and export.
 
-## Result record
+## Historical result record
 
-These commands were actually run against the current implementation:
+These commands were actually run during the initial integration track. The
+catalog update and current catalog regression results are recorded below and
+in the linked database guide:
 
 | Check | Command/evidence | Result |
 | --- | --- | --- |
@@ -53,7 +99,7 @@ bootstrap/operations token, provider key, or private uploaded image.
 Only replace “Not run” with an observed result. Link failures and blockers
 without overstating coverage.
 
-## Real integration scope
+## Historical guest integration scope
 
 The browser exercised real guest session creation/validation/revocation,
 backend sample selection and upload, authenticated image content, run creation
@@ -71,7 +117,7 @@ behind `/workflow`. The Dockerfile now includes it; both browser journeys were
 rerun successfully. Optional workflow label metadata no longer prevents an
 otherwise available answer from rendering.
 
-## Preview and visual checks
+## Historical Preview and visual checks
 
 - All 7 published heritage photos load from same-origin local files. A blocked
   image shows a friendly fallback; retry restores the image.
@@ -97,16 +143,27 @@ Screenshots under `frontend/artifacts/screenshots/`:
 - `backend-connected.png`
 - `api-docker-result.png`
 
-## Skipped backend capabilities
+## Catalog database update
 
-OpenAPI inspection confirmed the following resource families are absent.
-Their server integration tests are skipped; Preview checks do not imply server
-support.
+The catalog gap recorded during the initial integration below has since been
+implemented: persisted public list/detail/media/coordinates, operations writes
+and the guest-owned image bridge. Current deployment, retained backups and
+catalog verification are recorded in
+[CATALOG_DATABASE.md](../../docs/CATALOG_DATABASE.md). Initial measurements and
+the paid-model run below remain historical evidence for their original scope.
+
+## Historical skipped backend capabilities — superseded
+
+At the initial 15 November inspection the following resource families were
+absent. This table is historical: the matching 16 November backend now
+implements accounts/RBAC, favorites, conversations, editorial source/media
+APIs and evidence/tool traces. Full CMS/admin dashboards and email recovery
+remain gaps. Use [current capabilities](MISSING_BACKEND_CAPABILITIES.md) for
+today's delivered contracts and remaining proposals.
 
 | Capability | Integration status |
 | --- | --- |
 | Account login/registration/password recovery and roles/RBAC | Skipped — no implemented account endpoints |
-| Heritage catalog, media, geographic coordinates/search | Skipped — no implemented catalog/map endpoints |
 | Account heritage favorites | Skipped — distinct from supported run bookmarks |
 | Admin users/content/sources/cross-owner run moderation | Skipped — no admin endpoints or admin principal |
 | RAG ingestion/reindexing and tool-call trace artifacts | Skipped — no published operation |
@@ -118,7 +175,7 @@ Docker can be stopped with `docker compose -f frontend/docker/compose.demo.yaml
 down`; this preserves the dedicated data volumes. The existing user development
 server on port 5173 was preserved.
 
-## Explicitly authorized live inference
+## Historical explicitly authorized live inference — 15 November
 
 After the user updated server configuration and authorized possible provider
 charges, `heritage-fe-live` ran at `127.0.0.1:8002` with a separate PostgreSQL

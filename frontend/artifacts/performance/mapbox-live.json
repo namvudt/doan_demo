@@ -1,0 +1,81 @@
+{
+  "mode": "live-mapbox-raster",
+  "provider": "mapbox",
+  "successful": true,
+  "capturedAt": "2026-11-15T15:54:09.247Z",
+  "viewport": {
+    "width": 960,
+    "height": 540
+  },
+  "tileSize": 512,
+  "zoomOffset": -1,
+  "center": {
+    "latitude": 21.0285,
+    "longitude": 105.8542,
+    "zoom": 12
+  },
+  "totalTileRequests": 12,
+  "maximumTileRequests": 64,
+  "externalHostnames": [
+    "api.mapbox.com"
+  ],
+  "phases": [
+    {
+      "phase": "cold-context",
+      "tileRequests": 6,
+      "browserCacheHits": 0,
+      "failedRequests": 0,
+      "statuses": {
+        "200": 6
+      },
+      "uncachedHeaderMs": {
+        "samples": 6,
+        "p50": 671.1,
+        "p95": 1150.3
+      },
+      "uncachedCompleteMs": {
+        "samples": 6,
+        "p50": 780.4,
+        "p95": 1542.2
+      },
+      "tileLoaded": 6,
+      "tileErrors": 0,
+      "allTilesSettledMs": 1551,
+      "allTilesDecodedReadyMs": 1561,
+      "timedOut": false
+    },
+    {
+      "phase": "warm-reload",
+      "tileRequests": 6,
+      "browserCacheHits": 6,
+      "failedRequests": 0,
+      "statuses": {
+        "200": 6
+      },
+      "uncachedHeaderMs": {
+        "samples": 0,
+        "p50": null,
+        "p95": null
+      },
+      "uncachedCompleteMs": {
+        "samples": 0,
+        "p50": null,
+        "p95": null
+      },
+      "tileLoaded": 6,
+      "tileErrors": 0,
+      "allTilesSettledMs": 8.9,
+      "allTilesDecodedReadyMs": 34.6,
+      "timedOut": false
+    }
+  ],
+  "pageErrors": [],
+  "limitations": [
+    "One fixed viewport and at most two loads; small sample, not a provider ranking or SLA.",
+    "Cold means a fresh browser context; CDN/server caches are not flushed.",
+    "Warm reload honors normal browser/server cache headers; no cache-bypass headers or interception.",
+    "Header time includes connection/request scheduling; it is not pure server processing time.",
+    "No scroll FPS, app React rendering, vector SDK, search, or routing is measured.",
+    "Provider adapters may use different tile sizes; compare the physical viewport, not per-tile bytes or latency as equal-sized work."
+  ]
+}

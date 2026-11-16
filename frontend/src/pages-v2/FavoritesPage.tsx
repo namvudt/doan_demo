@@ -68,23 +68,84 @@ export function FavoritesPage() {
             <div className="section-head">
               <div>
                 <h2>Di sản yêu thích</h2>
-                <p>Backend không có endpoint cho loại dữ liệu này.</p>
+                <p>Đồng bộ theo tài khoản, tách biệt với run đã đánh dấu.</p>
               </div>
             </div>
-            <StatusCard
-              kind="warning"
-              title="Không có favorite di sản phía server"
-            >
-              Frontend không mô tả dữ liệu cục bộ như đã đồng bộ tài khoản.
-            </StatusCard>
+            {!app.capabilities?.features?.heritage_favorites ? (
+              <StatusCard
+                kind="warning"
+                title="Backend chưa cung cấp yêu thích di sản"
+              />
+            ) : !app.account ? (
+              <EmptyState
+                title="Cần tài khoản để lưu di sản"
+                icon={<Heart size={27} />}
+              >
+                <Link to="/login">Đăng nhập tài khoản</Link> để đồng bộ di sản
+                yêu thích.
+              </EmptyState>
+            ) : app.heritageFavoritesLoading ? (
+              <StatusCard kind="loading" title="Đang tải di sản yêu thích…" />
+            ) : app.heritageFavoritesError ? (
+              <StatusCard kind="error" title="Không tải được di sản yêu thích">
+                {app.heritageFavoritesError}
+                <Button onClick={() => void app.refreshHeritageFavorites()}>
+                  Thử lại
+                </Button>
+              </StatusCard>
+            ) : app.heritageFavorites.length ? (
+              <div className="saved-list">
+                {app.heritageFavorites.map((item) => (
+                  <article key={item.heritage_id}>
+                    <div className="saved-icon">
+                      <Heart size={19} fill="currentColor" />
+                    </div>
+                    <div>
+                      <Link to={`/heritages/${item.heritage_id}`}>
+                        <strong>{item.heritage.name}</strong>
+                      </Link>
+                      <p>
+                        {item.heritage.province} · {item.heritage.summary}
+                      </p>
+                    </div>
+                    <Button
+                      tone="ghost"
+                      onClick={() =>
+                        void app
+                          .setHeritageFavorite(item.heritage_id, false)
+                          .catch((reason: unknown) =>
+                            app.notify(
+                              reason instanceof Error
+                                ? reason.message
+                                : "Không bỏ lưu được.",
+                              "error",
+                            ),
+                          )
+                      }
+                    >
+                      Bỏ lưu di sản
+                    </Button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="Chưa có di sản yêu thích"
+                icon={<Heart size={27} />}
+              >
+                <Link to="/heritages">Khám phá di sản</Link> và chọn biểu tượng
+                trái tim để lưu.
+              </EmptyState>
+            )}
           </section>
           <section>
             <div className="section-head">
               <div>
                 <h2>Run đã đánh dấu</h2>
                 <p>
-                  Dữ liệu thật từ <code>GET /runs?saved_only=true</code>, thuộc
-                  phiên khách hiện tại.
+                  {app.account
+                    ? "Những kết quả bạn đã đánh dấu được lưu theo tài khoản."
+                    : "Những kết quả đã đánh dấu thuộc phiên khách hiện tại."}
                 </p>
               </div>
               <Button tone="secondary" onClick={app.refreshSavedRuns}>

@@ -40,6 +40,7 @@ function AuthFrame({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const app = useApp();
   return (
     <main className="auth-page">
       <section className="auth-story" aria-label="Giới thiệu ứng dụng">
@@ -65,7 +66,10 @@ function AuthFrame({
           </p>
         </div>
         <div className="auth-assurance">
-          <ShieldCheck size={17} /> Bản xem trước không tạo tài khoản thật
+          <ShieldCheck size={17} />{" "}
+          {app.mode === "preview"
+            ? "Bản xem trước không tạo tài khoản thật"
+            : "Phiên được xác thực bởi máy chủ"}
         </div>
       </section>
       <section className="auth-panel">
@@ -92,8 +96,13 @@ export function LoginPage() {
   const returnTo = safeReturnTo(
     (location.state as { from?: string } | null)?.from,
   );
-  const [email, setEmail] = useState("user@preview.local");
-  const [password, setPassword] = useState("Demo123!");
+  const [email, setEmail] = useState(
+    app.mode === "preview" ? "user@preview.local" : "",
+  );
+  const [password, setPassword] = useState(
+    app.mode === "preview" ? "Demo123!" : "",
+  );
+  const [loginKind, setLoginKind] = useState<"guest" | "account">("guest");
   const [token, setToken] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -102,7 +111,34 @@ export function LoginPage() {
   if (app.mode === "preview" && preview.isAuthenticated)
     return <Navigate to={returnTo} replace />;
   if (app.mode === "api" && app.apiSession)
-    return <Navigate to={returnTo} replace />;
+    return (
+      <AuthFrame
+        eyebrow="PHIÊN HIỆN TẠI"
+        title="Bạn đang có một phiên truy cập"
+        description="Kết thúc phiên hiện tại trước khi đăng nhập bằng danh tính khác."
+      >
+        <Button
+          onClick={() =>
+            void app
+              .logoutApiSession()
+              .then(() => setLoginKind("account"))
+              .catch((reason: unknown) =>
+                setError(
+                  reason instanceof Error
+                    ? reason.message
+                    : "Không đăng xuất được.",
+                ),
+              )
+          }
+        >
+          Đăng xuất phiên hiện tại
+        </Button>
+        <p>
+          <Link to="/profile">Giữ phiên và mở hồ sơ</Link>
+        </p>
+        {error && <p role="alert">{error}</p>}
+      </AuthFrame>
+    );
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -111,6 +147,9 @@ export function LoginPage() {
     try {
       if (app.mode === "preview") {
         preview.login({ email, password });
+      } else if (loginKind === "account") {
+        await app.loginAccount(email, password);
+        setPassword("");
       } else if (token.trim()) {
         await app.attachGuestToken(token.trim());
         setToken("");
@@ -131,12 +170,18 @@ export function LoginPage() {
     <AuthFrame
       eyebrow={app.mode === "preview" ? "UI PREVIEW" : "API INTEGRATION"}
       title={
-        app.mode === "preview" ? "Chào mừng trở lại" : "Truy cập phiên khách"
+        app.mode === "preview"
+          ? "Chào mừng trở lại"
+          : loginKind === "account"
+            ? "Đăng nhập tài khoản"
+            : "Truy cập phiên khách"
       }
       description={
         app.mode === "preview"
           ? "Chỉ dùng danh tính giả bên dưới. Mật khẩu không được lưu hoặc gửi đến backend."
-          : "Backend hiện có phiên khách Bearer, không có đăng nhập email/mật khẩu."
+          : loginKind === "account"
+            ? "Đăng nhập để dùng lại hội thoại và di sản đã lưu trên các thiết bị."
+            : "Tạo phiên khách hoặc đăng nhập tài khoản để tiếp tục."
       }
       footer={
         app.mode === "preview" ? (
@@ -145,12 +190,37 @@ export function LoginPage() {
           </p>
         ) : (
           <p>
-            Đăng ký, khôi phục mật khẩu và vai trò tài khoản chưa được backend
-            hỗ trợ.
+            {app.capabilities?.features?.accounts ? (
+              <Link to="/register">Đăng ký tài khoản</Link>
+            ) : (
+              "Tài khoản chưa được backend này hỗ trợ."
+            )}
           </p>
         )
       }
     >
+      {app.mode === "api" && app.capabilities?.features?.accounts && (
+        <div className="button-row">
+          <Button
+            tone={loginKind === "guest" ? "primary" : "secondary"}
+            onClick={() => {
+              setLoginKind("guest");
+              setError("");
+            }}
+          >
+            Phiên khách
+          </Button>
+          <Button
+            tone={loginKind === "account" ? "primary" : "secondary"}
+            onClick={() => {
+              setLoginKind("account");
+              setError("");
+            }}
+          >
+            Tài khoản
+          </Button>
+        </div>
+      )}
       <form className="form-stack" onSubmit={submit} noValidate>
         {app.mode === "preview" ? (
           <>
@@ -188,6 +258,27 @@ export function LoginPage() {
               <span className="muted small">Không dùng thông tin thật.</span>
               <Link to="/forgot-password">Quên mật khẩu?</Link>
             </div>
+          </>
+        ) : loginKind === "account" ? (
+          <>
+            <Field label="Email tài khoản">
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="username"
+                required
+              />
+            </Field>
+            <Field label="Mật khẩu tài khoản">
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </Field>
           </>
         ) : (
           <>
@@ -228,6 +319,7 @@ export function LoginPage() {
           disabled={
             busy ||
             (app.mode === "api" &&
+              loginKind === "guest" &&
               app.capabilities?.session_bootstrap_required &&
               !token.trim())
           }
@@ -236,9 +328,11 @@ export function LoginPage() {
             ? "Đang xác thực…"
             : app.mode === "preview"
               ? "Đăng nhập Preview"
-              : token.trim()
-                ? "Dùng token được cấp"
-                : "Tạo phiên khách"}
+              : loginKind === "account"
+                ? "Đăng nhập tài khoản"
+                : token.trim()
+                  ? "Dùng token được cấp"
+                  : "Tạo phiên khách"}
         </Button>
       </form>
     </AuthFrame>
@@ -263,14 +357,27 @@ export function RegisterPage() {
     (event: React.ChangeEvent<HTMLInputElement>) =>
       setValues((current) => ({ ...current, [key]: event.target.value }));
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (app.mode !== "preview") return;
     setBusy(true);
     setError("");
     setErrors({});
     try {
-      preview.register(values);
+      if (app.mode === "preview") preview.register(values);
+      else {
+        if (values.password !== values.passwordConfirmation)
+          throw new Error("Hai mật khẩu chưa khớp.");
+        await app.registerAccount(
+          values.fullName,
+          values.email,
+          values.password,
+        );
+        setValues((current) => ({
+          ...current,
+          password: "",
+          passwordConfirmation: "",
+        }));
+      }
       navigate("/profile", { replace: true });
     } catch (reason) {
       if (reason instanceof PreviewValidationError) setErrors(reason.fields);
@@ -286,23 +393,34 @@ export function RegisterPage() {
 
   return (
     <AuthFrame
-      eyebrow="HỒ SƠ MÔ PHỎNG"
+      eyebrow={app.mode === "preview" ? "HỒ SƠ MÔ PHỎNG" : "TÀI KHOẢN"}
       title="Tạo không gian của bạn"
-      description="Luồng này chỉ hoạt động trong UI Preview; không tạo tài khoản hoặc gửi email thật."
+      description={
+        app.mode === "preview"
+          ? "Luồng này chỉ hoạt động trong UI Preview; không tạo tài khoản hoặc gửi email thật."
+          : "Tạo tài khoản trên backend. Mật khẩu cần ít nhất 12 ký tự."
+      }
       footer={
         <p>
-          Đã có hồ sơ Preview? <Link to="/login">Đăng nhập</Link>
+          Đã có hồ sơ? <Link to="/login">Đăng nhập</Link>
         </p>
       }
     >
-      {app.mode !== "preview" ? (
+      {app.mode === "api" && !app.capabilities?.features?.accounts ? (
         <StatusCard kind="warning" title="Đăng ký chưa được API hỗ trợ">
           Backend chỉ có phiên khách.{" "}
           <Link to="/login">Đi đến truy cập phiên khách</Link>.
         </StatusCard>
       ) : (
         <form className="form-stack" onSubmit={submit} noValidate>
-          <Field label="Họ và tên mô phỏng" error={errors.fullName}>
+          <Field
+            label={
+              app.mode === "preview"
+                ? "Họ và tên mô phỏng"
+                : "Tên hiển thị tài khoản"
+            }
+            error={errors.fullName}
+          >
             <input
               value={values.fullName}
               onChange={update("fullName")}
@@ -310,7 +428,12 @@ export function RegisterPage() {
               autoComplete="off"
             />
           </Field>
-          <Field label="Email mô phỏng" error={errors.email}>
+          <Field
+            label={
+              app.mode === "preview" ? "Email mô phỏng" : "Email tài khoản"
+            }
+            error={errors.email}
+          >
             <input
               type="email"
               value={values.email}
@@ -320,7 +443,14 @@ export function RegisterPage() {
             />
           </Field>
           <div className="form-grid-2">
-            <Field label="Mật khẩu mô phỏng" error={errors.password}>
+            <Field
+              label={
+                app.mode === "preview"
+                  ? "Mật khẩu mô phỏng"
+                  : "Mật khẩu tài khoản"
+              }
+              error={errors.password}
+            >
               <input
                 type="password"
                 value={values.password}
@@ -352,7 +482,11 @@ export function RegisterPage() {
             </p>
           )}
           <Button type="submit" disabled={busy}>
-            {busy ? "Đang tạo…" : "Tạo hồ sơ Preview"}
+            {busy
+              ? "Đang tạo…"
+              : app.mode === "preview"
+                ? "Tạo hồ sơ Preview"
+                : "Tạo tài khoản"}
           </Button>
         </form>
       )}

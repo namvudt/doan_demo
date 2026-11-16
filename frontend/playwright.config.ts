@@ -3,9 +3,37 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { chromium, defineConfig, devices } from "@playwright/test";
 
-const apiIntegration = process.env.RUN_API_INTEGRATION === "1";
-const liveIntegration = process.env.RUN_LIVE_UI === "1";
-const usesBackend = apiIntegration || liveIntegration;
+const mapPerformance = process.env.RUN_MAP_PERF === "1";
+const scrollPerformance = process.env.RUN_SCROLL_PERF === "1";
+const mapboxUi = process.env.RUN_MAPBOX_UI === "1";
+const chatUi = process.env.RUN_CHAT_UI === "1";
+const isolatedUi = mapPerformance || scrollPerformance || mapboxUi || chatUi;
+const productIntegration = !isolatedUi && process.env.RUN_PRODUCT_API === "1";
+const evidenceIntegration =
+  !isolatedUi && !productIntegration && process.env.RUN_EVIDENCE_API === "1";
+const catalogIntegration =
+  !isolatedUi &&
+  !productIntegration &&
+  !evidenceIntegration &&
+  process.env.RUN_CATALOG_API === "1";
+const apiIntegration =
+  !isolatedUi &&
+  !productIntegration &&
+  !evidenceIntegration &&
+  !catalogIntegration &&
+  process.env.RUN_API_INTEGRATION === "1";
+const liveIntegration =
+  !isolatedUi &&
+  !productIntegration &&
+  !evidenceIntegration &&
+  !catalogIntegration &&
+  process.env.RUN_LIVE_UI === "1";
+const usesBackend =
+  productIntegration ||
+  evidenceIntegration ||
+  catalogIntegration ||
+  apiIntegration ||
+  liveIntegration;
 const testOrigin = "http://127.0.0.1:5174";
 
 function browserExecutable() {
@@ -70,11 +98,25 @@ function browserExecutable() {
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: liveIntegration
-    ? "**/ai-live-ui.spec.ts"
-    : apiIntegration
-      ? "**/api-live.spec.ts"
-      : "**/app.spec.ts",
+  testMatch: productIntegration
+    ? "**/product-api.spec.ts"
+    : evidenceIntegration
+      ? "**/evidence-api.spec.ts"
+      : catalogIntegration
+        ? "**/catalog-api.spec.ts"
+        : liveIntegration
+          ? "**/ai-live-ui.spec.ts"
+          : apiIntegration
+            ? "**/api-live.spec.ts"
+            : chatUi
+              ? "**/chat-ui.spec.ts"
+              : mapboxUi
+                ? "**/mapbox-ui.spec.ts"
+                : scrollPerformance
+                  ? "**/scroll-performance.spec.ts"
+                  : mapPerformance
+                    ? "**/map-performance.spec.ts"
+                    : "**/app.spec.ts",
   timeout: 30000,
   expect: { timeout: 10000 },
   fullyParallel: false,
@@ -135,10 +177,13 @@ export default defineConfig({
         ? process.env.VITE_API_BASE_URL || "/api/v1"
         : "/api/v1",
       VITE_ALLOW_LIVE_MODEL_CALLS: liveIntegration ? "true" : "false",
+      VITE_MAP_PROVIDER: mapboxUi ? "mapbox" : "custom",
+      VITE_MAPBOX_ACCESS_TOKEN: mapboxUi ? "pk.fixture" : "",
       BACKEND_PROXY_TARGET: liveIntegration
         ? "http://127.0.0.1:8002"
         : "http://127.0.0.1:8001",
-      VITE_MAP_TILE_URL: "",
+      // Successful tiles are fulfilled locally by the isolated UI suites.
+      VITE_MAP_TILE_URL: isolatedUi ? "https://tiles.test/{z}/{x}/{y}.png" : "",
     },
   },
 });

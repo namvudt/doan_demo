@@ -10,6 +10,7 @@
 !migrations/**
 !samples/**
 !scripts/**
+!frontend/public/heritages/**
 !docs/langgraph.mmd
 **/__pycache__
 **/*.pyc

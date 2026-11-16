@@ -16,15 +16,22 @@ export function ProfilePage() {
   const app = useApp();
   const preview = usePreview();
   const navigate = useNavigate();
-  const [name, setName] = useState(preview.currentUser?.fullName || "");
+  const [name, setName] = useState(
+    app.account?.display_name || preview.currentUser?.fullName || "",
+  );
   const [busy, setBusy] = useState(false);
   const [profileError, setProfileError] = useState("");
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     setProfileError("");
     try {
-      preview.updateProfile({ fullName: name });
-      app.notify("Đã cập nhật hồ sơ mô phỏng.");
+      if (app.mode === "preview") {
+        preview.updateProfile({ fullName: name });
+        app.notify("Đã cập nhật hồ sơ mô phỏng.");
+      } else {
+        await app.updateAccountName(name);
+        app.notify("Đã lưu tên hiển thị trên server.");
+      }
     } catch (reason) {
       setProfileError(
         reason instanceof Error ? reason.message : "Không thể cập nhật hồ sơ.",
@@ -55,7 +62,9 @@ export function ProfilePage() {
           <p>
             {app.mode === "preview"
               ? "Danh tính mô phỏng chỉ tồn tại trong UI Preview."
-              : "Phiên khách sở hữu riêng asset, run và lịch sử trong backend."}
+              : app.account
+                ? "Tài khoản giữ hội thoại và di sản yêu thích trên backend."
+                : "Phiên khách sở hữu riêng asset, run và lịch sử trong backend."}
           </p>
         </div>
       </header>
@@ -129,8 +138,8 @@ export function ProfilePage() {
               ))}
             </div>
             <StatusCard kind="warning" title="Route guard chỉ là trình bày">
-              Quyền quản trị thật luôn cần backend identity và enforcement; API
-              hiện chưa có.
+              Vai trò Preview chỉ thay đổi giao diện mô phỏng. Quyền biên tập
+              trên server được kiểm tra theo tài khoản đã đăng nhập.
             </StatusCard>
           </section>
           <section className="panel profile-danger">
@@ -166,8 +175,8 @@ export function ProfilePage() {
               <CircleUserRound size={35} />
             </span>
             <h2>{app.apiSession.label}</h2>
-            <p>Guest session</p>
-            <Badge tone="blue">Bearer owner scope</Badge>
+            <p>{app.account?.email || "Guest session"}</p>
+            <Badge tone="blue">{app.account?.role || "Phiên khách"}</Badge>
           </section>
           <section className="panel">
             <h2>Chi tiết phiên</h2>
@@ -184,15 +193,55 @@ export function ProfilePage() {
               </div>
               <div>
                 <dt>Vai trò</dt>
-                <dd>Không có role/RBAC</dd>
+                <dd>
+                  {app.account?.role || "Phiên khách không có quyền biên tập"}
+                </dd>
               </div>
             </dl>
           </section>
+          {app.account && (
+            <section className="panel">
+              <h2>Thông tin tài khoản</h2>
+              <form className="form-stack" onSubmit={submit}>
+                <Field label="Tên hiển thị">
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    maxLength={80}
+                  />
+                </Field>
+                {profileError && (
+                  <p className="form-alert" role="alert">
+                    {profileError}
+                  </p>
+                )}
+                <Button type="submit">Lưu thông tin tài khoản</Button>
+                <Button
+                  type="button"
+                  tone="secondary"
+                  onClick={() =>
+                    void app
+                      .refreshAccountSession()
+                      .catch((reason: unknown) =>
+                        setProfileError(
+                          reason instanceof Error
+                            ? reason.message
+                            : "Không gia hạn được phiên.",
+                        ),
+                      )
+                  }
+                >
+                  Gia hạn phiên đăng nhập
+                </Button>
+              </form>
+            </section>
+          )}
           <section className="panel profile-danger">
             <h2>Thu hồi phiên</h2>
             <p>
-              Backend sẽ thu hồi token, yêu cầu hủy các run đang queued/running
-              và bạn sẽ mất quyền truy cập lịch sử thuộc phiên này.
+              {app.account
+                ? "Đăng xuất thiết bị hiện tại. Bạn có thể đăng nhập lại để xem dữ liệu tài khoản; các thiết bị khác vẫn giữ phiên riêng."
+                : "Backend sẽ thu hồi token, yêu cầu hủy các run đang queued/running và bạn sẽ mất quyền truy cập lịch sử thuộc phiên này."}
             </p>
             <Button tone="danger" onClick={logout} disabled={busy}>
               <LogOut size={16} />{" "}

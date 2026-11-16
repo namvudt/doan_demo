@@ -1,11 +1,16 @@
 import type {
   AssetView,
   CapabilitiesView,
+  ClarificationInput,
+  ClarificationView,
+  EvidenceView,
   EventPage,
   EventView,
   ExecutionStatus,
   FeedbackBody,
   FeedbackBodyInput,
+  HeritagePage,
+  HeritageView,
   LiveHealth,
   MetricsView,
   PreflightInput,
@@ -25,6 +30,14 @@ import type {
 } from "./schema";
 
 export type AssetListQuery = { limit?: number; offset?: number };
+export type HeritageListQuery = {
+  q?: string;
+  province?: string;
+  category?: string;
+  has_location?: boolean;
+  limit?: number;
+  offset?: number;
+};
 export type RunListQuery = {
   limit?: number;
   offset?: number;
@@ -88,6 +101,16 @@ export interface BackendApi {
   assetContent(assetId: string, signal?: AbortSignal): Promise<Blob>;
   deleteAsset(assetId: string, signal?: AbortSignal): Promise<void>;
   samples(signal?: AbortSignal): Promise<SamplesView>;
+  heritages(
+    query?: HeritageListQuery,
+    signal?: AbortSignal,
+  ): Promise<HeritagePage>;
+  heritage(heritageId: string, signal?: AbortSignal): Promise<HeritageView>;
+  useHeritageMedia(
+    heritageId: string,
+    mediaId: string,
+    signal?: AbortSignal,
+  ): Promise<AssetView>;
   useSample(sampleId: string, signal?: AbortSignal): Promise<AssetView>;
   createRun(
     input: RunCreateInput,
@@ -125,6 +148,22 @@ export interface BackendApi {
     query?: ResultQuery,
     signal?: AbortSignal,
   ): Promise<ResultView>;
+  evidence(runId: string, signal?: AbortSignal): Promise<EvidenceView>;
+  regionImage(
+    runId: string,
+    regionId: string,
+    signal?: AbortSignal,
+  ): Promise<Blob>;
+  clarification(
+    runId: string,
+    signal?: AbortSignal,
+  ): Promise<ClarificationView>;
+  submitClarification(
+    runId: string,
+    input: ClarificationInput,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<RunView>;
   sources(runId: string, signal?: AbortSignal): Promise<SourcesView>;
   steps(
     runId: string,
@@ -316,3 +355,7 @@ export function createIdempotencyKey(prefix = "web"): string {
 
 export const isExecutionTerminal = (status: ExecutionStatus) =>
   status === "succeeded" || status === "failed" || status === "cancelled";
+
+/** A pending clarification ends this execution segment without claiming success. */
+export const isExecutionSettled = (status: ExecutionStatus) =>
+  isExecutionTerminal(status) || status === "awaiting_input";

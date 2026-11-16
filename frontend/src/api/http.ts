@@ -9,6 +9,7 @@ import {
   type BackendApi,
   type EventHistoryQuery,
   type ExportQuery,
+  type HeritageListQuery,
   type ResultQuery,
   type RunListQuery,
   type SessionCreationOptions,
@@ -19,9 +20,14 @@ import {
   assetViewSchema,
   bookmarkBodySchema,
   capabilitiesViewSchema,
+  clarificationBodySchema,
+  clarificationViewSchema,
+  evidenceViewSchema,
   errorResponseSchema,
   eventPageSchema,
   feedbackBodySchema,
+  heritagePageSchema,
+  heritageViewSchema,
   liveHealthSchema,
   metricsViewSchema,
   preflightBodySchema,
@@ -39,6 +45,8 @@ import {
   stepsViewSchema,
   workflowViewSchema,
   type PreflightInput,
+  type ClarificationInput,
+  type HeritageView,
   type RunCreateInput,
   type SessionCreateInput,
 } from "./schema";
@@ -495,6 +503,57 @@ export class HttpApi implements BackendApi {
     );
   }
 
+  private catalogRecord(item: HeritageView): HeritageView {
+    return {
+      ...item,
+      media: item.media.map((media) => {
+        const url = new URL(media.url, this.apiBase);
+        if (
+          url.origin !== this.apiBase.origin ||
+          !url.pathname.startsWith(this.apiBase.pathname) ||
+          url.username ||
+          url.password
+        ) {
+          throw new ApiError(
+            "Đã chặn URL ảnh catalog nằm ngoài API đã cấu hình.",
+            502,
+            "UNSAFE_CATALOG_MEDIA_URL",
+          );
+        }
+        return { ...media, url: url.toString() };
+      }),
+    };
+  }
+
+  async heritages(query: HeritageListQuery = {}, signal?: AbortSignal) {
+    const page = await this.requestJson(
+      `heritages${queryString(query)}`,
+      heritagePageSchema,
+      { auth: "none", signal },
+    );
+    return {
+      ...page,
+      items: page.items.map((item) => this.catalogRecord(item)),
+    };
+  }
+
+  async heritage(heritageId: string, signal?: AbortSignal) {
+    const item = await this.requestJson(
+      `heritages/${encodeURIComponent(heritageId)}`,
+      heritageViewSchema,
+      { auth: "none", signal },
+    );
+    return this.catalogRecord(item);
+  }
+
+  useHeritageMedia(heritageId: string, mediaId: string, signal?: AbortSignal) {
+    return this.requestJson(
+      `heritages/${encodeURIComponent(heritageId)}/media/${encodeURIComponent(mediaId)}/assets`,
+      assetViewSchema,
+      { ...this.json("POST"), signal },
+    );
+  }
+
   async assetContent(assetId: string, signal?: AbortSignal) {
     const download = await this.requestDownload(
       `assets/${encodeURIComponent(assetId)}/content`,
@@ -648,6 +707,54 @@ export class HttpApi implements BackendApi {
       sourcesViewSchema,
       { signal },
     );
+  }
+
+  evidence(runId: string, signal?: AbortSignal) {
+    return this.requestJson(
+      `runs/${encodeURIComponent(runId)}/evidence`,
+      evidenceViewSchema,
+      { signal },
+    );
+  }
+
+  clarification(runId: string, signal?: AbortSignal) {
+    return this.requestJson(
+      `runs/${encodeURIComponent(runId)}/clarification`,
+      clarificationViewSchema,
+      { signal },
+    );
+  }
+
+  async submitClarification(
+    runId: string,
+    input: ClarificationInput,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ) {
+    await this.ensureRunMode(signal);
+    const body = this.parseInput(clarificationBodySchema, input);
+    return this.requestJson(
+      `runs/${encodeURIComponent(runId)}/clarification`,
+      runViewSchema,
+      {
+        ...this.json("POST", body, idempotencyKey),
+        signal,
+      },
+    );
+  }
+
+  async regionImage(runId: string, regionId: string, signal?: AbortSignal) {
+    const download = await this.requestDownload(
+      `runs/${encodeURIComponent(runId)}/regions/${encodeURIComponent(regionId)}/image`,
+      { signal, headers: { Accept: "image/png" } },
+    );
+    if (!download.contentType.toLowerCase().startsWith("image/png"))
+      throw new ApiError(
+        "Backend trả vùng ảnh không đúng định dạng PNG.",
+        502,
+        "INVALID_REGION_CONTENT",
+      );
+    return download.blob;
   }
 
   steps(runId: string, query: StepsQuery = {}, signal?: AbortSignal) {
