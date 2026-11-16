@@ -34,7 +34,9 @@ worker, Docker và frontend: [API server](docs/api-server.md).
 
 Postman: import [Collection](postman/heritage-vqa.postman_collection.json) và
 [Demo environment](postman/heritage-vqa-demo.postman_environment.json), rồi chọn
-môi trường trong Postman. Bộ 33 API tự lưu token, asset/run ID và hỗ trợ SSE.
+môi trường trong Postman. Bộ **81 operations / 84 requests** hỗ trợ tài khoản,
+hội thoại, biên tập nguồn/media, recovery và SSE. Các thao tác ghi/model/xóa
+mặc định tắt, cần bật cờ tương ứng.
 [Hướng dẫn Postman](docs/postman.md) · [Thử từng API bằng Swagger](docs/api-swagger-walkthrough.md).
 
 ## Deploy Docker trên cổng 8000
@@ -103,6 +105,11 @@ Chi tiết PostgreSQL, worker, SSE và tích hợp frontend: [API server](docs/a
 
 ## Workflow và cấu hình
 
+Profile mới tập trung độ chính xác và trải nghiệm: [hanoi-evidence](docs/accuracy-profile.md).
+Có nhận định kèm bằng chứng/vùng ảnh, OCR có giới hạn, câu trả lời một phần và hỏi bổ sung
+qua API. Thử riêng: `uv run --locked python -m scripts.serve_api --demo --profile hanoi-evidence --port 8001`.
+Luồng mặc định được giữ để so sánh; chỉ bật profile mới cho production sau đánh giá pilot.
+
 Kiểm tra đầu vào → điều phối → Visual/Knowledge song song → tổng hợp → đánh giá.
 Giao diện có báo cáo trung gian, nguồn trích dẫn, lịch sử phiên và export.
 Generation tùy chọn, mặc định tắt. `reviewed` là đánh giá tự động, không bảo đảm
@@ -148,7 +155,27 @@ Git. `.env`, dữ liệu người dùng, log, báo cáo chạy thử, virtualenv
 tạm được Git/Docker bỏ qua. Dependency gốc ở `pyproject.toml`; `uv.lock` dùng cho
 uv/CI, `requirements.txt` dùng cho pip/Docker.
 
-Giới hạn hiện tại: chưa có account/OIDC, catalog du lịch, claim-level verifier,
-corpus RAG được tuyển chọn hoặc resume node bền vững. Search dùng Wikipedia;
-maps URL là liên kết tìm kiếm, không phải tọa độ đã xác minh. Baseline so sánh
-chỉ phục vụ mô tả đầu ra/thời gian, chưa có gold dataset để kết luận accuracy.
+Catalog di sản cung cấp API danh sách, chi tiết, ảnh và tọa độ từ DB;
+xem [triển khai catalog](docs/CATALOG_DATABASE.md). Dữ liệu seed và tọa độ vẫn
+là minh họa, không tự trở thành tư liệu đã kiểm chứng. Ảnh catalog do người vận
+hành cung cấp qua `API_CATALOG_MEDIA_DIR`; nhánh backend không đóng gói ảnh frontend.
+
+Backend hiện có tài khoản email/password, refresh rotation, user/editor/admin,
+hội thoại/lượt chat, memory có giới hạn và yêu thích di tích. REST biên tập hỗ
+trợ nguồn có phiên bản draft/reviewed/published, ảnh catalog, entity binding và
+audit; giao diện CMS web đầy đủ vẫn chưa được triển khai. Cache retrieval dùng
+chung giữa các tiến trình, có giới hạn/TTL và thay đổi revision khi nguồn thay
+đổi. API lưu các node đã hoàn tất để replay sau mất worker với kiểm tra lease,
+input/build/config/source và ngân sách; không khôi phục giữa một lời gọi model.
+
+API dùng Swagger **1.2.0**, tiền tố `/api/v1`, evidence result schema **2** và
+migration head `0009_runtime_state`. Xem [hợp đồng API](docs/api-server.md),
+[backend sản phẩm](docs/PRODUCT_PLATFORM_DEPLOYMENT.md) và
+[phạm vi nhánh backend](docs/BACKEND_ISOLATION.md).
+
+Giới hạn còn lại: password reset qua email/OIDC/email verification, CMS web,
+vector index nếu quy mô cần, streaming từng token và geocoding/routing. Corpus
+và bộ gold thực tế vẫn cần người duyệt; quote/evidence ID hợp lệ và test phần
+mềm không tự chứng minh độ đúng lịch sử. Maps URL trong kết quả AI là liên kết
+tìm kiếm, không phải tọa độ đã xác minh. Công cụ đánh giá không lấy verdict của
+model làm ground truth.

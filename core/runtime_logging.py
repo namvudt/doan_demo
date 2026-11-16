@@ -18,6 +18,12 @@ _context = ContextVar("operational_log_context", default={})
 _lock = threading.RLock()
 _active_config = None
 FIELDS = {
+    "config_field",
+    "tool",
+    "call_id",
+    "input_hash",
+    "cached",
+    "tool_version",
     "error_category",
     "retryable",
     "role",

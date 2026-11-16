@@ -1,5 +1,6 @@
 import hashlib
 import os
+import sqlite3
 import time
 from contextlib import nullcontext
 from io import BytesIO
@@ -54,14 +55,78 @@ class Runtime:
         return LLMManager(config=config)
 
     def service(self, run):
+        from api.content_store import ContentStore, database_search_factory
+        from api.recovery import NodeRecovery
+        from core.retrieval_cache import CachedSearchEngine, SharedRetrievalCache, file_revision
+
         snapshot = dict(run.config_snapshot)
         snapshot.pop("config_hash", None)
-        manager = self.manager(AppConfig.model_validate(snapshot), run.model_mode)
-        search = DemoSearch if run.model_mode == "demo" else None
+        config = AppConfig.model_validate(snapshot)
+        manager = self.manager(config, run.model_mode)
+        content = ContentStore(self.db)
+
+        def revision():
+            return content.retrieval_revision() + file_revision(
+                [
+                    ROOT / config.accuracy.entity_catalog,
+                    ROOT / config.accuracy.retrieval.corpus_path,
+                ]
+            )
+
+        recovery = (
+            NodeRecovery(self.db, run, revision_provider=revision)
+            if self.settings.durable_checkpoints and run.worker_token
+            else None
+        )
+        base_search = (
+            DemoSearch
+            if run.model_mode == "demo"
+            else database_search_factory(
+                self.db,
+                policy=config.accuracy.retrieval,
+                entity_catalog=config.accuracy.entity_catalog,
+                bound_heritage_id=(run.input_context or {}).get("heritage_id"),
+                remaining_seconds=(
+                    lambda: manager.remaining_seconds() - (recovery.elapsed if recovery else 0)
+                )
+                if hasattr(manager, "remaining_seconds")
+                else None,
+            )
+        )
+        try:
+            cache = SharedRetrievalCache(
+                self.settings.data_dir / "cache" / "public-retrieval.sqlite",
+                ttl_seconds=self.settings.retrieval_cache_ttl_seconds,
+                max_entries=self.settings.retrieval_cache_max_entries,
+            )
+        except (sqlite3.Error, OSError):
+            cache = None
+            from core.runtime_logging import log_event
+
+            log_event("retrieval.cache_unavailable")
+
+        def search():
+            if cache is None:
+                return base_search()
+            return CachedSearchEngine(
+                base_search(),
+                cache,
+                revision_provider=revision,
+                namespace=run.config_snapshot.get("config_hash", "")
+                + ":"
+                + run.model_mode
+                + ":"
+                + str((run.input_context or {}).get("heritage_id") or "unbound"),
+            )
+
         return RunService(
             manager,
             search_engine_factory=search,
-            attempt_observer=lambda record: persist_attempt(self.db, run.id, record),
+            attempt_observer=lambda record: persist_attempt(
+                self.db, run.id, record, expected_worker_token=run.worker_token
+            ),
+            node_recovery=recovery,
+            conversation_memory=(run.input_context or {}).get("conversation_memory", []),
         )
 
     def tracing_context(self, mode):
@@ -70,6 +135,18 @@ class Runtime:
     def check_model_ready(self, roles=None):
         manager = self.manager()
         try:
+            config = getattr(manager, "config", None) or self.config()
+            if roles is None and config.accuracy.enabled:
+                roles = list(
+                    dict.fromkeys(
+                        [
+                            "coordinator",
+                            "visual",
+                            "aggregator",
+                            config.accuracy.verifier_role,
+                        ]
+                    )
+                )
             return ensure_ready(manager, roles)
         except PreflightFailed as error:
             raise StoreError(

@@ -3,6 +3,7 @@
 import base64
 import json
 import logging
+import math
 import os
 import re
 import threading
@@ -33,6 +34,9 @@ class StreamInterrupted(RuntimeError):
 
 
 class LLMManager:
+    _MAX_RETRY_WAIT_SECONDS = 60.0
+    _RETRY_POLL_SECONDS = 0.1
+
     def preflight(self, roles=None, *, force=False):
         from core.preflight import MANDATORY_ROLES, check_roles
 
@@ -154,6 +158,84 @@ class LLMManager:
         code = getattr(exc, "status_code", None) or getattr(exc, "code", None)
         return code in (429, 500, 502, 503, 504) or isinstance(exc, (TimeoutError, ConnectionError))
 
+    @staticmethod
+    def _numeric_retry_seconds(value, *, duration=False):
+        # Read only an allowlisted scalar, never an exception message/body string.
+        if isinstance(value, str):
+            value = value.strip()
+            pattern = r"[0-9]+(?:\.[0-9]{1,9})?s" if duration else r"[0-9]+(?:\.[0-9]+)?"
+            if len(value) > 64 or not re.fullmatch(pattern, value):
+                return None
+            value = float(value[:-1] if duration else value)
+        elif type(value) not in (int, float) or duration:
+            return None
+        try:
+            value = float(value)
+        except (OverflowError, ValueError):
+            return None
+        if math.isfinite(value) and value >= 0:
+            return value
+        return None
+
+    @classmethod
+    def _retry_delay(cls, exc, provider, retry):
+        hints = []
+        response = getattr(exc, "response", None)
+        for headers in (getattr(response, "headers", None), getattr(exc, "headers", None)):
+            if headers is not None and callable(getattr(headers, "get", None)):
+                value = headers.get("retry-after")
+                if value is None:
+                    value = headers.get("Retry-After")
+                delay = cls._numeric_retry_seconds(value)
+                if delay is not None:
+                    hints.append((delay, "retry_after"))
+        if provider == "gemini":
+            # google-genai exposes the already parsed payload on APIError.details.
+            # Some adapters use response_json. Inspect only the documented slots.
+            for payload in (getattr(exc, "details", None), getattr(exc, "response_json", None)):
+                details = payload
+                if isinstance(payload, dict):
+                    error = payload.get("error", payload)
+                    details = error.get("details") if isinstance(error, dict) else None
+                if not isinstance(details, list):
+                    continue
+                for detail in details[:32]:
+                    if (
+                        isinstance(detail, dict)
+                        and detail.get("@type") == "type.googleapis.com/google.rpc.RetryInfo"
+                    ):
+                        delay = cls._numeric_retry_seconds(detail.get("retryDelay"), duration=True)
+                        if delay is not None:
+                            hints.append((delay, "gemini_retry_info"))
+        if hints:
+            return max(hints, key=lambda hint: hint[0])
+        status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+        return (min((2.0 if status == 429 else 0.25) * 2**retry, 30.0), "backoff")
+
+    def _wait_for_retry(self, delay):
+        if self.cancel_check:
+            self.cancel_check()
+        with self._lock:
+            if self.remaining_seconds() <= 0:
+                raise BudgetExceeded("Đã hết thời gian của lượt xử lý.")
+            if self._attempt_count >= self.config.budget.max_llm_calls:
+                raise BudgetExceeded("Đã hết ngân sách gọi model.")
+        # Never shorten a provider's minimum delay to squeeze in another request.
+        # An excessive wait skips this provider; fallback retains its own budget.
+        if delay > self._MAX_RETRY_WAIT_SECONDS or delay >= self.remaining_seconds():
+            return False
+        ready_at = time.monotonic() + delay
+        while True:
+            if self.cancel_check:
+                self.cancel_check()
+            remaining = self.remaining_seconds()
+            if remaining <= 0:
+                raise BudgetExceeded("Đã hết thời gian của lượt xử lý.")
+            wait = ready_at - time.monotonic()
+            if wait <= 0:
+                return True
+            time.sleep(min(wait, remaining, self._RETRY_POLL_SECONDS))
+
     def _record(self, record, *, error=None):
         with self._lock:
             self.calls.append(record)
@@ -210,7 +292,9 @@ class LLMManager:
             if json_output:
                 kwargs["response_mime_type"] = "application/json"
             if response_schema:
-                kwargs["response_json_schema"] = response_schema.model_json_schema()
+                kwargs["response_json_schema"] = provider_json_schema(
+                    response_schema, self.config.providers[provider].json_schema_mode
+                )
             if options.get("thinking_level"):
                 kwargs["thinking_config"] = types.ThinkingConfig(
                     thinking_level=options["thinking_level"]
@@ -435,7 +519,17 @@ class LLMManager:
                     if not self._retryable(exc):
                         raise
                     if transient_count < self.config.budget.transient_retries:
-                        time.sleep(min(0.25 * 2**transient_count, max(0, self.remaining_seconds())))
+                        delay, reason = self._retry_delay(exc, provider, transient_count)
+                        log_event(
+                            "model.retry_wait",
+                            attempt=attempt,
+                            agent_role=agent_role,
+                            actual_provider=provider,
+                            duration_ms=round(delay * 1000, 3),
+                            reason=reason,
+                        )
+                        if not self._wait_for_retry(delay):
+                            break
                         transient_count += 1
                         continue
                     break
@@ -570,6 +664,20 @@ class LLMManager:
                     "error_code": record.get("error_code"),
                     "usage_metadata": token_usage(record["usage"], provider),
                 }
+
+
+def provider_json_schema(model, mode="full"):
+    """Reduce Gemini grammar branching; backend Pydantic constraints remain unchanged."""
+    schema = model.model_json_schema()
+
+    def compact(value):
+        if isinstance(value, dict):
+            return {k: compact(v) for k, v in value.items() if k not in {"maxItems", "maxLength"}}
+        if isinstance(value, list):
+            return [compact(item) for item in value]
+        return value
+
+    return compact(schema) if mode == "compact" else schema
 
 
 def safe_extract_json(text: str) -> dict:

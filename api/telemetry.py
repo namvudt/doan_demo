@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from sqlalchemy import case, func, select
 
 from api.models import ModelAttempt, Run, WorkerHeartbeat
+from api.store import ACTIVE, locked_run
 from core.model_errors import response_diagnostics
 from core.observability import token_usage
 from core.runtime_logging import log_context, log_event
@@ -150,12 +151,17 @@ class RequestEnvelopeMiddleware:
                 response_headers = [
                     (k, v)
                     for k, v in message.get("headers", [])
-                    if k.lower() not in {b"x-request-id", b"x-content-type-options"}
+                    if k.lower()
+                    not in {b"x-request-id", b"x-content-type-options", b"x-backend-build"}
                 ]
                 response_headers.extend(
                     [
                         (b"x-request-id", request_id.encode()),
                         (b"x-content-type-options", b"nosniff"),
+                        (
+                            b"x-backend-build",
+                            getattr(scope["app"].state, "backend_build", "development").encode(),
+                        ),
                     ]
                 )
                 if not any(k.lower() == b"cache-control" for k, _ in response_headers):
@@ -236,10 +242,37 @@ def attempt_record(row):
     }
 
 
-def persist_attempt(db, run_id, record):
+def persist_attempt(db, run_id, record, *, expected_worker_token=None):
     # Called synchronously before a billable request and after each completed attempt.
     with db.session() as session:
+        if expected_worker_token is not None:
+            from workflow.service import RunCancelled
+
+            # Serialize provider admission with worker claim/recovery. A worker that
+            # lost its lease must not start a paid request or overwrite newer data.
+            run = locked_run(session, run_id)
+            if (
+                run is None
+                or run.worker_token != expected_worker_token
+                or run.execution_status not in ACTIVE
+                or run.deleted_at is not None
+                or run.lease_expires_at is None
+                or run.lease_expires_at <= time.time()
+                or (
+                    record.get("status", "running") == "running"
+                    and (run.cancel_requested or run.execution_status != "running")
+                )
+            ):
+                raise RunCancelled("Model attempt lease is no longer active")
         row = session.get(ModelAttempt, (run_id, record["attempt"]))
+        if (
+            expected_worker_token is not None
+            and record.get("status", "running") == "running"
+            and row is not None
+        ):
+            from workflow.service import RunCancelled
+
+            raise RunCancelled("Model attempt was already admitted")
         if row is None:
             row = ModelAttempt(run_id=run_id, attempt=record["attempt"])
             session.add(row)

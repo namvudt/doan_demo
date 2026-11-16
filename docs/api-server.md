@@ -1,9 +1,15 @@
 # Backend API và Swagger UI
 
 Backend dùng FastAPI, gọi cùng `RunService`/LangGraph của Streamlit và CLI.
-Swagger có 33 HTTP operations, chia theo Health, Sessions, Configuration, Assets,
-Runs, Events, Results, Feedback và Operations. OpenAPI có schema, Bearer Authorize, multipart
-upload và ví dụ để thử nhanh.
+Swagger có 81 HTTP operations, gồm catalog, tài khoản, hội thoại, nguồn/media,
+recovery và các nhóm Health, Sessions, Configuration, Assets, Runs, Events,
+Results, Feedback và Operations.
+OpenAPI có schema, Bearer Authorize, multipart upload và ví dụ để thử nhanh.
+
+Bản backend hiện tại có `info.version=1.2.0`; tiền tố API vẫn là
+`/api/v1`. `result_schema_version=2` biểu thị kết quả bằng chứng, không phải đổi
+URL API. Header `X-Backend-Build` cho biết mã build đang phục vụ request khi môi
+trường triển khai đặt `HERITAGE_BUILD_REVISION`; header này được phép đọc qua CORS.
 
 Hướng dẫn thao tác chi tiết từng endpoint và cách đọc response:
 [api-swagger-walkthrough.md](api-swagger-walkthrough.md).
@@ -41,9 +47,16 @@ Demo đi qua graph thật với provider và nguồn giả lập có nhãn DEMO,
 chất lượng thực. Demo tắt trace nội dung ra LangSmith. `/capabilities`, run và
 result đều trả `model_mode`. CLI `--demo` ghi đè mode trong `.env` cho tiến trình.
 
-Local dùng SQLite tại `data/api.sqlite`, ảnh chuẩn hóa ở `data/assets` và một
-worker nền trong tiến trình API. Các thư mục dữ liệu được Git/Docker build bỏ qua.
+Local live mặc định dùng SQLite tại `data/api.sqlite`, ảnh chuẩn hóa ở `data/assets`
+và một worker nền trong tiến trình API. Launcher `--demo` dùng riêng
+`.api-demo/interactive/api.sqlite` và `.api-demo/interactive/media` khi chưa đặt
+biến đường dẫn tương ứng. Các thư mục dữ liệu được Git/Docker build bỏ qua.
 Thêm `--port 8001` khi cần đổi cổng; `--reload` chỉ dùng trong phát triển.
+
+Catalog mặc định rỗng đến khi được nhập. Ảnh catalog do người vận hành cấp tại
+`API_CATALOG_MEDIA_DIR` (mặc định `catalog-media/`), độc lập với frontend;
+xem [schema, media và seed](CATALOG_DATABASE.md). Các nhóm tài khoản, nguồn,
+retention và recovery được mô tả ở [backend sản phẩm](PRODUCT_PLATFORM_DEPLOYMENT.md).
 
 ## Thử bằng Swagger
 

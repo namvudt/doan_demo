@@ -1,0 +1,54 @@
+# Opt-in quality profile. All values override config/default.yaml and can be changed here.
+extends: default.yaml
+workflow_version: evidence-v2
+providers:
+  gemini:
+    json_schema_mode: compact
+budget:
+  deadline_seconds: 180
+  request_timeout_seconds: 45
+roles:
+  knowledge: {max_output_tokens: 4096}
+  aggregator: {max_output_tokens: 4096}
+  judge: {max_output_tokens: 8192}
+accuracy:
+  recognition:
+    enabled: true
+    min_observations: 2
+    # Chưa có tập gold được duyệt để hiệu chuẩn mức nhận diện chắc chắn.
+    max_status: probable
+  enabled: true
+  pilot_region: Hà Nội
+  entity_catalog: config/heritage/hanoi.entities.json
+  verifier_role: judge
+  max_tool_calls: 12
+  max_clarifications: 2
+  max_conversation_llm_calls: 24
+  min_quote_chars: 12
+  max_claims: 12
+  max_recovery_rounds: 1
+  intermediate_max_chars: 1800
+  claim_policy:
+    allow_han_nom_reading: false
+    require_source_for_specific_materials: true
+    require_source_for_dates: true
+  image:
+    ocr_enabled: true
+    ocr_role: visual
+    max_regions: 3
+    max_ocr_calls: 2
+    min_short_side: 320
+    dark_threshold: 45
+    low_contrast_threshold: 20
+    preprocess: autocontrast
+  retrieval:
+    wikipedia_enabled: true
+    corpus_path: data/heritage/corpus.jsonl
+    max_results: 3
+    candidate_limit: 6
+    entity_first: true
+    require_entity_mention: true
+    max_queries: 2
+    max_source_chars: 1600
+    timeout_seconds: 6
+    allowed_domains: [vi.wikipedia.org, vanmieu.gov.vn, hoangthanhthanglong.vn, hanoi.gov.vn]

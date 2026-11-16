@@ -1,0 +1,359 @@
+{
+  "schema_version": 1,
+  "provenance": "Repository UI Preview fixtures; illustrative records and coordinates, not verified historical data or an indexed RAG corpus.",
+  "items": [
+    {
+      "heritage_id": "preview-heritage-thap-rua",
+      "name": "Tháp Rùa",
+      "slug": "thap-rua",
+      "province": "Hà Nội",
+      "address": "Hồ Hoàn Kiếm, Hà Nội",
+      "category": "monument",
+      "period": "Cuối thế kỷ XIX",
+      "summary": "Hồ sơ minh họa về một công trình nằm trong không gian Hồ Hoàn Kiếm.",
+      "historical_information": "Thông tin lịch sử trong bản Preview chỉ phục vụ kiểm thử bố cục và cần được đối chiếu nguồn trước khi sử dụng.",
+      "cultural_information": "Bản ghi minh họa cách trình bày mối liên hệ giữa công trình và cảnh quan đô thị.",
+      "tags": [
+        "Hồ Gươm",
+        "Kiến trúc",
+        "Hà Nội"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 21.02877,
+        "longitude": 105.85247,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-thap-rua",
+          "kind": "image",
+          "storage_key": "demo-thap-rua.jpg",
+          "alt": "Ảnh minh họa Tháp Rùa trong UI Preview",
+          "caption": "Ảnh mẫu đi kèm frontend; quyền tái sử dụng cần được xác nhận.",
+          "verified": false
+        }
+      ],
+      "information_sources": [
+        {
+          "source_id": "preview-source-thap-rua-reference",
+          "title": "Tư liệu tham khảo về Tháp Rùa",
+          "publisher": "Wikipedia tiếng Việt",
+          "url": "https://vi.wikipedia.org/wiki/Th%C3%A1p_R%C3%B9a",
+          "kind": "reference",
+          "summary": "Liên kết tham khảo cho bố cục UI; nội dung chưa được kiểm chứng trong phiên Preview.",
+          "verified": false,
+          "verification_note": "Chưa qua quy trình biên tập và đối chiếu nguồn của ứng dụng.",
+          "index_status": "not_indexed"
+        }
+      ]
+    },
+    {
+      "heritage_id": "preview-heritage-van-mieu",
+      "name": "Văn Miếu – Quốc Tử Giám",
+      "slug": "van-mieu-quoc-tu-giam",
+      "province": "Hà Nội",
+      "address": "Quận Đống Đa, Hà Nội",
+      "category": "temple",
+      "period": "Thời Lý và các giai đoạn kế tiếp",
+      "summary": "Hồ sơ mô phỏng một quần thể gắn với lịch sử giáo dục và khoa cử.",
+      "historical_information": "Nội dung đang chờ biên tập và kiểm chứng nguồn.",
+      "cultural_information": "Dữ liệu mẫu minh họa các trường thông tin văn hóa, kiến trúc và giáo dục.",
+      "tags": [
+        "Giáo dục",
+        "Khoa cử",
+        "Kiến trúc"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 21.02773,
+        "longitude": 105.83546,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-van-mieu",
+          "kind": "image",
+          "storage_key": "van-mieu.jpg",
+          "alt": "Khuê Văn Các trong quần thể Văn Miếu – Quốc Tử Giám",
+          "caption": "Ảnh mẫu Khuê Văn Các đi kèm repository; metadata bản quyền đang được bổ sung.",
+          "verified": false
+        }
+      ],
+      "information_sources": []
+    },
+    {
+      "heritage_id": "preview-heritage-hoang-thanh",
+      "name": "Hoàng thành Thăng Long",
+      "slug": "hoang-thanh-thang-long",
+      "province": "Hà Nội",
+      "address": "Quận Ba Đình, Hà Nội",
+      "category": "archaeology",
+      "period": "Nhiều thời kỳ lịch sử",
+      "summary": "Hồ sơ mô phỏng một không gian khảo cổ và trung tâm quyền lực qua nhiều giai đoạn.",
+      "historical_information": "Cần đọc nguồn chính thức để hoàn thiện niên biểu chi tiết.",
+      "cultural_information": "Fixture minh họa cách liên kết hồ sơ di sản với nguồn danh mục chính thức.",
+      "tags": [
+        "Khảo cổ",
+        "Kinh đô",
+        "Di sản thế giới"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 21.03522,
+        "longitude": 105.84025,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-hoang-thanh",
+          "kind": "image",
+          "storage_key": "hoang-thanh.jpg",
+          "alt": "Cổng Đoan Môn của Hoàng thành Thăng Long",
+          "caption": "Minhle817 / Wikimedia Commons · CC BY-SA 4.0. Ảnh năm 2021.",
+          "verified": false
+        }
+      ],
+      "information_sources": [
+        {
+          "source_id": "preview-source-hoang-thanh-unesco",
+          "title": "Central Sector of the Imperial Citadel of Thang Long",
+          "publisher": "UNESCO World Heritage Centre",
+          "url": "https://whc.unesco.org/en/list/1328/",
+          "kind": "unesco",
+          "summary": "Trang danh mục UNESCO dùng làm nguồn metadata minh họa cho hồ sơ.",
+          "verified": true,
+          "verification_note": "Đã đối chiếu loại và URL nguồn trong bộ fixture; không đồng nghĩa toàn bộ diễn giải đã được thẩm định.",
+          "index_status": "not_indexed"
+        }
+      ]
+    },
+    {
+      "heritage_id": "preview-heritage-chua-mot-cot",
+      "name": "Chùa Một Cột",
+      "slug": "chua-mot-cot",
+      "province": "Hà Nội",
+      "address": "Quận Ba Đình, Hà Nội",
+      "category": "temple",
+      "period": "Khởi dựng thời Lý",
+      "summary": "Hồ sơ minh họa một công trình có hình thức kiến trúc gắn với biểu tượng hoa sen.",
+      "historical_information": "Dữ liệu đang chờ đối chiếu nguồn và lịch sử tu bổ.",
+      "cultural_information": "Nội dung Preview dùng để thử các trường văn hóa và kiến trúc, không phải bản thuyết minh đã duyệt.",
+      "tags": [
+        "Phật giáo",
+        "Hoa sen",
+        "Kiến trúc"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 21.03586,
+        "longitude": 105.83364,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-chua-mot-cot",
+          "kind": "image",
+          "storage_key": "chua-mot-cot.jpg",
+          "alt": "Chùa Một Cột bên hồ sen tại Hà Nội",
+          "caption": "Ảnh mẫu Chùa Một Cột đi kèm repository; metadata bản quyền đang được bổ sung.",
+          "verified": false
+        }
+      ],
+      "information_sources": []
+    },
+    {
+      "heritage_id": "preview-heritage-co-do-hue",
+      "name": "Quần thể di tích Cố đô Huế",
+      "slug": "quan-the-di-tich-co-do-hue",
+      "province": "Thành phố Huế",
+      "address": "Thành phố Huế, Việt Nam",
+      "category": "monument",
+      "period": "Triều Nguyễn",
+      "summary": "Hồ sơ mô phỏng một quần thể cung điện, thành quách và cảnh quan văn hóa.",
+      "historical_information": "Thông tin chi tiết cần được biên tập từ nguồn chuyên môn.",
+      "cultural_information": "Fixture hỗ trợ kiểm thử nội dung dài và liên kết nguồn danh mục UNESCO.",
+      "tags": [
+        "Cung đình",
+        "Kiến trúc",
+        "Di sản thế giới"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 16.46979,
+        "longitude": 107.57747,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-co-do-hue",
+          "kind": "image",
+          "storage_key": "co-do-hue.jpg",
+          "alt": "Ngọ Môn, lối vào Hoàng thành Huế",
+          "caption": "Dennis G. Jarvis / Wikimedia Commons · CC BY-SA 2.0. Ảnh năm 2009, bản thu nhỏ.",
+          "verified": false
+        }
+      ],
+      "information_sources": [
+        {
+          "source_id": "preview-source-hue-unesco",
+          "title": "Complex of Hué Monuments",
+          "publisher": "UNESCO World Heritage Centre",
+          "url": "https://whc.unesco.org/en/list/678/",
+          "kind": "unesco",
+          "summary": "Nguồn danh mục chính thức được gắn với hồ sơ minh họa.",
+          "verified": true,
+          "verification_note": "Đã đối chiếu loại và URL nguồn; nội dung Preview vẫn là dữ liệu mô phỏng.",
+          "index_status": "not_indexed"
+        }
+      ]
+    },
+    {
+      "heritage_id": "preview-heritage-hoi-an",
+      "name": "Đô thị cổ Hội An",
+      "slug": "do-thi-co-hoi-an",
+      "province": "Quảng Nam",
+      "address": "Thành phố Hội An, Quảng Nam",
+      "category": "monument",
+      "period": "Thương cảng lịch sử",
+      "summary": "Hồ sơ mô phỏng một đô thị lịch sử gắn với giao lưu văn hóa và thương mại.",
+      "historical_information": "Niên biểu và diễn giải đang chờ biên tập.",
+      "cultural_information": "Dữ liệu minh họa các chủ đề về cảnh quan đô thị, kiến trúc và giao thương.",
+      "tags": [
+        "Phố cổ",
+        "Giao thương",
+        "Di sản thế giới"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 15.87705,
+        "longitude": 108.32676,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-hoi-an",
+          "kind": "image",
+          "storage_key": "hoi-an.jpg",
+          "alt": "Kiến trúc và cảnh quan trong Đô thị cổ Hội An",
+          "caption": "Andre Hospers / Wikimedia Commons · CC BY 4.0. Ảnh năm 2025, bản thu nhỏ.",
+          "verified": false
+        }
+      ],
+      "information_sources": [
+        {
+          "source_id": "preview-source-hoi-an-unesco",
+          "title": "Hoi An Ancient Town",
+          "publisher": "UNESCO World Heritage Centre",
+          "url": "https://whc.unesco.org/en/list/948/",
+          "kind": "unesco",
+          "summary": "Nguồn metadata minh họa cho hồ sơ Đô thị cổ Hội An.",
+          "verified": true,
+          "verification_note": "Đã đối chiếu loại và URL nguồn; chưa phải bằng chứng RAG đã truy xuất.",
+          "index_status": "not_indexed"
+        }
+      ]
+    },
+    {
+      "heritage_id": "preview-heritage-my-son",
+      "name": "Thánh địa Mỹ Sơn",
+      "slug": "thanh-dia-my-son",
+      "province": "Quảng Nam",
+      "address": "Huyện Duy Xuyên, Quảng Nam",
+      "category": "archaeology",
+      "period": "Văn hóa Chăm",
+      "summary": "Hồ sơ mô phỏng một quần thể đền tháp trong cảnh quan thung lũng.",
+      "historical_information": "Dữ liệu chi tiết cần được đối chiếu tài liệu chuyên môn.",
+      "cultural_information": "Fixture minh họa các trường nghệ thuật, kỹ thuật xây dựng và khảo cổ.",
+      "tags": [
+        "Chăm",
+        "Đền tháp",
+        "Khảo cổ"
+      ],
+      "content_status": "published",
+      "illustrative": true,
+      "location": {
+        "latitude": 15.76416,
+        "longitude": 108.12444,
+        "verification_status": "illustrative",
+        "verification_note": "Tọa độ minh họa cho UI Preview; cần đối chiếu dữ liệu địa lý trước khi công bố.",
+        "source_id": null
+      },
+      "media": [
+        {
+          "media_id": "preview-media-my-son",
+          "kind": "image",
+          "storage_key": "my-son.jpg",
+          "alt": "Một đền tháp gạch tại Thánh địa Mỹ Sơn",
+          "caption": "JL Cogburn / Wikimedia Commons · CC BY-SA 2.0. Ảnh năm 2017, bản thu nhỏ.",
+          "verified": false
+        }
+      ],
+      "information_sources": [
+        {
+          "source_id": "preview-source-my-son-unesco",
+          "title": "My Son Sanctuary",
+          "publisher": "UNESCO World Heritage Centre",
+          "url": "https://whc.unesco.org/en/list/949/",
+          "kind": "unesco",
+          "summary": "Nguồn metadata minh họa cho hồ sơ Thánh địa Mỹ Sơn.",
+          "verified": true,
+          "verification_note": "Đã đối chiếu loại và URL nguồn; chưa phải bằng chứng RAG đã truy xuất.",
+          "index_status": "not_indexed"
+        }
+      ]
+    },
+    {
+      "heritage_id": "preview-heritage-bao-tang-lich-su",
+      "name": "Bảo tàng Lịch sử Quốc gia",
+      "slug": "bao-tang-lich-su-quoc-gia",
+      "province": "Hà Nội",
+      "address": "Hà Nội",
+      "category": "museum",
+      "period": "Hồ sơ đang hoàn thiện",
+      "summary": "Bản ghi nháp dùng để kiểm thử trạng thái thiếu tọa độ và quy trình biên tập của quản trị viên.",
+      "historical_information": "Chưa có nội dung đã duyệt.",
+      "cultural_information": "Chưa có nội dung đã duyệt.",
+      "tags": [
+        "Bảo tàng",
+        "Hiện vật",
+        "Lịch sử"
+      ],
+      "content_status": "draft",
+      "illustrative": true,
+      "location": null,
+      "media": [],
+      "information_sources": [
+        {
+          "source_id": "preview-source-museum-official",
+          "title": "Bảo tàng Lịch sử Quốc gia",
+          "publisher": "Bảo tàng Lịch sử Quốc gia",
+          "url": "https://baotanglichsu.vn/",
+          "kind": "official",
+          "summary": "Trang cơ quan được lưu làm metadata nguồn trong UI Preview.",
+          "verified": false,
+          "verification_note": "Cần biên tập viên kiểm tra lại phạm vi nội dung trước khi công bố.",
+          "index_status": "not_indexed"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Descriptive comparison only. Independent correctness evaluation is not implemented yet."""
+"""Descriptive comparison; quality requires separately reviewed evaluation annotations."""
 
 import time
 from io import BytesIO
@@ -52,7 +52,7 @@ def compare(image_data, query, llm, audience="tourist"):
         "verdict": None,
         "limitations": [
             "Chưa có evaluator độc lập hoặc đáp án chuẩn.",
-            "Baseline ReAct chỉ là prompt mô phỏng, không thực thi công cụ.",
+            "Baseline công cụ dùng lịch tra cứu/OCR cố định, chưa có Verifier.",
             "Không suy ra độ chính xác hoặc phương pháp thắng từ bảng này.",
         ],
         "rows": rows,

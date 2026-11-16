@@ -323,6 +323,21 @@ def test_migration_preserves_old_records(api_settings):
                 "INSERT INTO api_sessions (id,token_hash,label,created_at,expires_at,last_seen,revoked) VALUES ('old', 'hash', 'keep', 0, 100, 0, false)"
             )
         )
+        connection.execute(
+            text(
+                "INSERT INTO api_assets (id, owner_id, storage_key, sha256, size_bytes, width, height, created_at) VALUES ('old-asset', 'old', 'old.png', 'hash', 1, 1, 1, 0)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO api_runs (id, owner_id, asset_id, question, audience, profile, model_mode, execution_status, config_snapshot, request_hash, cancel_requested, bookmarked, event_count, created_at) VALUES ('old-run', 'old', 'old-asset', 'keep original question', 'tourist', 'default', 'demo', 'succeeded', '{}', 'hash', false, false, 1, 0)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO api_run_events (run_id, sequence, event, payload, created_at) VALUES ('old-run', 1, 'run.succeeded', '{}', 0)"
+            )
+        )
     assert "request_id" not in {c["name"] for c in inspect(db.engine).get_columns("api_runs")}
     rt = Runtime(api_settings)
     rt.migrate()
@@ -330,6 +345,22 @@ def test_migration_preserves_old_records(api_settings):
         assert (
             connection.execute(text("SELECT label FROM api_sessions WHERE id='old'")).scalar()
             == "keep"
+        )
+        assert (
+            connection.execute(text("SELECT question FROM api_runs WHERE id='old-run'")).scalar()
+            == "keep original question"
+        )
+        assert (
+            connection.execute(
+                text("SELECT input_context FROM api_runs WHERE id='old-run'")
+            ).scalar()
+            is None
+        )
+        assert (
+            connection.execute(
+                text("SELECT COUNT(*) FROM api_run_events WHERE run_id='old-run'")
+            ).scalar()
+            == 1
         )
     assert "api_model_attempts" in inspect(rt.db.engine).get_table_names()
     with rt.db.engine.begin() as connection:

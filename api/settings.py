@@ -12,6 +12,7 @@ class Settings(BaseModel):
     environment: str = "development"
     database_url: SecretStr = SecretStr("sqlite:///data/api.sqlite")
     data_dir: Path = ROOT / "data"
+    catalog_media_dir: Path = ROOT / "catalog-media"
     embedded_worker: bool = True
     model_mode: str = "live"
     bootstrap_token: SecretStr = SecretStr("")
@@ -33,6 +34,13 @@ class Settings(BaseModel):
     log_max_bytes: int = Field(default=10_000_000, ge=1024)
     log_backups: int = Field(default=5, ge=1, le=100)
     operations_token: SecretStr = SecretStr("")
+    durable_checkpoints: bool = True
+    max_recoveries: int = Field(default=2, ge=0, le=5)
+    deleted_run_retention_days: int = Field(default=7, ge=1, le=365)
+    expired_guest_retention_days: int = Field(default=30, ge=1, le=3650)
+    retrieval_cache_ttl_seconds: int = Field(default=300, ge=1, le=86400)
+    retrieval_cache_max_entries: int = Field(default=500, ge=1, le=10000)
+    retention_cleanup_interval_seconds: int = Field(default=0, ge=0, le=86400)
 
     @model_validator(mode="after")
     def validate_runtime(self):
@@ -64,6 +72,7 @@ class Settings(BaseModel):
             "environment": "API_ENV",
             "database_url": "DATABASE_URL",
             "data_dir": "API_DATA_DIR",
+            "catalog_media_dir": "API_CATALOG_MEDIA_DIR",
             "embedded_worker": "API_EMBEDDED_WORKER",
             "model_mode": "API_MODEL_MODE",
             "bootstrap_token": "API_BOOTSTRAP_TOKEN",
@@ -79,6 +88,13 @@ class Settings(BaseModel):
             "operations_token": "API_OPERATIONS_TOKEN",
             "heartbeat_seconds": "API_HEARTBEAT_SECONDS",
             "lease_seconds": "API_LEASE_SECONDS",
+            "durable_checkpoints": "API_DURABLE_CHECKPOINTS",
+            "max_recoveries": "API_MAX_RECOVERIES",
+            "deleted_run_retention_days": "API_DELETED_RUN_RETENTION_DAYS",
+            "expired_guest_retention_days": "API_EXPIRED_GUEST_RETENTION_DAYS",
+            "retrieval_cache_ttl_seconds": "API_RETRIEVAL_CACHE_TTL_SECONDS",
+            "retrieval_cache_max_entries": "API_RETRIEVAL_CACHE_MAX_ENTRIES",
+            "retention_cleanup_interval_seconds": "API_RETENTION_CLEANUP_INTERVAL_SECONDS",
         }
         values = {field: os.environ[key] for field, key in fields.items() if key in os.environ}
         if os.getenv("API_CORS_ORIGINS"):

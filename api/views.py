@@ -82,7 +82,13 @@ def result_view(run, include_intermediate=False):
     plan = result.get("plan", {})
     plan = {
         key: plan[key]
-        for key in ("identified_monument", "selected_agents", "query_intent", "task_categories")
+        for key in (
+            "identified_monument",
+            "selected_agents",
+            "query_intent",
+            "task_categories",
+            "identity_resolved",
+        )
         if key in plan
     }
     intermediate = None
@@ -92,6 +98,24 @@ def result_view(run, include_intermediate=False):
             "stages": stage_snapshots(result.get("events", [])),
         }
     return ResultView(
+        **{
+            key: result[key]
+            for key in (
+                "result_schema_version",
+                "answer_status",
+                "recognition",
+                "location_hint",
+                "evidence",
+                "claims",
+                "requested_slots",
+                "candidates",
+                "image_quality",
+                "regions",
+                "tool_calls",
+                "clarification",
+            )
+            if key in result
+        },
         run_id=run.id,
         parent_run_id=run.parent_run_id,
         run_kind=run.run_kind,

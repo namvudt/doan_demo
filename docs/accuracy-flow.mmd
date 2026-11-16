@@ -1,0 +1,45 @@
+flowchart TD
+    A["Ảnh chuẩn hóa + câu hỏi gốc<br/>Vùng chọn/gợi ý chưa kiểm chứng tùy chọn"] --> S["scope: kiểm tra phạm vi<br/>và tín hiệu chất lượng ảnh"]
+    S --> IN{"Trong phạm vi hỗ trợ?"}
+    IN -->|Không| OUT["out_of_scope"]
+    IN -->|Có| C["coordinate: tách câu hỏi thành slot<br/>đề xuất ứng viên và chọn chuyên gia"]
+
+    C --> V["visual: quan sát độc lập, không nhận nhãn mẫu<br/>Ứng viên liên kết với quan sát; OCR khi cần"]
+    C -->|Khi cần tư liệu| K["knowledge: truy xuất theo câu hỏi<br/>Wikipedia + corpus đã duyệt"]
+    V --> AG["aggregate: tổng hợp bản nháp<br/>sau các chuyên gia được chọn"]
+    K --> AG
+    AG --> J["judge: đăng ký evidence<br/>Verifier kiểm tra từng nhận định"]
+    J --> G["Backend gate: slot, ID, quote, thực thể<br/>Chặn phiên đọc Hán–Nôm;<br/>vật liệu và niên đại cần nguồn"]
+    J --> ID["Nhận diện riêng: ứng viên + đặc điểm ảnh<br/>Verifier đánh giá; backend kiểm tra ID/basis<br/>probable / recognized / ambiguous / unrecognized"]
+    ID --> COM
+    J -->|Lỗi model hoặc JSON| UV["verification_unavailable<br/>Không xác nhận bản nháp"]
+
+    G --> R{"Bật tìm lại, còn thiếu lịch sử<br/>và đã thống nhất ứng viên?"}
+    R -->|Có| RE["Tìm nguồn bổ sung<br/>Tối đa 1 lượt theo cấu hình"]
+    RE --> NEW{"Có nguồn mới?"}
+    NEW -->|Có| JR["Verifier và backend gate<br/>đối chiếu thêm nguồn mới"]
+    JR -->|Thành công| COM
+    JR -->|Lỗi: giữ báo cáo trước| COM
+    NEW -->|Không hoặc tìm lại lỗi| COM["Composer: nhận diện có điều kiện + claim supported<br/>Nguồn lịch sử có điều kiện khi probable<br/>Nêu câu hỏi còn thiếu; không đòi xác nhận tuyệt đối"]
+    R -->|Không| COM
+
+    COM --> ASK{"Thiếu định danh/ảnh thực sự chặn đáp án<br/>và còn lượt hỏi bổ sung?<br/>Thiếu tư liệu không tự hỏi lại tên"}
+    ASK -->|Không| ANS["answered / partial / insufficient_evidence"]
+    ASK -->|Có| WAIT["needs_clarification<br/>Lưu phần có căn cứ; awaiting_input; đóng SSE"]
+    WAIT --> USER["Người dùng trả lời, chọn ứng viên<br/>hoặc gửi ảnh bổ sung"]
+    USER --> POST["POST clarification: owner, revision,<br/>idempotency, hạn chờ và ngân sách"]
+    POST --> CHILD["Tạo child run; giữ result gốc<br/>Dùng lại visual/OCR nếu ảnh, query và cấu hình phù hợp"]
+    CHILD --> S
+
+    ANS --> SAVE["Lưu result và artifact<br/>Phát event kết thúc đoạn xử lý"]
+    OUT --> SAVE
+    UV --> SAVE
+
+    classDef decision fill:#fff3cd,stroke:#ad7b00,color:#2b2100
+    classDef evidence fill:#e7f1ff,stroke:#2463a7,color:#102a43
+    classDef waiting fill:#fff0df,stroke:#b96916,color:#4d2b08
+    classDef failure fill:#fde8e8,stroke:#b33a3a,color:#5b1515
+    class IN,R,NEW,ASK decision
+    class V,K,J,G,JR,COM evidence
+    class WAIT,USER,POST,CHILD waiting
+    class UV,OUT failure

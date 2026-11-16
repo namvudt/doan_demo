@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "annotation_status": "draft",
+  "note": "32 ca dự thảo từ 4 ảnh sẵn có, tên file chỉ là gợi ý chưa xác minh. Chưa có gold, quyền ảnh hay chuyên gia duyệt. Cần bổ sung ảnh thực tế, nguồn và ảnh suy giảm trước nghiệm thu.",
+  "images": [
+    {"path": "samples/chua_mot_cot.jpg", "family": "mot_cot_sample", "entity_group": "mot_cot_draft"},
+    {"path": "samples/khue_van_cac.jpg", "family": "khue_van_sample", "entity_group": "van_mieu_draft"},
+    {"path": "samples/ho_guom.jpg", "family": "ho_guom_sample", "entity_group": "ho_guom_draft"},
+    {"path": "samples/chua_huong.jpg", "family": "chua_huong_sample", "entity_group": "chua_huong_draft"}
+  ],
+  "questions": [
+    {"id": "identify", "kind": "identity", "text": "Ảnh có đủ căn cứ xác định công trình nào không? Phân biệt công trình thành phần và quần thể."},
+    {"id": "visible", "kind": "visual", "text": "Mô tả các chi tiết kiến trúc nhìn thấy rõ và chỉ vùng ảnh tương ứng."},
+    {"id": "text", "kind": "visual", "text": "Có đọc được chữ trên bảng hoặc biển trong ảnh không? Chỉ chép phần đọc được."},
+    {"id": "built", "kind": "historical", "text": "Công trình trong ảnh được khởi dựng khi nào? Phân biệt khởi dựng với tái dựng và trùng tu, dẫn nguồn."},
+    {"id": "restored", "kind": "historical", "text": "Những lần trùng tu nào có tư liệu cho đúng công trình này? Nếu thiếu nguồn hãy nêu rõ."},
+    {"id": "symbol", "kind": "mixed", "text": "Chi tiết trang trí nào quan sát được và có nguồn nào giải thích ý nghĩa của nó?"},
+    {"id": "material", "kind": "mixed", "text": "Có thể xác định chính xác loại gỗ hoặc nguồn vật liệu chỉ từ ảnh không? Tách quan sát và tư liệu."},
+    {"id": "difficult", "kind": "mixed", "text": "Chỗ mái kia trông cũ, cái này có từ đời nào? Nếu ảnh không rõ hãy trả lời phần có căn cứ và hỏi đúng thông tin còn thiếu."}
+  ]
+}
