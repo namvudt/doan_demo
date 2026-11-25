@@ -1605,7 +1605,9 @@ function ApiRunDetail({ runId }: { runId: string }) {
                 </span>
                 <span>{state.result.duration.toFixed(2)} giây</span>
               </div>
-              <Markdown>{state.result.final_response}</Markdown>
+              <Markdown sources={state.sources}>
+                {state.result.final_response}
+              </Markdown>
             </section>
           ) : (
             <StatusCard

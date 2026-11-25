@@ -47,13 +47,21 @@ export function MapPage() {
   const expandButtonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const query = params.get("q") || "";
-  const province = params.get("province") || "";
+  const provinceParam = params.get("province");
   const category = params.get("category") || "";
   const selectedId = params.get("selected") || undefined;
   const provinces = useMemo(
     () => [...new Set(records.map((item) => item.province))].sort(),
     [records],
   );
+  const province =
+    provinceParam === "all"
+      ? ""
+      : provinceParam !== null
+        ? provinceParam
+        : app.mode === "api" && !selectedId && provinces.includes("Hà Nội")
+          ? "Hà Nội"
+          : "";
   const items = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("vi");
     return records.filter(
@@ -76,6 +84,7 @@ export function MapPage() {
       located.map((item) => ({
         id: item.id,
         name: item.name,
+        category: item.category,
         latitude: item.coordinates?.latitude,
         longitude: item.coordinates?.longitude,
         coordinateVerified: item.coordinates?.verified,
@@ -164,8 +173,13 @@ export function MapPage() {
   };
   const updateFilter = (name: string, value: string) => {
     const next = new URLSearchParams(params);
-    if (value) next.set(name, value);
-    else next.delete(name);
+    if (name === "province" && !value && app.mode === "api") {
+      next.set("province", "all");
+    } else if (value) {
+      next.set(name, value);
+    } else {
+      next.delete(name);
+    }
     next.delete("selected");
     setParams(next, { replace: true });
   };

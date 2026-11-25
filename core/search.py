@@ -217,7 +217,7 @@ class HeritageSearchEngine:
         terms = (
             self.catalog.terms(identifier)
             if identifier
-            else ([monument_hint.strip()] if monument_hint.strip() else [])
+            else _fallback_entity_terms(monument_hint)
         )
         name = terms[0] if terms else ""
         attempts, sources, rejected = [], [], 0
@@ -374,6 +374,26 @@ class HeritageSearchEngine:
                 : self.policy.max_results
             ]
         ]
+
+
+def _fallback_entity_terms(monument_hint):
+    raw = (monument_hint or "").strip()
+    if not raw:
+        return []
+    head = raw
+    while True:
+        match = re.fullmatch(r"(.+?)\s*\(([^()]*)\)\s*", head)
+        if not match:
+            match = re.fullmatch(r"(.+?)\s+[-–—]\s+(.+)", head)
+        if not match:
+            match = re.fullmatch(r"(.+?)\s*,\s*(.+)", head)
+        if not match:
+            break
+        candidate = match[1].strip()
+        if len(candidate) < 3:
+            break
+        head = candidate
+    return list(dict.fromkeys([head, raw]))
 
 
 def relevant_passage(text, query, max_chars, *, required_terms=()):

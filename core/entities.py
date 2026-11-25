@@ -48,16 +48,26 @@ class EntityCatalog:
         if exact:
             return exact
         # Never pick a nested component from a substring of a site's name.
-        match = re.fullmatch(r"(.+?)\s*\(([^()]*)\)\s*", name.strip())
-        if not match:
-            match = re.fullmatch(r"(.+?)\s*[-–—,]\s*(.+)", name.strip())
-        if not match:
-            return None
-        ids = self.index.get(normalized_text(match[1]), set())
-        matched = [
-            identifier for identifier in ids if self._qualifier_matches(identifier, match[2])
-        ]
-        return matched[0] if len(matched) == 1 else None
+        head = name.strip()
+        qualifiers = []
+        while True:
+            match = re.fullmatch(r"(.+?)\s*\(([^()]*)\)\s*", head)
+            if not match:
+                match = re.fullmatch(r"(.+?)\s*[-–—,]\s*(.+)", head)
+            if not match:
+                break
+            head = match[1].strip()
+            qualifiers.append(match[2].strip())
+            ids = self.index.get(normalized_text(head), set())
+            if ids:
+                combined = " ".join(qualifiers)
+                matched = [
+                    identifier
+                    for identifier in ids
+                    if self._qualifier_matches(identifier, combined)
+                ]
+                return matched[0] if len(matched) == 1 else None
+        return None
 
     def _qualifier_matches(self, identifier, qualifier):
         locations = list(self.entities[identifier].get("localities", []))

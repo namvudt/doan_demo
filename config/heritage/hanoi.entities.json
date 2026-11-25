@@ -50,6 +50,7 @@
       "entity_id": "hanoi:den-ngoc-son",
       "name": "Đền Ngọc Sơn",
       "aliases": [],
+      "localities": ["Hồ Hoàn Kiếm", "Hồ Gươm", "Hoàn Kiếm", "Hà Nội"],
       "parent_id": null,
       "annotation_status": "draft"
     },
@@ -64,6 +65,7 @@
       "entity_id": "hanoi:thap-rua",
       "name": "Tháp Rùa",
       "aliases": [],
+      "localities": ["Hồ Hoàn Kiếm", "Hồ Gươm", "Hoàn Kiếm", "Hà Nội"],
       "parent_id": null,
       "annotation_status": "draft"
     },

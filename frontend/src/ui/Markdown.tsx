@@ -14,8 +14,46 @@ function safeHref(value?: string) {
   }
 }
 
+export type MarkdownSourceRef = {
+  source_id: string;
+  title: string;
+  url?: string | null;
+};
+
+function linkifyCitations(text: string, sources?: MarkdownSourceRef[]) {
+  if (!sources?.length) return text;
+  const lookup = new Map<
+    string,
+    { index: number; title: string; href: string }
+  >();
+  sources.forEach((source, index) => {
+    const href = safeHref(source.url || undefined) || `#source-${source.source_id}`;
+    lookup.set(source.source_id, {
+      index: index + 1,
+      title: source.title || source.source_id,
+      href,
+    });
+  });
+  return text.replace(
+    /\[((?:wiki|web)_[A-Za-z0-9_-]+)\](?!\()/g,
+    (match, id: string) => {
+      const target = lookup.get(id);
+      if (!target) return match;
+      const cleanTitle = target.title.replace(/[\[\]]/g, "");
+      return `[${target.index}. ${cleanTitle}](${target.href})`;
+    },
+  );
+}
+
 /** Generated answers are rendered as Markdown without raw HTML or remote images. */
-export function Markdown({ children }: { children: string }) {
+export function Markdown({
+  children,
+  sources,
+}: {
+  children: string;
+  sources?: MarkdownSourceRef[];
+}) {
+  const content = linkifyCitations(children, sources);
   return (
     <div className="markdown">
       <ReactMarkdown
@@ -39,7 +77,7 @@ export function Markdown({ children }: { children: string }) {
           ),
         }}
       >
-        {children}
+        {content}
       </ReactMarkdown>
     </div>
   );

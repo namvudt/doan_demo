@@ -78,17 +78,22 @@ export function getMapProviderConfig(
     // An empty URL intentionally selects the coordinate diagram.
   }
   const osmDe = host === "tile.openstreetmap.de";
+  const carto = host === "basemaps.cartocdn.com" || host.endsWith(".basemaps.cartocdn.com");
+  const esri = host === "server.arcgisonline.com";
   return {
     id: host === "tile.openstreetmap.org" || osmDe ? "osm" : "custom",
     label: "Bản đồ trực tuyến",
     tileUrl,
-    attribution:
-      osmCredit +
-      (osmDe
-        ? ' · Tiles: <a href="https://www.openstreetmap.de/" target="_blank" rel="noopener noreferrer">OpenStreetMap Deutschland</a>'
-        : ""),
+    attribution: esri
+      ? 'Tiles &copy; <a href="https://www.esri.com/" target="_blank" rel="noopener noreferrer">Esri</a>'
+      : osmCredit +
+        (osmDe
+          ? ' · Tiles: <a href="https://www.openstreetmap.de/" target="_blank" rel="noopener noreferrer">OpenStreetMap Deutschland</a>'
+          : carto
+            ? ' · &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a>'
+            : ""),
     tileSize: 256,
     zoomOffset: 0,
-    ...(osmDe ? { maxNativeZoom: 18 } : {}),
+    ...(osmDe ? { maxNativeZoom: 18 } : esri ? { maxNativeZoom: 18 } : {}),
   };
 }

@@ -37,6 +37,9 @@ def test_site_component_and_qualified_aliases_do_not_create_false_ambiguity():
     assert catalog.resolve("Chùa Thiên Trù (Huế)") is None
     assert catalog.resolve("Chùa Thiên Trù khác") is None
     assert catalog.resolve("Khuê Văn Các (Hoàng thành Thăng Long)") is None
+    assert catalog.resolve("Tháp Rùa - Hồ Hoàn Kiếm (Hà Nội)") == "hanoi:thap-rua"
+    assert catalog.resolve("Tháp Rùa - Hồ Gươm (Hà Nội)") == "hanoi:thap-rua"
+    assert catalog.resolve("Tháp Rùa - Huế (Hà Nội)") is None
     assert catalog.most_specific([child, parent]) == child
     assert catalog.most_specific([child, catalog.resolve("Chùa Một Cột")]) is None
 

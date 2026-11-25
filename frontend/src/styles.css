@@ -1430,11 +1430,69 @@ summary:focus-visible {
   background: #bd9568;
   border-color: #ecd1ae;
 }
+.heritage-pin.cat-temple span {
+  color: #fff8f5;
+  background: #a63d33;
+  border-color: #f4c6bc;
+}
+.heritage-pin.cat-monument span {
+  color: #1f190c;
+  background: #c89d46;
+  border-color: #f6e4b6;
+}
+.heritage-pin.cat-archaeology span {
+  color: #fff8f2;
+  background: #8a5638;
+  border-color: #e7c9b6;
+}
+.heritage-pin.cat-museum span {
+  color: #f2fbf9;
+  background: #2d6a62;
+  border-color: #b4ded6;
+}
 .heritage-pin.selected span {
   color: #fff;
-  background: #537865;
-  border-color: #b5d3bf;
-  transform: rotate(-45deg) scale(1.14);
+  background: #234739;
+  border-color: #f5e2b5;
+  transform: rotate(-45deg) scale(1.18);
+  box-shadow:
+    0 0 0 4px #ffffff73,
+    0 8px 20px #000a;
+}
+.map-category-legend {
+  position: absolute;
+  left: 16px;
+  bottom: 26px;
+  z-index: 440;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #10241ce6;
+  border: 1px solid #3f5e4d;
+  color: #e2ebe4;
+  font-size: 0.72rem;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.map-category-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.map-category-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid #ffffff80;
+}
+@media (max-width: 760px) {
+  .map-category-legend {
+    display: none;
+  }
 }
 .leaflet-control-attribution {
   background: #0d1513dc !important;

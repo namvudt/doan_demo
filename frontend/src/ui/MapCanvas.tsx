@@ -20,10 +20,26 @@ import "./map-experience.css";
 export type MapItem = {
   id: string;
   name: string;
+  category?: string;
   latitude?: number | null;
   longitude?: number | null;
   coordinateVerified?: boolean;
 };
+
+const CATEGORY_ICONS: Record<string, string> = {
+  temple:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M6 20v-6h12v6M4 14h16l-2-3H6l-2 3zM7 11h10l-5-5-5 5zM12 6V3"/></svg>',
+  monument:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M7 20l1-10h8l1 10M9 10V6l3-3 3 3v4M10 20v-4h4v4"/></svg>',
+  archaeology:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 20V9h14v11M5 9V6h3v3M10.5 9V6h3v3M16 9V6h3v3M10 20v-5a2 2 0 0 1 4 0v5"/></svg>',
+  museum:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18M5 17h14M6 17v-7M10 17v-7M14 17v-7M18 17v-7M3 10h18L12 4 3 10z"/></svg>',
+};
+
+function categoryKey(category?: string): string {
+  return category && category in CATEGORY_ICONS ? category : "monument";
+}
 
 type Props = {
   items: MapItem[];
@@ -301,9 +317,10 @@ export function MapCanvas({
       const selected = item.id === selectedId;
       let entry = entries.get(item.id);
       if (!entry) {
+        const cat = categoryKey(item.category);
         const icon = L.divIcon({
-          className: `heritage-pin ${selected ? "selected" : ""} ${item.coordinateVerified ? "verified" : "illustrative"}`,
-          html: '<span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18M5 18h14M7 16V9h10v7M4 9h16L12 3zM10 16v-4h4v4"/></svg></span>',
+          className: `heritage-pin cat-${cat} ${selected ? "selected" : ""} ${item.coordinateVerified ? "verified" : "illustrative"}`,
+          html: `<span aria-hidden="true">${CATEGORY_ICONS[cat]}</span>`,
           iconSize: [38, 44],
           iconAnchor: [19, 44],
         });
@@ -613,6 +630,26 @@ export function MapCanvas({
           <LocateFixed size={18} className={locating ? "is-locating" : ""} />
         </button>
       </div>
+      {mode === "online" && (
+        <div className="map-category-legend" aria-label="Chú giải loại di sản">
+          <span>
+            <i style={{ background: "#a63d33" }} />
+            Đền / Chùa
+          </span>
+          <span>
+            <i style={{ background: "#c89d46" }} />
+            Di tích
+          </span>
+          <span>
+            <i style={{ background: "#8a5638" }} />
+            Khảo cổ
+          </span>
+          <span>
+            <i style={{ background: "#2d6a62" }} />
+            Bảo tàng
+          </span>
+        </div>
+      )}
       {locationMessage && (
         <span className="map-location-message" role="status">
           {locationMessage}
