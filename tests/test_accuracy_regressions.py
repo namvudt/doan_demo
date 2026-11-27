@@ -163,7 +163,8 @@ def test_visual_label_cannot_bypass_han_nom_or_factual_attribute_policy(text, re
                 "verdict": "supported",
                 "evidence_ids": ["img"],
             }
-        ]
+        ],
+        slot_assessments=[],
     )
     checked = check_claims(
         review,
@@ -195,7 +196,11 @@ def test_safe_visual_observations_and_evidence_backed_materials_remain_answerabl
     }
     assert (
         check_claims(
-            EvidenceReview(claims=[plain]), evidence, slots, policy, identity_resolved=False
+            EvidenceReview(claims=[plain], slot_assessments=[]),
+            evidence,
+            slots,
+            policy,
+            identity_resolved=False,
         )[0]["verdict"]
         == "supported"
     )
@@ -219,7 +224,7 @@ def test_safe_visual_observations_and_evidence_backed_materials_remain_answerabl
     }
     assert (
         check_claims(
-            EvidenceReview(claims=[factual]),
+            EvidenceReview(claims=[factual], slot_assessments=[]),
             evidence,
             slots,
             policy,
@@ -229,7 +234,7 @@ def test_safe_visual_observations_and_evidence_backed_materials_remain_answerabl
         == "supported"
     )
     wrong = check_claims(
-        EvidenceReview(claims=[factual]),
+        EvidenceReview(claims=[factual], slot_assessments=[]),
         evidence,
         slots,
         policy,
@@ -290,7 +295,10 @@ def test_han_reading_is_omitted_before_it_can_ground_an_answer(photo):
                             "verdict": "supported",
                             "evidence_ids": [payload["evidence"][0]["evidence_id"]],
                         }
-                    ]
+                    ],
+                    "slot_assessments": [
+                        {"slot_id": "visible", "status": "complete", "missing_information": []}
+                    ],
                 }
             )
 
@@ -365,7 +373,15 @@ def test_historical_facts_are_conditioned_when_photo_identity_is_not_verified(ph
                                 {"evidence_id": doc["evidence_id"], "quote": doc["text"]}
                             ],
                         },
-                    ]
+                    ],
+                    "slot_assessments": [
+                        {
+                            "slot_id": "identity",
+                            "status": "unanswered",
+                            "missing_information": ["Image identity has not been verified."],
+                        },
+                        {"slot_id": "history", "status": "complete", "missing_information": []},
+                    ],
                 }
             )
 

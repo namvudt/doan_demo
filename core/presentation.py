@@ -71,6 +71,7 @@ def search_artifact(search):
         "search_queries": search.get("search_queries", []),
         "rejected_source_count": search.get("rejected_source_count", 0),
         "entity_filter_applied": search.get("entity_filter_applied", False),
+        "retrieval_diagnostics": search.get("retrieval_diagnostics", {}),
         "error_type": search.get("error"),
         "navigation_links": [
             {"title": item.get("title", "Mở bản đồ"), "url": safe_url(item.get("url"))}
@@ -122,6 +123,7 @@ def stage_artifact(node, update):
                     "focus_directives",
                     "requested_slots",
                     "candidates",
+                    "question_subject",
                     "regions",
                 )
                 if key in plan
@@ -150,6 +152,7 @@ def stage_artifact(node, update):
                                 "search_queries",
                                 "rejected_source_count",
                                 "entity_filter_applied",
+                                "retrieval_diagnostics",
                             )
                             if key in expert_meta
                         },
@@ -166,6 +169,7 @@ def stage_artifact(node, update):
     elif node == "judge":
         for key in (
             "answer_status",
+            "slot_results",
             "recognition",
             "location_hint",
             "claims",
@@ -174,6 +178,7 @@ def stage_artifact(node, update):
             "candidates",
             "clarification",
             "tool_calls",
+            "review_diagnostics",
         ):
             if key in meta:
                 artifact[key] = meta[key]

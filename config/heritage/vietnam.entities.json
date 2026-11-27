@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "extends": "hanoi.entities.json",
+  "region": "Việt Nam",
+  "annotation_status": "draft",
+  "note": "Open-world labels and aliases checked against public tourism/heritage sources. No benchmark IDs, answers, dates, country-of-site facts or evaluation annotations. Labels and relations are not registered answer evidence. Administrative labels can be question subjects, never image candidates by default. Related places and protected areas remain distinct entities.",
+  "entities": [
+    {
+      "entity_id": "place:ly-son", "name": "Đảo Lý Sơn", "aliases": ["Lý Sơn", "Ly Son Island", "Ly Son"],
+      "entity_type": "place", "localities": ["Quảng Ngãi"], "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://vietnam.travel/things-to-do/ly-son-island-vietnams-next-must-visit-island-destination/"]
+    },
+    {
+      "entity_id": "heritage:son-la-prison", "name": "Nhà tù Sơn La", "aliases": ["Di tích Nhà tù Sơn La", "Son La Prison"],
+      "entity_type": "heritage_site", "localities": ["Sơn La"], "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://data.sonla.gov.vn/detail_data/du-lieu-di-tich-tren-dia-ban-tinh-he-thong-thong-tin-quan-ly-di-tich"]
+    },
+    {
+      "entity_id": "admin:son-la", "name": "Sơn La", "aliases": ["Tỉnh Sơn La", "Son La Province"],
+      "entity_type": "administrative_area", "annotation_status": "label_only",
+      "source_refs": ["https://data.sonla.gov.vn/detail_data/du-lieu-di-tich-tren-dia-ban-tinh-he-thong-thong-tin-quan-ly-di-tich"]
+    },
+    {
+      "entity_id": "place:mui-ca-mau", "name": "Mũi Cà Mau", "aliases": ["Mui Ca Mau", "Cape Ca Mau"],
+      "entity_type": "place", "localities": ["Cà Mau", "Đất Mũi"], "parent_id": null, "annotation_status": "label_only",
+      "relations": [{"type": "located_within", "target_id": "protected:mui-ca-mau", "note": "Geographic relation, not an alias or proof of image identity."}],
+      "source_refs": ["https://mtqg.gov.vn/du-lich/31-khu-du-lich-mui-ca-mau"]
+    },
+    {
+      "entity_id": "protected:mui-ca-mau", "name": "Vườn quốc gia Mũi Cà Mau", "aliases": ["VQG Mũi Cà Mau", "Mui Ca Mau National Park"],
+      "entity_type": "protected_area", "localities": ["Cà Mau", "Đất Mũi"], "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://nbca.gov.vn/vuon-quoc-gia-mui-ca-mau-ca-mau/"]
+    },
+    {
+      "entity_id": "place:ha-long-bay", "name": "Vịnh Hạ Long", "aliases": ["Ha Long Bay", "Halong Bay"],
+      "entity_type": "place", "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://dsvh.gov.vn/di-san-van-hoa-va-thien-nhien-the-gioi-1754"]
+    },
+    {
+      "entity_id": "heritage:hoi-an-old-town", "name": "Phố cổ Hội An", "aliases": ["Đô thị cổ Hội An", "Hoi An Ancient Town"],
+      "entity_type": "heritage_site", "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://whc.unesco.org/en/list/948", "https://dsvh.gov.vn/di-san-van-hoa-va-thien-nhien-the-gioi-1754"]
+    },
+    {
+      "entity_id": "heritage:my-son", "name": "Thánh địa Mỹ Sơn", "aliases": ["Khu đền tháp Mỹ Sơn", "My Son Sanctuary"],
+      "entity_type": "heritage_site", "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://whc.unesco.org/en/list/949"]
+    },
+    {
+      "entity_id": "heritage:hue-monuments", "name": "Quần thể di tích Cố đô Huế", "aliases": ["Complex of Hue Monuments"],
+      "entity_type": "heritage_site", "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://dsvh.gov.vn/di-san-van-hoa-va-thien-nhien-the-gioi-1754"]
+    },
+    {
+      "entity_id": "protected:phong-nha-ke-bang", "name": "Vườn quốc gia Phong Nha – Kẻ Bàng", "aliases": ["Vườn quốc gia Phong Nha Kẻ Bàng", "Phong Nha Kẻ Bàng", "Phong Nha-Ke Bang National Park"],
+      "entity_type": "protected_area", "parent_id": null, "annotation_status": "label_only",
+      "source_refs": ["https://dsvh.gov.vn/di-san-van-hoa-va-thien-nhien-the-gioi-1754"]
+    }
+  ]
+}

@@ -48,4 +48,4 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked --group dev
-      - run: uv run --locked pytest tests/test_api.py tests/test_accuracy_profile.py tests/test_recognition_api.py --tb=short
+      - run: uv run --locked pytest tests/test_api.py tests/test_accuracy_profile.py tests/test_recognition_api.py tests/test_slot_results.py --tb=short

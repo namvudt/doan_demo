@@ -12,11 +12,24 @@ roles:
   aggregator: {max_output_tokens: 4096}
   judge: {max_output_tokens: 8192}
 accuracy:
+  questions:
+    split_history_slots: true
+    require_nearest_scope: true
+  perception:
+    resolve_before_retrieval: true
+    require_count_grounding: true
+    reject_suspected_axis_swap: true
+  verifier_contract_retries: 1
+  entities:
+    reject_answer_values: true
+    extract_explicit_subject: true
+    # Các cụm certainty/negation/unknown và lịch sử kế thừa mặc định; có thể ghi đè tại đây.
   recognition:
     enabled: true
     min_observations: 2
     # Chưa có tập gold được duyệt để hiệu chuẩn mức nhận diện chắc chắn.
     max_status: probable
+    max_disambiguation_rounds: 1
   enabled: true
   pilot_region: Hà Nội
   entity_catalog: config/heritage/hanoi.entities.json
@@ -32,6 +45,8 @@ accuracy:
     allow_han_nom_reading: false
     require_source_for_specific_materials: true
     require_source_for_dates: true
+    require_relation_quote: true
+    source_relation_rules: {}
   image:
     ocr_enabled: true
     ocr_role: visual

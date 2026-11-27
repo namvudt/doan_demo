@@ -1,0 +1,6 @@
+# Evaluation-only policy. Spacing does not solve exhausted daily/spend quotas.
+request_spacing_seconds: 30
+case_spacing_seconds: 60
+quota_cooldown_seconds: 90
+max_cases: 3
+max_provider_calls: 24

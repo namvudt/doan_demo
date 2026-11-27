@@ -104,6 +104,10 @@ Chi tiết PostgreSQL, worker, SSE và tích hợp frontend: [API server](docs/a
 ## Workflow và cấu hình
 
 Profile mới tập trung độ chính xác và trải nghiệm: [hanoi-evidence](docs/accuracy-profile.md).
+API có `slot_results` để hiển thị kết quả/lý do theo từng ý hỏi và phản hồi hỏi bổ sung
+`response_type=unknown`. [Hợp đồng và triển khai](docs/api-slot-contract.md).
+Chạy API/worker đồng bộ với profile này bằng
+`docker compose -f compose.yaml -f compose.evidence.yaml up -d --build api worker`.
 Có nhận định kèm bằng chứng/vùng ảnh, OCR có giới hạn, câu trả lời một phần và hỏi bổ sung
 qua API/Streamlit. Thử riêng: `uv run --locked python -m scripts.serve_api --demo --profile hanoi-evidence --port 8001`.
 Luồng mặc định được giữ để so sánh; chỉ bật profile mới cho production sau đánh giá pilot.
@@ -119,6 +123,10 @@ mọi dữ kiện đều chính xác. [Kiến trúc](ARCHITECTURE.md) · [Sơ đ
   để xem prompt/response đã lọc credential. [Hướng dẫn](docs/langsmith.md).
 - Log JSON, model diagnostics, metrics và Prometheus: [Observability](docs/observability.md).
 - CLI nghiên cứu: `uv run --locked python benchmark_run.py --help`.
+- Bộ benchmark di tích/VQA và đề xuất đánh giá Hà Nội: [khảo sát benchmark](docs/benchmark-survey.md).
+  Đây là khảo sát nguồn; chưa chạy benchmark chất lượng hệ thống.
+- Thử 3 câu VietTravelVQA với Gemini, có khoảng nghỉ và dừng khi 429: [evaluation nhỏ](docs/evaluation-smoke.md).
+- Job nền VietTravelVQA, mẫu validation và cách theo dõi: [hướng dẫn job](docs/viettravel-evaluation-job.md).
 
 ## Kiểm tra và tạo lại artifact
 

@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -62,6 +63,10 @@ class RetrievalPolicy(StrictConfig):
     candidate_limit: int = Field(default=6, ge=1, le=12)
     entity_first: bool = True
     require_entity_mention: bool = True
+    relation_aware: bool = True
+    require_relation_coverage: bool = True
+    relation_rules: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
+    max_http_requests: int = Field(default=24, ge=1, le=80)
     max_queries: int = Field(default=2, ge=1, le=4)
     max_source_chars: int = Field(default=2400, ge=200, le=8000)
     timeout_seconds: float = Field(default=6, gt=0, le=30)
@@ -76,11 +81,23 @@ class RetrievalPolicy(StrictConfig):
         ]
     )
 
+    @model_validator(mode="after")
+    def valid_relation_patterns(self):
+        for rule in self.relation_rules.values():
+            for pattern in rule.get("coverage_patterns", []):
+                try:
+                    re.compile(pattern)
+                except re.error:
+                    raise ValueError("Invalid retrieval coverage pattern") from None
+        return self
+
 
 class ClaimPolicy(StrictConfig):
     allow_han_nom_reading: bool = False
     require_source_for_specific_materials: bool = True
     require_source_for_dates: bool = True
+    require_relation_quote: bool = True
+    source_relation_rules: dict[str, dict[str, list[str]]] = Field(default_factory=dict)
     specific_material_terms: list[str] = Field(
         default_factory=lambda: [
             "gỗ lim",
@@ -106,11 +123,141 @@ class ClaimPolicy(StrictConfig):
         ]
     )
 
+    @model_validator(mode="after")
+    def valid_source_patterns(self):
+        for rule in self.source_relation_rules.values():
+            for name, patterns in rule.items():
+                if name.endswith("patterns"):
+                    for pattern in patterns:
+                        try:
+                            re.compile(
+                                pattern.replace("{subject}", "subject").replace(
+                                    "{object}", "object"
+                                )
+                            )
+                        except re.error:
+                            raise ValueError("Invalid source relation pattern") from None
+        return self
+
 
 class RecognitionPolicy(StrictConfig):
     enabled: bool = True
     min_observations: int = Field(default=2, ge=1, le=20)
     max_status: Literal["probable", "recognized"] = "probable"
+    max_disambiguation_rounds: int = Field(default=0, ge=0, le=1)
+
+
+class QuestionPolicy(StrictConfig):
+    nearest_patterns: list[str] = Field(
+        default_factory=lambda: [r"\bgan\b[^.!?;\n]{0,80}\bnhat\b", r"\b(?:closest|nearest)\b"]
+    )
+    nearest_terms: list[str] = Field(default_factory=list)
+    nearest_scope_terms: list[str] = Field(
+        default_factory=lambda: [
+            "trong số",
+            "trong phạm vi",
+            "trong bán kính",
+            "among",
+            "within",
+            "listed",
+        ]
+    )
+    require_nearest_scope: bool = True
+    nearest_scope_max_chars: int = Field(default=500, ge=50, le=2000)
+
+    @model_validator(mode="after")
+    def valid_nearest_patterns(self):
+        for pattern in self.nearest_patterns:
+            try:
+                re.compile(pattern)
+            except re.error:
+                raise ValueError("Invalid nearest question pattern") from None
+        return self
+
+    certainty_terms: list[str] = Field(
+        default_factory=lambda: [
+            "xác nhận chắc chắn",
+            "khẳng định chắc chắn",
+            "xác định tuyệt đối",
+            "with certainty",
+        ]
+    )
+    certainty_negations: list[str] = Field(
+        default_factory=lambda: [
+            "không cần",
+            "không yêu cầu",
+            "không nhất thiết",
+            "chưa cần",
+            "khỏi",
+            "no need",
+            "do not",
+            "don't",
+            "without",
+        ]
+    )
+    unknown_answers: list[str] = Field(
+        default_factory=lambda: [
+            "không biết",
+            "tôi không biết",
+            "mình không biết",
+            "em không biết",
+            "không biết tên",
+            "tôi không biết tên",
+            "không rõ",
+            "chưa rõ",
+            "không chắc",
+            "không chắc chắn",
+            "I don't know",
+            "unknown",
+            "not sure",
+        ]
+    )
+    split_history_slots: bool = True
+    history_facets: dict[Literal["construction", "restoration", "reconstruction"], list[str]] = (
+        Field(
+            default_factory=lambda: {
+                "construction": ["khởi dựng", "khởi công", "xây dựng khi nào", "năm xây dựng"],
+                "restoration": ["trùng tu", "tu bổ"],
+                "reconstruction": ["tái dựng", "xây lại", "phục dựng"],
+            }
+        )
+    )
+    facet_questions: dict[str, str] = Field(
+        default_factory=lambda: {
+            "construction": "Công trình được khởi dựng khi nào?",
+            "restoration": "Những mốc trùng tu của công trình có tư liệu đối chiếu là gì?",
+            "reconstruction": "Những mốc tái dựng của công trình có tư liệu đối chiếu là gì?",
+        }
+    )
+
+
+class PerceptionPolicy(StrictConfig):
+    separate_readability: bool = False
+    ocr_only_when_requested: bool = False
+    concise_claims: bool = False
+    resolve_before_retrieval: bool = True
+    require_count_grounding: bool = False
+    reject_suspected_axis_swap: bool = True
+
+
+class EntityPolicy(StrictConfig):
+    reject_answer_values: bool = True
+    allowed_candidate_types: list[str] = Field(
+        default_factory=lambda: ["heritage_site", "place", "protected_area", "unknown"]
+    )
+    extract_explicit_subject: bool = True
+    subject_patterns: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def valid_subject_patterns(self):
+        for pattern in self.subject_patterns:
+            try:
+                compiled = re.compile(pattern)
+            except re.error:
+                raise ValueError("Invalid subject extraction pattern") from None
+            if "subject" not in compiled.groupindex:
+                raise ValueError("Subject pattern requires a named subject group")
+        return self
 
 
 class AccuracyPolicy(StrictConfig):
@@ -121,6 +268,10 @@ class AccuracyPolicy(StrictConfig):
     retrieval: RetrievalPolicy = Field(default_factory=RetrievalPolicy)
     claim_policy: ClaimPolicy = Field(default_factory=ClaimPolicy)
     recognition: RecognitionPolicy = Field(default_factory=RecognitionPolicy)
+    questions: QuestionPolicy = Field(default_factory=QuestionPolicy)
+    perception: PerceptionPolicy = Field(default_factory=PerceptionPolicy)
+    entities: EntityPolicy = Field(default_factory=EntityPolicy)
+    verifier_contract_retries: int = Field(default=1, ge=0, le=1)
     intermediate_max_chars: int = Field(default=1800, ge=300, le=8000)
     verifier_role: str = "judge"
     max_tool_calls: int = Field(default=12, ge=1, le=40)

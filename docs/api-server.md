@@ -258,6 +258,11 @@ Compose chạy PostgreSQL 17, API và worker riêng, dùng chung volume ảnh. S
 được Alembic migrate khi startup. API bind `127.0.0.1:8000`; publish qua reverse
 proxy HTTPS. Ví dụ SSE proxy: [nginx.conf.example](../deploy/nginx.conf.example).
 
+Để dùng profile bằng chứng cho cả API và worker, dùng
+`docker compose -f compose.yaml -f compose.evidence.yaml up -d --build api worker`.
+Kết quả từng ý hỏi, phản hồi `unknown`, SSE và tương thích dữ liệu cũ được mô tả ở
+[API slot contract](api-slot-contract.md).
+
 Chạy không Docker: đặt `DATABASE_URL=postgresql+psycopg://...`,
 `API_EMBEDDED_WORKER=false` và khởi động worker ở terminal khác:
 

@@ -57,7 +57,7 @@ class AggregatorAgent:
     ):
         system = AGGREGATOR_SYSTEM_PROMPT
         if self.llm.config.accuracy.enabled:
-            system += f"\nBản nháp tối đa {self.llm.config.accuracy.intermediate_max_chars} ký tự, mỗi ý một câu, không lặp lại dữ liệu. Không phiên đọc Hán–Nôm; không suy đồng/loại gỗ/đá vôi từ ảnh. Chỉ nêu những thuộc tính đó khi có nguồn nói rõ. Không thêm phần giới thiệu chung hoặc lời mời du lịch."
+            system += f"\nBản nháp tối đa {self.llm.config.accuracy.intermediate_max_chars} ký tự, mỗi ý một câu, không lặp lại dữ liệu. Không phiên đọc Hán–Nôm; không suy đồng/loại gỗ/đá vôi từ ảnh. Chỉ nêu những thuộc tính đó khi có nguồn nói rõ. Không thêm phần giới thiệu chung hoặc lời mời du lịch. Chỉ trả phần câu hỏi thực sự yêu cầu; câu đếm/màu sắc không cần mục lịch sử hoặc thông báo thiếu lịch sử. Nguồn nhắc tên không có nghĩa nguồn chứng minh quan hệ đang hỏi. Không tự thêm quốc gia hay xếp hạng từ trí nhớ. Câu hỏi gần nhất cần xác định địa điểm, phạm vi so sánh và căn cứ khoảng cách trước khi trả loại hình, không thay bằng danh sách cảnh quan quanh đó."
         return self.llm.call_llm(
             prompt=self._prompt(
                 query, visual_findings, knowledge_findings, generation_findings, audience

@@ -1,5 +1,8 @@
 # Profile bằng chứng và trải nghiệm hỏi đáp
 
+Kết quả theo từng ý hỏi, `response_type=unknown`, đồng bộ SSE và cách triển khai Docker:
+[API slot contract](api-slot-contract.md).
+
 Nếu vừa cập nhật code/schema mà Streamlit báo `ValidationError` dù YAML hợp lệ,
 dừng rồi chạy lại tiến trình Streamlit để nạp các model cấu hình mới. Refresh/Rerun
 trong phiên trình duyệt có thể vẫn dùng module Python cũ. UI báo tên trường và loại
@@ -87,7 +90,7 @@ flowchart TD
     A[Ảnh và câu hỏi] --> Q[Đo tín hiệu chất lượng ảnh]
     Q --> P[Tách câu hỏi thành slot và ứng viên]
     P --> V[Quan sát ảnh; crop và OCR nếu cần]
-    P --> R[Tra cứu đoạn nguồn theo câu hỏi]
+    V --> R[Tra cứu theo chủ thể và quan hệ cần hỏi]
     V --> D[Tổng hợp bản nháp]
     R --> D
     D --> C[Verifier theo từng nhận định]

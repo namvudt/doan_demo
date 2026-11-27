@@ -103,6 +103,7 @@ def result_view(run, include_intermediate=False):
             for key in (
                 "result_schema_version",
                 "answer_status",
+                "slot_results",
                 "recognition",
                 "location_hint",
                 "evidence",

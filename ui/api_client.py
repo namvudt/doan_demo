@@ -110,6 +110,7 @@ class RemoteManager:
         new_image=False,
         focus_box=None,
         selected_candidate=None,
+        response_type="answer",
     ):
         pending = previous["clarification"]
         body = {
@@ -117,6 +118,8 @@ class RemoteManager:
             "revision": pending["revision"],
             "answer": answer,
         }
+        if response_type == "unknown":
+            body["response_type"] = "unknown"
         if new_image:
             asset = self.request(
                 "POST",
@@ -208,6 +211,7 @@ class RemoteManager:
                 for key in (
                     "result_schema_version",
                     "answer_status",
+                    "slot_results",
                     "recognition",
                     "location_hint",
                     "evidence",

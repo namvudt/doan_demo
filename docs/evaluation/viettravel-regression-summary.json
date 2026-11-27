@@ -1,0 +1,135 @@
+{
+  "report_date": "2026-11-27",
+  "evaluation_kind": "development_regression_not_independent_accuracy",
+  "dataset": "VietTravelVQA",
+  "dataset_revision": "75d72d93f12f40756e5dfa0775236d3d78483fa4",
+  "upstream_split": "validation",
+  "model": "gemini-3.5-flash",
+  "validation": {
+    "offline_tests": {
+      "tests": 450,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0
+    },
+    "ruff_check": "passed",
+    "ruff_format": "passed",
+    "live_continuation_after_final_patch": "not_run; covered by offline regression tests"
+  },
+  "pacing": {
+    "request_spacing_seconds": 30,
+    "case_spacing_seconds": 20
+  },
+  "jobs": [
+    {
+      "job_id": "viettravel-validation-small-v2",
+      "completed_cases": 6,
+      "total_cases": 6,
+      "provider_calls": 29,
+      "credential_fallback_requests": 13,
+      "total_tokens_with_usage": 117747,
+      "answer_statuses": {
+        "answered": 5,
+        "insufficient_evidence": 1
+      },
+      "provider_errors_by_http_status": {
+        "503": 1
+      },
+      "recorded_agent_errors": 0
+    },
+    {
+      "job_id": "viettravel-validation-relations-v3",
+      "completed_cases": 3,
+      "total_cases": 3,
+      "provider_calls": 17,
+      "credential_fallback_requests": 0,
+      "total_tokens_with_usage": 68801,
+      "answer_statuses": {
+        "answered": 1,
+        "partial": 1,
+        "needs_clarification": 1
+      },
+      "provider_errors_by_http_status": {
+        "504": 1
+      },
+      "recorded_agent_errors": 1
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "kg_Q1320095_VN_001137_2",
+      "question": "Lý Sơn trong ảnh thuộc quốc gia nào?",
+      "baseline_status": "needs_clarification",
+      "latest_job": "viettravel-validation-relations-v3",
+      "latest_status": "answered",
+      "final_response": "- Bức ảnh thể hiện vùng biển rộng với dải đất cùng các ngọn đồi nhấp nhô ở đường chân trời, phù hợp với góc nhìn địa hình đảo từ xa.\n\nTư liệu đối chiếu về Đảo Lý Sơn (chủ thể được nêu trong câu hỏi):\n- Lý Sơn là một đặc khu thuộc tỉnh Quảng Ngãi, Việt Nam. [wiki_d6913f5e47d3ee10]",
+      "assessment": "Direct country quotation found in v3; historical correctness is not human reviewed.",
+      "agent_errors": []
+    },
+    {
+      "case_id": "graph_Q1091048_VN_005798_2",
+      "question": "Nơi này hiện được xếp vào hạng di tích nào?",
+      "baseline_status": "needs_clarification",
+      "latest_job": "viettravel-validation-small-v2",
+      "latest_status": "answered",
+      "final_response": "\nNếu công trình là Chùa Keo (Thái Bình), các nguồn cho biết:\n- Chùa Keo tại huyện Vũ Thư, tỉnh Thái Bình được xếp hạng là di tích quốc gia đặc biệt theo Quyết định số 1419/QĐ-TTg ngày 27 tháng 9 năm 2012. [wiki_d9d373e0d35dbedc]",
+      "assessment": "Wrong image identity: model chose Chua Keo while benchmark metadata says Chua But Thap. Matching designation text does not make this case correct.",
+      "agent_errors": []
+    },
+    {
+      "case_id": "VN_005423_q2",
+      "question": "Có bao nhiêu cột cổng chính trong ảnh?",
+      "baseline_status": "answered",
+      "latest_job": "viettravel-validation-small-v2",
+      "latest_status": "answered",
+      "final_response": "- Trong ảnh có 2 cột cổng chính ở lối vào.",
+      "assessment": "Two confirmed gate pillars with matching image regions; agrees with the upstream count.",
+      "agent_errors": []
+    },
+    {
+      "case_id": "VN_003258_q2",
+      "question": "Trong hình có bao nhiêu cột cờ?",
+      "baseline_status": "answered",
+      "latest_job": "viettravel-validation-small-v2",
+      "latest_status": "insufficient_evidence",
+      "final_response": "\nChưa đủ căn cứ cho: Có bao nhiêu cột cờ trong bức ảnh?",
+      "assessment": "Abstains on flagpole count: uncertain object class and suspected swapped observation axes. Upstream label lacks instance boxes.",
+      "agent_errors": []
+    },
+    {
+      "case_id": "kg_Q10800919_VN_002506_3",
+      "question": "Nhà tù Sơn La nằm ở Sơn La, và Sơn La thuộc quốc gia nào?",
+      "baseline_status": "insufficient_evidence",
+      "latest_job": "viettravel-validation-relations-v3",
+      "latest_status": "partial",
+      "final_response": "Công trình trong ảnh có thể là Nhà tù Sơn La, dựa trên các đặc điểm nhìn thấy.\n\nChưa đủ căn cứ cho: Sơn La thuộc quốc gia nào?",
+      "assessment": "Partial answer; country quotation rejected and Knowledge had HTTP 504. One recovery round did not establish country evidence.",
+      "agent_errors": [
+        {
+          "node": "knowledge",
+          "error_type": "RuntimeError",
+          "error_code": "provider_unavailable",
+          "error_category": "technical",
+          "retryable": true,
+          "provider_status_code": 504
+        }
+      ]
+    },
+    {
+      "case_id": "graph_Q125333_VN_003784_3",
+      "question": "Nơi gần địa danh trong ảnh nhất thuộc dạng địa hình hay điểm đến nào?",
+      "baseline_status": "needs_clarification",
+      "latest_job": "viettravel-validation-relations-v3",
+      "latest_status": "needs_clarification",
+      "final_response": "\nChưa đủ căn cứ cho: Địa danh hoặc công trình xuất hiện trong ảnh là gì?; Nơi gần nhất với địa danh trong ảnh thuộc dạng địa hình hay điểm đến nào?\n\nBạn muốn so sánh trong danh sách địa điểm nào, hoặc trong khu vực/bán kính nào? Cần xác định phạm vi để kiểm tra địa điểm gần nhất và loại hình của nó.",
+      "assessment": "Requests comparison scope; generic surrounding terrain is not accepted as nearest-destination evidence.",
+      "agent_errors": []
+    }
+  ],
+  "limitations": [
+    "All pilot questions were inspected during development. Do not interpret these results as independent benchmark accuracy.",
+    "Answered/reviewed is an automated workflow status, not verified visual identity or historical truth.",
+    "HTTP 504 at an agent stage is reported separately even when the overall run is not failed/unverified."
+  ],
+  "report": "../viettravel-regression-results.md"
+}

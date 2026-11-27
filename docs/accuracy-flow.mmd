@@ -5,11 +5,15 @@ flowchart TD
     IN -->|Có| C["coordinate: tách câu hỏi thành slot<br/>đề xuất ứng viên và chọn chuyên gia"]
 
     C --> V["visual: quan sát độc lập, không nhận nhãn mẫu<br/>Ứng viên liên kết với quan sát; OCR khi cần"]
-    C -->|Khi cần tư liệu| K["knowledge: truy xuất theo câu hỏi<br/>Wikipedia + corpus đã duyệt"]
+    V -->|Khi cần tư liệu, sau phân giải ứng viên| K["knowledge: chủ thể + quan hệ cần hỏi<br/>Wikipedia + corpus đã duyệt; giới hạn HTTP"]
     V --> AG["aggregate: tổng hợp bản nháp<br/>sau các chuyên gia được chọn"]
     K --> AG
     AG --> J["judge: đăng ký evidence<br/>Verifier kiểm tra từng nhận định"]
-    J --> G["Backend gate: slot, ID, quote, thực thể<br/>Chặn phiên đọc Hán–Nôm;<br/>vật liệu và niên đại cần nguồn"]
+    J --> RC{"Đủ claims và assessments?<br/>complete có claim supported tương ứng?"}
+    RC -->|Sai, còn lượt sửa hợp đồng| FIX["Yêu cầu sửa JSON tối đa 1 lần<br/>không bổ sung bằng chứng giả"]
+    FIX --> J
+    RC -->|Sai sau sửa| UV
+    RC -->|Đúng| G["Backend gate: slot, ID, quote, thực thể<br/>Đếm theo từng instance, loại đối tượng và box<br/>vật liệu và niên đại cần nguồn"]
     J --> ID["Nhận diện riêng: ứng viên + đặc điểm ảnh<br/>Verifier đánh giá; backend kiểm tra ID/basis<br/>probable / recognized / ambiguous / unrecognized"]
     ID --> COM
     J -->|Lỗi model hoặc JSON| UV["verification_unavailable<br/>Không xác nhận bản nháp"]

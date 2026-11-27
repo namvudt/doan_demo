@@ -1,0 +1,8 @@
+# Apply to API and worker together: docker compose -f compose.yaml -f compose.evidence.yaml up -d --build api worker
+services:
+  api:
+    environment: &evidence-profile
+      HERITAGE_CONFIG: ${HERITAGE_EVIDENCE_CONFIG:-config/hanoi-evidence.yaml}
+      HERITAGE_ACCURACY_ENABLED: ${HERITAGE_ACCURACY_ENABLED:-true}
+  worker:
+    environment: *evidence-profile

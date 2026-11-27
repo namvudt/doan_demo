@@ -1,0 +1,24 @@
+extends: hanoi-paced.yaml
+workflow_version: evidence-v5-relation-quotes
+budget:
+  request_timeout_seconds: 90
+roles:
+  coordinator: {max_output_tokens: 4096}
+accuracy:
+  pilot_region: Việt Nam
+  entity_catalog: config/heritage/vietnam.entities.json
+  recognition:
+    max_disambiguation_rounds: 1
+  perception:
+    separate_readability: true
+    ocr_only_when_requested: true
+    concise_claims: true
+    resolve_before_retrieval: true
+    require_count_grounding: true
+    reject_suspected_axis_swap: true
+  retrieval:
+    max_source_chars: 3200
+    max_queries: 3
+    relation_aware: true
+    require_relation_coverage: true
+    max_http_requests: 24

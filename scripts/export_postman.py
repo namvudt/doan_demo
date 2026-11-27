@@ -25,6 +25,7 @@ DEFAULTS = {
     "clarification_id": "",
     "clarification_revision": "1",
     "clarification_answer": "",
+    "clarification_response_type": "answer",
     "selected_candidate": "null",
     "clarification_idempotency_key": "",
     "region_id": "",
@@ -239,7 +240,7 @@ def make_item(folder, method, path, name, operation):
     elif method == "POST" and path == "/api/v1/runs":
         body = '{"asset_id":"{{asset_id}}","question":{{question_json}},"audience":"{{audience}}","profile":"{{profile}}","focus_box":{{focus_box}},"location_hint":{{location_hint}}}'
     elif method == "POST" and path.endswith("/clarification"):
-        body = '{"clarification_id":"{{clarification_id}}","revision":{{clarification_revision}},"answer":{{clarification_answer_json}},"selected_candidate":{{selected_candidate}}}'
+        body = '{"clarification_id":"{{clarification_id}}","revision":{{clarification_revision}},"answer":{{clarification_answer_json}},"selected_candidate":{{selected_candidate}},"response_type":"{{clarification_response_type}}"}'
     elif method == "PUT" and path.endswith("/bookmark"):
         body = '{"saved": {{bookmark_saved}}}'
     elif method in {"POST", "PUT"} and path.endswith("/feedback"):

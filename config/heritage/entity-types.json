@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "annotation_status": "label_only",
+  "note": "Type labels for filtering image candidates, never answer evidence. Country labels do not assert any monument's country.",
+  "non_candidate_types": ["country", "administrative_area", "answer_value"],
+  "answer_values": ["có", "không", "chưa biết", "không xác định", "không đủ căn cứ"],
+  "entities": [
+    {"entity_id": "country:vn", "name": "Việt Nam", "aliases": ["Vietnam", "Viet Nam", "Cộng hòa Xã hội Chủ nghĩa Việt Nam"], "entity_type": "country", "annotation_status": "label_only"},
+    {"entity_id": "country:cn", "name": "Trung Quốc", "aliases": ["China"], "entity_type": "country", "annotation_status": "label_only"},
+    {"entity_id": "country:la", "name": "Lào", "aliases": ["Laos", "Lao PDR"], "entity_type": "country", "annotation_status": "label_only"},
+    {"entity_id": "country:kh", "name": "Campuchia", "aliases": ["Cambodia"], "entity_type": "country", "annotation_status": "label_only"},
+    {"entity_id": "country:th", "name": "Thái Lan", "aliases": ["Thailand"], "entity_type": "country", "annotation_status": "label_only"},
+    {"entity_id": "country:fr", "name": "Pháp", "aliases": ["France"], "entity_type": "country", "annotation_status": "label_only"}
+  ]
+}

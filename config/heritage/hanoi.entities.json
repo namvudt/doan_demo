@@ -1,5 +1,6 @@
 {
   "schema_version": 1,
+  "extends": "entity-types.json",
   "region": "Hà Nội",
   "annotation_status": "draft",
   "note": "Candidate labels only. No historical facts or gold answers; source review is required before research evaluation.",

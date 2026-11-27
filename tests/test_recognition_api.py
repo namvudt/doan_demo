@@ -91,9 +91,11 @@ def test_remote_adapter_preserves_recognition_and_hint(settings, photo, monkeypa
             )
         )[-1].result
         assert result.recognition.status == "probable" and result.location_hint.name == "Chùa Hương"
+        assert result.slot_results[0].status == "answered"
         reviewed = list(manager.remote_review_stream(photo, result.model_dump()))[-1].result
         assert reviewed.recognition.status == "probable"
         assert reviewed.location_hint == result.location_hint
+        assert reviewed.slot_results == result.slot_results
 
 
 def test_location_hint_disabled_profile_is_rejected_before_queue(client, photo):

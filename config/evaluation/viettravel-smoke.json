@@ -1,0 +1,12 @@
+{
+  "dataset": "phunguyendinhkh/VietTravelVQA-v3",
+  "revision": "75d72d93f12f40756e5dfa0775236d3d78483fa4",
+  "upstream_split": "test",
+  "annotation_status": "draft",
+  "note": "Small exploratory batch; upstream answers are references, not independently reviewed historical gold.",
+  "cases": [
+    {"id": "VN_003358_q3", "kind": "identity", "entity_group": "tran_quoc"},
+    {"id": "VN_002260_q2", "kind": "visual", "entity_group": "nha_tho_lon_ha_noi"},
+    {"id": "VN_003358_q4", "kind": "historical", "entity_group": "tran_quoc"}
+  ]
+}

@@ -83,11 +83,15 @@ def test_review_gate_rejects_wrong_slot_source_and_unquoted_history():
         "quotations": [{"evidence_id": "e1", "quote": evidence[0]["text"]}],
     }
     valid = check_claims(
-        EvidenceReview(claims=[base]), evidence, slots, policy, identity_resolved=True
+        EvidenceReview(claims=[base], slot_assessments=[]),
+        evidence,
+        slots,
+        policy,
+        identity_resolved=True,
     )
     assert valid[0]["verdict"] == "supported"
     conflict = check_claims(
-        EvidenceReview(claims=[base, {**base, "verdict": "contradicted"}]),
+        EvidenceReview(claims=[base, {**base, "verdict": "contradicted"}], slot_assessments=[]),
         evidence,
         slots,
         policy,
@@ -102,13 +106,17 @@ def test_review_gate_rejects_wrong_slot_source_and_unquoted_history():
         ({"quotations": []}, "supporting_quote_missing"),
         ({"text": "https://fake.invalid"}, "model_generated_citation"),
     ]:
-        review = EvidenceReview(claims=[{**base, **mutation}])
+        review = EvidenceReview(claims=[{**base, **mutation}], slot_assessments=[])
         result = check_claims(review, evidence, slots, policy, identity_resolved=True)[0]
         assert result["verdict"] == "insufficient" and expected in result["gate_errors"]
     assert (
         "identity_unresolved"
         in check_claims(
-            EvidenceReview(claims=[base]), evidence, slots, policy, identity_resolved=False
+            EvidenceReview(claims=[base], slot_assessments=[]),
+            evidence,
+            slots,
+            policy,
+            identity_resolved=False,
         )[0]["gate_errors"]
     )
     # Mis-labelling a historical slot as visual cannot bypass the source requirement.
@@ -119,7 +127,11 @@ def test_review_gate_rejects_wrong_slot_source_and_unquoted_history():
     assert (
         "source_required"
         in check_claims(
-            EvidenceReview(claims=[claim]), visual, slots, policy, identity_resolved=True
+            EvidenceReview(claims=[claim], slot_assessments=[]),
+            visual,
+            slots,
+            policy,
+            identity_resolved=True,
         )[0]["gate_errors"]
     )
 
@@ -286,7 +298,8 @@ def test_compact_provider_schema_keeps_backend_validation_and_coordinate_bounds(
                         "kind": "visual",
                         "verdict": "insufficient",
                     }
-                ]
+                ],
+                "slot_assessments": [],
             }
         )
 
@@ -323,7 +336,15 @@ def test_recovery_failure_preserves_supported_partial_answer(photo):
                             "verdict": "supported",
                             "evidence_ids": [visual["evidence_id"]],
                         }
-                    ]
+                    ],
+                    "slot_assessments": [
+                        {"slot_id": "visible", "status": "complete", "missing_information": []},
+                        {
+                            "slot_id": "history",
+                            "status": "unanswered",
+                            "missing_information": ["Synthetic history has no supported claim."],
+                        },
+                    ],
                 }
             )
 
@@ -341,7 +362,8 @@ def test_malformed_verifier_does_not_approve_draft(photo):
     result = RunService(manager, search_engine_factory=DemoSearch).run(photo, "Question")
     assert result.answer_status == "verification_unavailable"
     assert result.status in {"failed", "unverified"} and not result.claims
-    assert result.evidence and result.judge_report["error_code"] == "review_schema_invalid"
+    # Public errors classify malformed JSON and incomplete verifier protocols alike.
+    assert result.evidence and result.judge_report["error_code"] == "invalid_verifier_response"
 
 
 def test_evidence_api_crop_and_legacy_result_adapter(client, photo, monkeypatch):

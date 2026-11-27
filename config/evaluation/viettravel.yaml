@@ -1,0 +1,6 @@
+dataset: phunguyendinhkh/VietTravelVQA-v3
+revision: 75d72d93f12f40756e5dfa0775236d3d78483fa4
+calibration_split: validation
+calibration_case_ids: [VN_002074_q3, VN_004399_q2, VN_002074_q4]
+# Already inspected in the first smoke run; report separately from untouched test cases.
+development_exposed_test_ids: [VN_003358_q3, VN_002260_q2, VN_003358_q4]

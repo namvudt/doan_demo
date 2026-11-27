@@ -14,6 +14,7 @@ from core.evidence import (
     RecognitionResult,
     Region,
     RequestedSlot,
+    SlotResult,
 )
 from core.schemas import SourceRecord
 
@@ -81,6 +82,7 @@ class RunCreate(Contract):
 
 
 class ClarificationBody(Contract):
+    response_type: Literal["answer", "unknown"] = "answer"
     selected_candidate: str | None = Field(default=None, min_length=1, max_length=200)
     clarification_id: str = Field(min_length=1, max_length=100)
     revision: int = Field(ge=1)
@@ -97,6 +99,7 @@ class ClarificationBody(Contract):
 
 
 class EvidenceView(Contract):
+    slot_results: list[SlotResult] = Field(default_factory=list)
     recognition: RecognitionResult | None = None
     location_hint: LocationHint | None = None
     run_id: UUID
@@ -170,6 +173,7 @@ class EventPage(Contract):
 
 
 class ResultView(Contract):
+    slot_results: list[SlotResult] = Field(default_factory=list)
     recognition: RecognitionResult | None = None
     location_hint: LocationHint | None = None
     result_schema_version: int = 1

@@ -1,5 +1,9 @@
 # Import và thử API bằng Postman
 
+Kết quả có `slot_results` theo từng ý hỏi. Để phản hồi chưa biết thông tin, đặt
+`clarification_response_type=unknown` và để `selected_candidate=null`; không cần nhập
+`clarification_answer`. Xem [hợp đồng từng ý hỏi](api-slot-contract.md).
+
 Bộ JSON gồm **37 HTTP operations**, **40 requests** (thêm SSE replay, result kèm
 intermediate và export Markdown). Có body mẫu, query parameters, auth, script tự
 lưu token/ID và kiểm tra HTTP status. Mẫu không chứa credential hoặc ID của phiên

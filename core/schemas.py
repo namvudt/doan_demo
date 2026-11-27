@@ -4,7 +4,14 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StrictBool, model_validator
 
-from core.evidence import Candidate, LocationHint, RecognitionResult, Region, RequestedSlot
+from core.evidence import (
+    Candidate,
+    LocationHint,
+    RecognitionResult,
+    Region,
+    RequestedSlot,
+    SlotResult,
+)
 
 
 class Contract(BaseModel):
@@ -98,6 +105,7 @@ class StageEvent(Contract):
 
 
 class RunResult(Contract):
+    slot_results: list[SlotResult] = Field(default_factory=list)
     result_schema_version: int = 1
     answer_status: str | None = None
     recognition: RecognitionResult | None = None

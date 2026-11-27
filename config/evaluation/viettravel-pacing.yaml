@@ -1,0 +1,7 @@
+request_spacing_seconds: 30
+case_spacing_seconds: 20
+quota_cooldown_seconds: 120
+high_demand_backoff_seconds: 60
+max_cases: 20
+max_provider_calls: 400
+fallback_api_key_env: GEMINI_FALLBACK_API_KEY

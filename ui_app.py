@@ -242,6 +242,7 @@ def execute(
     focus_box=None,
     location_hint=None,
     selected_candidate=None,
+    response_type="answer",
 ):
     st.session_state.pop("run_error", None)
     placeholder = st.empty()
@@ -260,6 +261,7 @@ def execute(
                         new_image=new_image,
                         focus_box=focus_box,
                         selected_candidate=selected_candidate,
+                        response_type=response_type,
                     )
                     if isinstance(manager, RemoteManager)
                     else RunService(manager).continue_stream(
@@ -274,6 +276,7 @@ def execute(
                                 if selected_candidate
                                 else {}
                             ),
+                            **({"response_type": "unknown"} if response_type == "unknown" else {}),
                         },
                     )
                 )
@@ -552,6 +555,9 @@ def main():
                 st.info(pending["question"])
                 consumed = result["run_id"] in st.session_state.get("answered_clarifications", {})
                 with st.form("clarification_" + result["run_id"]):
+                    unknown = st.checkbox(
+                        "Tôi chưa biết thông tin này", key="unknown_" + result["run_id"]
+                    )
                     choice = st.selectbox(
                         "Ứng viên để bạn đối chiếu",
                         ["Chưa xác định", *pending.get("options", [])],
@@ -574,8 +580,15 @@ def main():
                     st.caption("Lượt này đã có phản hồi; xem lượt tiếp tục trong lịch sử.")
                 if submitted:
                     response_text = answer.strip()
-                    selected_candidate = choice if choice != "Chưa xác định" else None
-                    if not response_text and additional is None and not selected_candidate:
+                    selected_candidate = (
+                        choice if choice != "Chưa xác định" and not unknown else None
+                    )
+                    if (
+                        not response_text
+                        and additional is None
+                        and not selected_candidate
+                        and not unknown
+                    ):
                         st.warning("Hãy bổ sung thông tin hoặc một ảnh khác.")
                     else:
                         try:
@@ -596,6 +609,7 @@ def main():
                                 answer=response_text,
                                 new_image=additional is not None,
                                 selected_candidate=selected_candidate,
+                                response_type="unknown" if unknown else "answer",
                             )
                             st.session_state["_review_finished"] = True
                             st.rerun()

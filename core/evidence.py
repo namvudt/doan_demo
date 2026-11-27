@@ -44,6 +44,7 @@ class RequestedSlot(Contract):
     slot_id: str = Field(min_length=1, max_length=80)
     question: str = Field(min_length=1, max_length=1000)
     evidence_type: Literal["visual", "historical", "identity", "mixed"] = "mixed"
+    aspect: Literal["construction", "restoration", "reconstruction"] | None = None
 
 
 class Candidate(Contract):
@@ -77,6 +78,37 @@ class Observation(Contract):
         return self
 
 
+class NamedBox(Contract):
+    """Unambiguous image coordinates for newly produced object instances."""
+
+    x_min: Coordinate
+    y_min: Coordinate
+    x_max: Coordinate
+    y_max: Coordinate
+
+    @model_validator(mode="after")
+    def valid_box(self):
+        Region(box=self.as_list())
+        return self
+
+    def as_list(self):
+        return [self.x_min, self.y_min, self.x_max, self.y_max]
+
+
+class CountInstance(Contract):
+    observation_index: Annotated[int, Field(ge=0, le=19)]
+    object_class: str = Field(min_length=1, max_length=200)
+    classification: Literal["confirmed", "uncertain", "excluded"]
+    box: NamedBox | None = None
+
+
+class CountFinding(Contract):
+    slot_id: str = Field(min_length=1, max_length=80)
+    object_class: str = Field(min_length=1, max_length=200)
+    count: Annotated[int, Field(ge=0, le=100)]
+    instances: list[CountInstance] = Field(max_length=100)
+
+
 class LocationHint(Contract):
     name: str = Field(min_length=1, max_length=200, pattern=r"\S")
     provenance: Literal["user", "sample_label"] = "user"
@@ -97,7 +129,16 @@ class VisualFindings(Contract):
     observations: list[Observation] = Field(default_factory=list, max_length=20)
     candidates: list[str] = Field(default_factory=list, max_length=3)
     candidate_support: list[CandidateSupport] = Field(default_factory=list, max_length=3)
+    count_findings: list[CountFinding] = Field(default_factory=list, max_length=20)
     readability: Literal["adequate", "limited", "unreadable"] = "limited"
+    scene_visibility: Literal["adequate", "limited", "unreadable"] | None = Field(
+        default=None,
+        description="Visibility of scene/architecture only; independent of readable text and historical knowledge.",
+    )
+    text_readability: Literal["adequate", "limited", "unreadable", "not_applicable"] | None = Field(
+        default=None,
+        description="Legibility of text only; unreadable text does not imply an unreadable scene.",
+    )
 
 
 def parse_visual_findings(raw):
@@ -114,8 +155,56 @@ def parse_visual_findings(raw):
                 except (ValueError, TypeError):
                     item["box"] = None
                     warnings.append({"observation_index": index, "code": "invalid_box_discarded"})
+                else:
+                    for code in geometry_issues(item.get("text", ""), item["box"]):
+                        warnings.append({"observation_index": index, "code": code})
             cleaned["observations"].append(item)
+    if isinstance(raw.get("count_findings"), list):
+        cleaned["count_findings"] = []
+        for finding_index, finding in enumerate(raw["count_findings"]):
+            current = dict(finding) if isinstance(finding, dict) else finding
+            if isinstance(current, dict) and isinstance(current.get("instances"), list):
+                current["instances"] = []
+                for instance_index, instance in enumerate(finding["instances"]):
+                    instance = dict(instance) if isinstance(instance, dict) else instance
+                    if isinstance(instance, dict) and instance.get("box") is not None:
+                        box = instance["box"]
+                        try:
+                            if isinstance(box, (list, tuple)):
+                                Region(box=list(box))
+                                box = dict(zip(("x_min", "y_min", "x_max", "y_max"), box))
+                            instance["box"] = NamedBox.model_validate(box).model_dump()
+                        except (ValueError, TypeError):
+                            instance["box"] = None
+                            warnings.append(
+                                {
+                                    "count_finding_index": finding_index,
+                                    "instance_index": instance_index,
+                                    "code": "invalid_count_box_discarded",
+                                }
+                            )
+                    current["instances"].append(instance)
+            cleaned["count_findings"].append(current)
     return VisualFindings.model_validate(cleaned), warnings
+
+
+def geometry_issues(text, box):
+    """Flag strong text/geometry contradictions; never guess or transpose coordinates."""
+    if not box:
+        return []
+    x1, y1, x2, y2 = box
+    width, height = x2 - x1, y2 - y1
+    words = normalized_text(text)
+    issues = []
+    if re.search(r"\b(?:thang dung|vertical|upright)\b", words) and width > 4 * height:
+        issues.append("suspected_axis_swap")
+    if re.search(r"\b(?:ben phai|phia phai|right)\b", words) and (x1 + x2) / 2 < 0.3:
+        if (y1 + y2) / 2 > 0.7:
+            issues.append("suspected_axis_swap")
+    if re.search(r"\b(?:ben trai|phia trai|left)\b", words) and (x1 + x2) / 2 > 0.7:
+        if (y1 + y2) / 2 < 0.3:
+            issues.append("suspected_axis_swap")
+    return list(dict.fromkeys(issues))
 
 
 class OCRLine(Observation):
@@ -136,6 +225,8 @@ class Evidence(Contract):
     box: tuple[float, float, float, float] | None = None
     version: str
     entity_id: str | None = None
+    grounding_errors: list[str] = Field(default_factory=list)
+    count_grounding: list[dict] = Field(default_factory=list)
 
 
 class Quotation(Contract):
@@ -148,7 +239,7 @@ class AssessedClaim(Contract):
     text: str = Field(min_length=1, max_length=2000)
     kind: Literal["visual", "historical", "interpretation", "identity"]
     verdict: Literal["supported", "contradicted", "insufficient", "not_assessable"]
-    evidence_ids: list[str] = Field(default_factory=list, max_length=10)
+    evidence_ids: list[str] = Field(default_factory=list, max_length=20)
     quotations: list[Quotation] = Field(default_factory=list, max_length=10)
     explanation: str = Field(default="", max_length=1000)
     risk_tags: list[Literal["han_nom_reading", "specific_material", "historical_date"]] = Field(
@@ -171,9 +262,271 @@ class RecognitionResult(RecognitionAssessment):
     assessment: RecognitionAssessment | None = None
 
 
+SlotReason = Literal[
+    "missing_source",
+    "insufficient_evidence",
+    "entity_ambiguous",
+    "image_unreadable",
+    "identity_unconfirmed",
+    "unsupported_request",
+    "source_conflict",
+    "incomplete_answer",
+    "verification_unavailable",
+    "no_retrieved_sources",
+    "no_supporting_source",
+    "invalid_verifier_response",
+    "invalid_visual_grounding",
+    "count_grounding_missing",
+    "object_class_uncertain",
+    "relation_quote_mismatch",
+    "nearest_scope_required",
+    "nearest_relation_required",
+]
+
+
+class SlotAssessment(Contract):
+    slot_id: str
+    status: Literal["complete", "partial", "unanswered", "conflicted"]
+    missing_information: list[str] = Field(default_factory=list, max_length=5)
+
+
+class SlotResult(Contract):
+    slot_id: str
+    question: str
+    evidence_type: Literal["visual", "historical", "identity", "mixed"]
+    status: Literal["answered", "partial", "unanswered", "unsupported", "conflicted"]
+    reason_codes: list[SlotReason] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
+
+
 class EvidenceReview(Contract):
-    claims: list[AssessedClaim] = Field(default_factory=list, max_length=40)
+    claims: list[AssessedClaim] = Field(max_length=40)
     recognition: RecognitionAssessment | None = None
+    slot_assessments: list[SlotAssessment] = Field(max_length=40)
+
+
+def validate_review_contract(review, slots):
+    """Check the verifier's semantic response contract before accepting or repairing it."""
+    allowed = {slot["slot_id"]: slot for slot in slots}
+    errors, seen = [], set()
+    for assessment in review.slot_assessments:
+        identifier = assessment.slot_id
+        if identifier not in allowed:
+            errors.append("unknown_assessment_slot:" + identifier)
+        if identifier in seen:
+            errors.append("duplicate_assessment_slot:" + identifier)
+        seen.add(identifier)
+        if assessment.status == "complete" and identifier in allowed:
+            if allowed[identifier]["evidence_type"] != "identity" and not any(
+                claim.slot_id == identifier and claim.verdict == "supported"
+                for claim in review.claims
+            ):
+                errors.append("complete_without_supported_claim:" + identifier)
+            if assessment.missing_information:
+                errors.append("complete_with_missing_information:" + identifier)
+    for identifier in allowed.keys() - seen:
+        errors.append("missing_assessment_slot:" + identifier)
+    for claim in review.claims:
+        if claim.slot_id not in allowed:
+            errors.append("unknown_claim_slot:" + claim.slot_id)
+    return sorted(set(errors))
+
+
+def is_count_question(question):
+    return bool(
+        re.search(
+            r"\b(?:bao nhieu|may cot|may tru|may cua|so luong|how many|number of|count)\b",
+            normalized_text(question),
+        )
+    )
+
+
+def _box_iou(a, b):
+    intersection = max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(
+        0, min(a[3], b[3]) - max(a[1], b[1])
+    )
+    union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - intersection
+    return intersection / union if union else 0
+
+
+def annotate_count_grounding(
+    findings,
+    evidence,
+    slots,
+    *,
+    reject_suspected_axis_swap=True,
+    duplicate_iou_threshold=0.85,
+):
+    """Attach backend-checked instance records to already registered visual evidence.
+
+    Observation indices address visual rows only, so preceding source/OCR records cannot
+    shift the mapping. Stable IDs remain those assigned by the caller. This function
+    does not assert that a model's object classification is independently correct.
+    """
+    rows = [{**item, "count_grounding": []} for item in evidence]
+    visual = [item for item in rows if item["kind"] == "visual"]
+    allowed = {slot["slot_id"]: slot for slot in slots}
+    warnings = []
+    for index, observation in enumerate(findings.observations):
+        if index >= len(visual):
+            break
+        errors = []
+        if observation.box is not None and reject_suspected_axis_swap:
+            errors.extend(geometry_issues(observation.text, observation.box))
+        if errors:
+            visual[index]["grounding_errors"] = list(
+                dict.fromkeys([*visual[index].get("grounding_errors", []), *errors])
+            )
+    seen_slots = set()
+    for finding in findings.count_findings:
+        identifier = finding.slot_id
+        shared_errors = []
+        if identifier not in allowed:
+            warnings.append({"slot_id": identifier, "code": "unknown_count_slot"})
+            continue
+        if identifier in seen_slots:
+            shared_errors.append("duplicate_count_finding")
+            # Also invalidate the earlier records for this slot.
+            for row in visual:
+                for record in row["count_grounding"]:
+                    if record["slot_id"] == identifier:
+                        record["errors"].append("duplicate_count_finding")
+        seen_slots.add(identifier)
+        if not re.search(
+            r"\b" + re.escape(normalized_text(finding.object_class)) + r"s?\b",
+            normalized_text(allowed[identifier]["question"]),
+        ):
+            shared_errors.append("count_object_class_mismatch")
+        confirmed = [item for item in finding.instances if item.classification == "confirmed"]
+        if finding.count != len(confirmed):
+            shared_errors.append("count_instance_total_mismatch")
+        if any(item.classification == "uncertain" for item in finding.instances):
+            shared_errors.append("object_class_uncertain")
+        indices = [item.observation_index for item in confirmed]
+        if len(indices) != len(set(indices)):
+            shared_errors.append("duplicate_count_instance")
+        boxes = [item.box.as_list() for item in confirmed if item.box]
+        if any(
+            _box_iou(box, other) >= duplicate_iou_threshold
+            for index, box in enumerate(boxes)
+            for other in boxes[index + 1 :]
+        ):
+            shared_errors.append("duplicate_count_instance")
+        for instance in finding.instances:
+            errors = list(shared_errors)
+            index = instance.observation_index
+            if index >= len(findings.observations) or index >= len(visual):
+                warnings.append({"slot_id": identifier, "code": "count_observation_missing"})
+                shared_errors.append("count_observation_missing")
+                continue
+            if instance.classification != "confirmed":
+                errors.append("object_class_uncertain")
+            if normalized_text(instance.object_class) != normalized_text(finding.object_class):
+                errors.append("count_object_class_mismatch")
+            if instance.box is None:
+                errors.append("count_instance_box_missing")
+            else:
+                observation = findings.observations[index]
+                box = instance.box.as_list()
+                if reject_suspected_axis_swap:
+                    errors.extend(geometry_issues(observation.text, box))
+                if observation.box is None or _box_iou(box, observation.box) < 0.5:
+                    errors.append("count_observation_box_mismatch")
+            errors.extend(visual[index].get("grounding_errors", []))
+            visual[index]["count_grounding"].append(
+                {
+                    "slot_id": identifier,
+                    "object_class": finding.object_class,
+                    "declared_count": finding.count,
+                    "instance_index": index,
+                    "classification": instance.classification,
+                    "errors": sorted(set(errors)),
+                }
+            )
+        # Missing/out-of-range instances invalidate all records in the finding.
+        for row in visual:
+            for record in row["count_grounding"]:
+                if record["slot_id"] == identifier:
+                    record["errors"] = sorted(set([*record["errors"], *shared_errors]))
+                    for error in record["errors"]:
+                        warnings.append({"slot_id": identifier, "code": error})
+    return rows, warnings
+
+
+def _count_claim_errors(claim, slot, refs):
+    records = [
+        (evidence.evidence_id, record)
+        for evidence in refs
+        for record in evidence.count_grounding
+        if record.get("slot_id") == slot["slot_id"]
+    ]
+    if not records:
+        return ["count_grounding_missing"]
+    errors = {error for _, record in records for error in record.get("errors", [])}
+    declared = {record["declared_count"] for _, record in records}
+    instances = {record["instance_index"] for _, record in records if not record.get("errors")}
+    if len(declared) != 1 or declared != {len(instances)}:
+        errors.add("count_instance_total_mismatch")
+    # Prefer a count attached to the object class. Additional per-object descriptions
+    # ("two poles, one on each side") must not change the actual answer count.
+    words = normalized_text(claim["text"])
+    names = {
+        "khong": 0,
+        "mot": 1,
+        "hai": 2,
+        "ba": 3,
+        "bon": 4,
+        "nam": 5,
+        "sau": 6,
+        "bay": 7,
+        "tam": 8,
+        "chin": 9,
+        "muoi": 10,
+        "zero": 0,
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+    }
+    units = {**names, "tu": 4, "lam": 5}
+    unit_pattern = "|".join(word for word, value in units.items() if value < 10)
+    number_pattern = (
+        r"\d{1,3}|(?:"
+        + unit_pattern
+        + r")\s+muoi(?:\s+(?:"
+        + unit_pattern
+        + r"))?|muoi(?:\s+(?:"
+        + unit_pattern
+        + r"))?|"
+        + "|".join(names)
+    )
+
+    def number_value(value):
+        if value.isdigit():
+            return int(value)
+        tokens = value.split()
+        if "muoi" in tokens and len(tokens) > 1:
+            index = tokens.index("muoi")
+            return (units[tokens[0]] * 10 if index else 10) + (
+                units[tokens[-1]] if len(tokens) > index + 1 else 0
+            )
+        return names.get(value)
+
+    objects = {normalized_text(record["object_class"]) for _, record in records}
+    values = set()
+    for object_class in objects:
+        pattern = r"\b(" + number_pattern + r")\s+(?:\w+\s+){0,2}" + re.escape(object_class)
+        for value in re.findall(pattern, words):
+            values.add(number_value(value))
+    if not values:
+        values = {int(value) for value in re.findall(r"\b\d{1,3}\b", words)}
+    if not values and re.fullmatch(number_pattern, words):
+        values = {number_value(words)}
+    if values != declared:
+        errors.add("count_value_unverifiable")
+    return sorted(errors)
 
 
 class CheckedClaim(AssessedClaim):
@@ -221,7 +574,18 @@ def claim_risks(text, policy):
     return risks
 
 
-def check_claims(review, evidence, slots, policy, *, identity_resolved, selected_entity_id=None):
+def check_claims(
+    review,
+    evidence,
+    slots,
+    policy,
+    *,
+    identity_resolved,
+    selected_entity_id=None,
+    require_count_grounding=False,
+    original_question=None,
+    question_subject=None,
+):
     """Validate citations and exact quotations in addition to the model's semantic verdict."""
     registry = {e["evidence_id"]: Evidence.model_validate(e) for e in evidence}
     allowed_slots = {slot["slot_id"]: slot for slot in slots}
@@ -271,10 +635,68 @@ def check_claims(review, evidence, slots, policy, *, identity_resolved, selected
                     len(q.strip()) >= policy.min_quote_chars and q in source.text for q in quotes
                 ):
                     reasons.append("supporting_quote_missing")
+                if policy.claim_policy.require_relation_quote and (
+                    original_question or question_subject
+                ):
+                    from core.relations import question_relation, validate_source_relation
+
+                    relation_rules = {
+                        k: dict(v) for k, v in policy.claim_policy.source_relation_rules.items()
+                    }
+                    questions = getattr(policy, "questions", None)
+                    if questions is not None:
+                        nearest_rule = relation_rules.setdefault("nearest", {})
+                        nearest_rule.setdefault(
+                            "question_patterns",
+                            [
+                                *questions.nearest_patterns,
+                                *[
+                                    re.escape(normalized_text(term))
+                                    for term in questions.nearest_terms
+                                ],
+                            ],
+                        )
+                        nearest_rule.setdefault(
+                            "scope_patterns",
+                            [
+                                re.escape(normalized_text(term))
+                                for term in questions.nearest_scope_terms
+                            ]
+                            if questions.require_nearest_scope
+                            else [".*"],
+                        )
+                    slot_question = allowed_slots.get(claim["slot_id"], {}).get("question", "")
+                    relation_question = (
+                        slot_question
+                        if question_relation(slot_question, relation_rules)
+                        else original_question or slot_question
+                    )
+
+                    relation_errors = [
+                        validate_source_relation(
+                            claim["text"],
+                            quote,
+                            subject=question_subject,
+                            question=relation_question,
+                            rules=relation_rules,
+                        )
+                        for quote in quotes
+                    ]
+                    if relation_errors and all(relation_errors):
+                        reasons.extend(relation_errors)
         if claim["kind"] in {"visual", "identity"} and not any(
             e.kind in {"visual", "ocr"} for e in refs
         ):
             reasons.append("image_evidence_required")
+        if claim["kind"] == "visual":
+            reasons.extend(error for ref in refs for error in ref.grounding_errors)
+        slot = allowed_slots.get(claim["slot_id"], {})
+        if (
+            require_count_grounding
+            and slot.get("evidence_type") == "visual"
+            and is_count_question(slot.get("question", ""))
+        ):
+            reasons.extend(_count_claim_errors(claim, slot, refs))
         if claim["kind"] == "identity" and not identity_resolved:
             reasons.append("identity_unresolved")
         for quote in proposed.quotations:

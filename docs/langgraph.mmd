@@ -19,7 +19,6 @@ graph TD;
 	aggregate -.-> finish;
 	aggregate -.-> judge;
 	coordinate -.-> finish;
-	coordinate -.-> knowledge;
 	coordinate -.-> visual;
 	experts_done -.-> aggregate;
 	experts_done -.-> finish;
@@ -30,6 +29,7 @@ graph TD;
 	scope -.-> coordinate;
 	scope -.-> finish;
 	visual --> experts_done;
+	visual -. Khi cần tư liệu .-> knowledge;
 	finish --> __end__;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0

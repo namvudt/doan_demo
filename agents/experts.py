@@ -100,7 +100,12 @@ class KnowledgeAgent:
                 "navigation_links": search_data.get("navigation_links", []),
                 **{
                     key: search_data[key]
-                    for key in ("search_queries", "rejected_source_count", "entity_filter_applied")
+                    for key in (
+                        "search_queries",
+                        "rejected_source_count",
+                        "entity_filter_applied",
+                        "retrieval_diagnostics",
+                    )
                     if key in search_data
                 },
             }
@@ -138,7 +143,12 @@ Hãy kết hợp tri thức sử liệu uyên bác cùng dữ liệu tìm kiếm
         meta["search_status"] = search_data["status"]
         meta["search_error"] = search_data["error"]
         meta["navigation_links"] = search_data.get("navigation_links", [])
-        for key in ("search_queries", "rejected_source_count", "entity_filter_applied"):
+        for key in (
+            "search_queries",
+            "rejected_source_count",
+            "entity_filter_applied",
+            "retrieval_diagnostics",
+        ):
             if key in search_data:
                 meta[key] = search_data[key]
         return response_text, meta

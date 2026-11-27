@@ -1,0 +1,9 @@
+job_id: viettravel-validation-small-v2
+dataset_spec: config/evaluation/viettravel.yaml
+profile: config/evaluation/viettravel-adapted.yaml
+policy: config/evaluation/viettravel-pacing.yaml
+shard_size: 3
+max_provider_calls: 54
+max_runtime_hours: 4
+capacity_cooldown_seconds: 300
+max_capacity_pauses: 2

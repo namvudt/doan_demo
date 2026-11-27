@@ -583,6 +583,12 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
             raise StoreError(409, "run_active", "Finish the original run before reviewing")
         if parent.model_mode != settings.model_mode:
             raise StoreError(409, "mode_mismatch", "Review must use the original model mode")
+        if rt.config().accuracy.enabled != (
+            (parent.result or {}).get("result_schema_version", 1) == 2
+        ):
+            raise StoreError(
+                409, "profile_mismatch", "Review requires the original workflow profile"
+            )
         try:
             validate_review_parent(parent.result or {})
         except (ValueError, TypeError):
@@ -734,6 +740,7 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
                 for key in (
                     "result_schema_version",
                     "answer_status",
+                    "slot_results",
                     "recognition",
                     "location_hint",
                     "requested_slots",
@@ -804,11 +811,20 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
                 "profile_mismatch",
                 "Continue with the original evidence profile and model mode",
             )
-        if not body.answer.strip() and body.asset_id is None and not body.selected_candidate:
+        if (
+            not body.answer.strip()
+            and body.asset_id is None
+            and not body.selected_candidate
+            and body.response_type != "unknown"
+        ):
             raise StoreError(422, "clarification_empty", "Provide an answer or an additional image")
         pending = previous.clarification or {}
         if not pending:
             raise StoreError(409, "clarification_not_pending", "Run has no clarification")
+        if body.response_type == "unknown" and body.selected_candidate:
+            raise StoreError(
+                422, "clarification_conflict", "Unknown response cannot also select a candidate"
+            )
         if body.selected_candidate and body.selected_candidate not in pending.get("options", []):
             raise StoreError(422, "candidate_invalid", "Select a candidate from this clarification")
         context = {
@@ -819,6 +835,8 @@ Kiểm tra mode tại `/api/v1/capabilities` trước khi tạo run.
         }
         if body.selected_candidate:
             context["selected_candidate"] = body.selected_candidate
+        if body.response_type == "unknown":
+            context["response_type"] = "unknown"
         focus = body.focus_box or (
             (parent.input_context or {}).get("focus_box") if body.asset_id is None else None
         )

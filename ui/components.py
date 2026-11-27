@@ -189,7 +189,10 @@ def render_sources(result):
 
 
 def render_recognition(result, image_data=None):
-    if recognition := result.get("recognition"):
+    recognition = result.get("recognition")
+    if recognition and any(
+        s["evidence_type"] == "identity" for s in result.get("requested_slots", [])
+    ):
         recognition_labels = {
             "probable": "Nhận diện có cơ sở · mức khả năng",
             "recognized": "Đã nhận diện tự động theo bằng chứng ảnh",
@@ -285,6 +288,49 @@ def render_result(result, *, show_stages=True, show_draft=False, history=False, 
     st.subheader("Kết quả khám phá")
     st.caption(result["query"])
     render_recognition(result, image_data)
+    if slots := result.get("slot_results"):
+        slot_labels = {
+            "answered": "Đã trả lời",
+            "partial": "Trả lời một phần",
+            "unanswered": "Chưa trả lời",
+            "unsupported": "Chưa hỗ trợ",
+            "conflicted": "Còn bất đồng",
+        }
+        reason_labels = {
+            "missing_source": "Thiếu nguồn phù hợp",
+            "insufficient_evidence": "Chưa đủ bằng chứng",
+            "entity_ambiguous": "Cần phân biệt công trình",
+            "image_unreadable": "Chi tiết ảnh chưa đọc được",
+            "identity_unconfirmed": "Chưa đáp ứng mức xác nhận được hỏi",
+            "unsupported_request": "Ngoài phạm vi hỗ trợ",
+            "source_conflict": "Các nguồn còn bất đồng",
+            "incomplete_answer": "Còn ý chưa đủ căn cứ",
+            "verification_unavailable": "Chưa hoàn tất kiểm chứng do lỗi kỹ thuật",
+            "no_retrieved_sources": "Chưa truy xuất được nguồn",
+            "no_supporting_source": "Nguồn đã lấy chưa chứng minh được câu trả lời",
+            "invalid_verifier_response": "Phản hồi kiểm chứng thiếu hoặc mâu thuẫn dữ liệu",
+            "invalid_visual_grounding": "Vùng bằng chứng chưa khớp vật thể",
+            "count_grounding_missing": "Chưa đủ bằng chứng cho từng vật thể được đếm",
+            "object_class_uncertain": "Chưa chắc vật thể đúng loại được hỏi",
+            "relation_quote_mismatch": "Trích dẫn chưa chứng minh đúng quan hệ được hỏi",
+            "nearest_scope_required": "Cần phạm vi hoặc danh sách địa điểm để so sánh gần nhất",
+            "nearest_relation_required": "Chưa có bằng chứng xác định địa điểm gần nhất",
+        }
+        with st.expander(
+            "Kết quả theo từng ý hỏi", expanded=any(s["status"] != "answered" for s in slots)
+        ):
+            st.table(
+                [
+                    {
+                        "Ý hỏi": s["question"],
+                        "Trạng thái": slot_labels[s["status"]],
+                        "Lý do": "; ".join(
+                            reason_labels.get(reason, reason) for reason in s["reason_codes"]
+                        ),
+                    }
+                    for s in slots
+                ]
+            )
     if result.get("run_kind") == "review":
         st.caption(
             f"Đánh giá lại từ lượt {result.get('parent_run_id')} · ảnh, bản nháp và nguồn được giữ nguyên."

@@ -91,6 +91,28 @@ def recognition_response(
                     "evidence_ids": visual,
                     "explanation": "SYNTHETIC: tổ hợp quan sát hỗ trợ nhận diện có điều kiện.",
                 }
+            result["slot_assessments"] = [
+                {
+                    "slot_id": slot["slot_id"],
+                    "status": "complete"
+                    if slot["evidence_type"] == "identity"
+                    and not omit_review
+                    and not contradiction
+                    and not unreadable
+                    and not rivals
+                    and basis == "distinctive_configuration"
+                    else "unanswered",
+                    "missing_information": []
+                    if slot["evidence_type"] == "identity"
+                    and not omit_review
+                    and not contradiction
+                    and not unreadable
+                    and not rivals
+                    and basis == "distinctive_configuration"
+                    else ["Synthetic fixture does not establish this slot."],
+                }
+                for slot in data["requested_slots"]
+            ]
             return json.dumps(result)
 
     return respond
@@ -98,7 +120,13 @@ def recognition_response(
 
 class NoSources:
     def search_heritage(self, **kwargs):
-        return {"status": "empty", "sources": [], "context_text": "", "navigation_links": []}
+        return {
+            "status": "empty",
+            "error": None,
+            "sources": [],
+            "context_text": "",
+            "navigation_links": [],
+        }
 
 
 def service(**kwargs):

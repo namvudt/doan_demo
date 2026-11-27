@@ -92,6 +92,11 @@
       "type": "string"
     },
     {
+      "key": "clarification_response_type",
+      "value": "answer",
+      "type": "string"
+    },
+    {
       "key": "selected_candidate",
       "value": "null",
       "type": "string"
@@ -2071,7 +2076,7 @@
             "description": "POST /api/v1/runs/{run_id}/clarification\n\nContinue from stored evidence. Consumes one pending revision atomically; keeps parent immutable.",
             "body": {
               "mode": "raw",
-              "raw": "{\"clarification_id\":\"{{clarification_id}}\",\"revision\":{{clarification_revision}},\"answer\":{{clarification_answer_json}},\"selected_candidate\":{{selected_candidate}}}",
+              "raw": "{\"clarification_id\":\"{{clarification_id}}\",\"revision\":{{clarification_revision}},\"answer\":{{clarification_answer_json}},\"selected_candidate\":{{selected_candidate}},\"response_type\":\"{{clarification_response_type}}\"}",
               "options": {
                 "raw": {
                   "language": "json"

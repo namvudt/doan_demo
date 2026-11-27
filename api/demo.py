@@ -148,7 +148,17 @@ def evidence_demo_response(schema, prompt):
         source = next((e for e in data["evidence"] if e["kind"] == "source"), None)
         evidence = source or next(iter(data["evidence"]), None)
         if not evidence:
-            return {"claims": []}
+            return {
+                "claims": [],
+                "slot_assessments": [
+                    {
+                        "slot_id": s["slot_id"],
+                        "status": "unanswered",
+                        "missing_information": ["Dữ liệu mô phỏng không có bằng chứng."],
+                    }
+                    for s in data["requested_slots"]
+                ],
+            }
         return {
             "claims": [
                 {
@@ -164,6 +174,16 @@ def evidence_demo_response(schema, prompt):
                     else [],
                     "explanation": "Kết quả mô phỏng chỉ dùng test, không đánh giá độ đúng lịch sử.",
                 }
-            ]
+            ],
+            "slot_assessments": [
+                {
+                    "slot_id": s["slot_id"],
+                    "status": "complete" if i == 0 else "unanswered",
+                    "missing_information": []
+                    if i == 0
+                    else ["Dữ liệu mô phỏng chưa trả lời ý này."],
+                }
+                for i, s in enumerate(data["requested_slots"])
+            ],
         }
     return None

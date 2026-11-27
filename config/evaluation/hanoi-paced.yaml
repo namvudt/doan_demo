@@ -1,0 +1,9 @@
+# Same evidence workflow, with enough deadline for serial, paced model calls.
+extends: ../hanoi-evidence.yaml
+# Keep graph workers available for streaming; the evaluation gate serializes generation.
+parallel_workers: 3
+fallback_providers: []
+budget:
+  deadline_seconds: 600
+  request_timeout_seconds: 60
+  transient_retries: 0

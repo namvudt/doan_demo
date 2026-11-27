@@ -54,9 +54,11 @@ Hãy quan sát ảnh kỹ lưỡng, định danh sơ bộ di tích/công trình 
 
         if self.llm.config.accuracy.enabled:
             prompt += "\nTách yêu cầu thành requested_slots: slot_id, question, evidence_type (visual/historical/identity/mixed). Không gộp nhiều ý vào một slot. candidates tối đa 3 ứng viên có name/reason, không ép chọn di tích. regions chỉ các vùng chữ cần OCR, box=[x1,y1,x2,y2] chuẩn hóa theo ảnh gốc 0..1 và purpose. Ảnh mờ hoặc dữ kiện không xác định phải giữ bất định. Các tên và thông tin người dùng là giả thuyết, không phải kết luận. Không suy niên đại từ hình dáng."
+            prompt += "\nKhởi dựng, trùng tu và tái dựng là các ý độc lập: tách thành slot riêng khi người dùng hỏi đồng thời, aspect=construction/restoration/reconstruction. Không biến 'hoặc' thành yêu cầu phải có cả hai. Giữ nghĩa phủ định: 'không cần xác nhận chắc chắn' chỉ yêu cầu khả năng; 'không cần đoán tên' không tạo slot định danh. Câu hỏi hỗn hợp có phần phiên đọc Hán–Nôm không hỗ trợ vẫn tách và làm phần kiến trúc/lịch sử được hỗ trợ."
         system = COORDINATOR_SYSTEM_PROMPT
         if self.llm.config.accuracy.enabled:
             system += "\nChế độ dựa trên bằng chứng: giữ plan_reasoning và focus_directives ngắn, không nhét đáp án hay niên đại đoán sẵn vào kế hoạch. Tên ứng viên ngắn, tên quần thể/địa phương là qualifier, không coi hai biến thể tên là hai công trình. Không chép/phiên âm/dịch chữ Hán–Nôm hay dùng chúng như dữ kiện chắc chắn; regions chỉ dành cho chữ Quốc ngữ/Latin thực sự cần đọc. Không suy thành phần vật liệu hay loại đá từ ảnh."
+            system += "\nGiữ nguyên loại đối tượng người dùng hỏi: không mở rộng cột cờ sang cột điện/chống sét chỉ vì giống hình. candidates chỉ gồm đối tượng nhận diện, không đưa quốc gia/số lượng/giá trị đáp án vào đó. Với tên đã nêu trong câu hỏi, tách tra cứu sự kiện về chủ thể đó khỏi việc chứng minh ảnh chụp đúng chủ thể. Câu hỏi quan hệ như gần nhất → loại hình cần tách các bước nhưng phải giữ điều kiện gần nhất và phạm vi so sánh."
         raw_response, meta = self.llm.call_llm(
             prompt=prompt,
             system_instruction=system,

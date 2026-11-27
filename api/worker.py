@@ -209,6 +209,13 @@ class Worker:
                         "run_id": run.id,
                         "execution_status": run.execution_status,
                         "result_status": run.result_status,
+                        "answer_status": event.result.answer_status,
+                        "recognition": event.result.recognition.model_dump(mode="json")
+                        if event.result.recognition
+                        else None,
+                        "slot_results": [
+                            s.model_dump(mode="json") for s in event.result.slot_results
+                        ],
                         "result_url": f"/api/v1/runs/{run.id}/result",
                     },
                 )
