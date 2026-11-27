@@ -1,0 +1,360 @@
+{
+  "date": "2026-11-15",
+  "timezone": "Asia/Saigon",
+  "branch": "fe",
+  "window_utc": {
+    "start": "2026-11-15T14:51:16Z",
+    "end": "2026-11-15T14:54:57Z"
+  },
+  "window_saigon": {
+    "start": "2026-11-15T21:51:16+07:00",
+    "end": "2026-11-15T21:54:57+07:00"
+  },
+  "authorization_scope": "One explicitly authorized full workflow using real model providers from server-side configuration.",
+  "environment": {
+    "compose_project": "heritage-fe-live",
+    "backend_url": "http://127.0.0.1:8002",
+    "services": [
+      "PostgreSQL",
+      "FastAPI",
+      "separate worker"
+    ],
+    "backend_mode": "live",
+    "inference": "Real Gemini API calls; not UI Preview and not offline demo.",
+    "credentials": "Server-side only; no environment file, credential values or raw provider messages included."
+  },
+  "ui_test": {
+    "opt_in": "RUN_LIVE_UI=1",
+    "passed": 1,
+    "failed": 0,
+    "runner_duration": "approximately 1.2 minutes",
+    "request_scope": "Architecture question about a public sample image; one run creation.",
+    "workflow_http_accepted": 202,
+    "terminal_result_displayed": true,
+    "result_status": "reviewed",
+    "owner_session_revoked": true
+  },
+  "run": {
+    "run_id": "71b3efea-ef15-4db6-badb-27a90fb7e5da",
+    "kind": "full",
+    "parent_run_id": null,
+    "execution_status": "succeeded",
+    "result_status": "reviewed",
+    "model_mode": "live",
+    "error_type": null,
+    "event_count": 21,
+    "created_at_utc": "2026-11-15T14:53:23.120Z",
+    "started_at_utc": "2026-11-15T14:53:23.247Z",
+    "finished_at_utc": "2026-11-15T14:54:29.512Z",
+    "execution_duration_seconds": 66.264,
+    "owner_session_revoked": true
+  },
+  "model_attempts": [
+    {
+      "attempt": 1,
+      "agent_role": "coordinator",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "success",
+      "retry": 0,
+      "fallback_used": false,
+      "duration": 11.626262830000087,
+      "error_type": null,
+      "usage": {
+        "input_tokens": 1825,
+        "total_tokens": 2968,
+        "output_tokens": 1143
+      }
+    },
+    {
+      "attempt": 2,
+      "agent_role": "visual",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "success",
+      "retry": 0,
+      "fallback_used": false,
+      "duration": 15.775824260000263,
+      "error_type": null,
+      "usage": {
+        "input_tokens": 1592,
+        "total_tokens": 4130,
+        "output_tokens": 2538
+      }
+    },
+    {
+      "attempt": 3,
+      "agent_role": "knowledge",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "error",
+      "retry": 0,
+      "fallback_used": false,
+      "duration": 10.310042545000215,
+      "error_type": "TruncatedModelResponse",
+      "usage": {
+        "input_tokens": 1003,
+        "total_tokens": 3047,
+        "output_tokens": 2044
+      }
+    },
+    {
+      "attempt": 4,
+      "agent_role": "knowledge",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "success",
+      "retry": 1,
+      "fallback_used": false,
+      "duration": 8.078109512000083,
+      "error_type": null,
+      "usage": {
+        "input_tokens": 1003,
+        "total_tokens": 2675,
+        "output_tokens": 1672
+      }
+    },
+    {
+      "attempt": 5,
+      "agent_role": "aggregator",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "error",
+      "retry": 0,
+      "fallback_used": false,
+      "duration": 10.040500228999917,
+      "error_type": "TruncatedModelResponse",
+      "usage": {
+        "input_tokens": 1985,
+        "total_tokens": 4029,
+        "output_tokens": 2044
+      }
+    },
+    {
+      "attempt": 6,
+      "agent_role": "aggregator",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "success",
+      "retry": 1,
+      "fallback_used": false,
+      "duration": 11.497639944000184,
+      "error_type": null,
+      "usage": {
+        "input_tokens": 1985,
+        "total_tokens": 4420,
+        "output_tokens": 2435
+      }
+    },
+    {
+      "attempt": 7,
+      "agent_role": "judge",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "status": "success",
+      "retry": 0,
+      "fallback_used": false,
+      "duration": 11.568558718999611,
+      "error_type": null,
+      "usage": {
+        "input_tokens": 4297,
+        "total_tokens": 6308,
+        "output_tokens": 2011
+      }
+    }
+  ],
+  "model_summary": {
+    "provider": "gemini",
+    "model": "gemini-3.5-flash",
+    "attempts": 7,
+    "successful_attempts": 5,
+    "errored_attempts": 2,
+    "automatic_output_limit_retries": 2,
+    "recovery": "Knowledge and aggregator initially returned TruncatedModelResponse. Each succeeded on automatic retry 1; the final full workflow succeeded.",
+    "provider_fallback_used": false,
+    "usage_summary": {
+      "input_tokens": 13690,
+      "output_tokens": 13887,
+      "total_tokens": 27577,
+      "partial": false
+    },
+    "usage_note": "Public backend token usage totals include both successful and errored attempts. No monetary cost was calculated."
+  },
+  "http": {
+    "note": "Bounded aggregate includes UI requests and automatic health checks. No HTTP error responses occurred.",
+    "request_total": 113,
+    "status_totals": [
+      {
+        "status": 200,
+        "count": 109
+      },
+      {
+        "status": 201,
+        "count": 2
+      },
+      {
+        "status": 202,
+        "count": 1
+      },
+      {
+        "status": 204,
+        "count": 1
+      }
+    ],
+    "routes": [
+      {
+        "method": "GET",
+        "route": "/api/v1/assets/{asset_id}/content",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/capabilities",
+        "status": 200,
+        "count": 3
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/preflight",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs",
+        "status": 200,
+        "count": 3
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/runs",
+        "status": 202,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/events",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/events/history",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/feedback",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/metrics",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/result",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/sources",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/runs/{run_id}/steps",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/samples",
+        "status": 200,
+        "count": 2
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/samples/{sample_id}/assets",
+        "status": 201,
+        "count": 1
+      },
+      {
+        "method": "POST",
+        "route": "/api/v1/sessions",
+        "status": 201,
+        "count": 1
+      },
+      {
+        "method": "DELETE",
+        "route": "/api/v1/sessions/me",
+        "status": 204,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/sessions/me",
+        "status": 200,
+        "count": 1
+      },
+      {
+        "method": "GET",
+        "route": "/api/v1/workflow",
+        "status": 200,
+        "count": 4
+      },
+      {
+        "method": "GET",
+        "route": "/health/live",
+        "status": 200,
+        "count": 66
+      }
+    ],
+    "unexpected_5xx": 0
+  },
+  "recovered_error_events": [
+    {
+      "timestamp": "2026-11-15T21:53:47.90189+07:00",
+      "event": "model.error",
+      "run_id": "71b3efea-ef15-4db6-badb-27a90fb7e5da",
+      "agent_role": "knowledge",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "error_type": "TruncatedModelResponse"
+    },
+    {
+      "timestamp": "2026-11-15T21:54:06.230814+07:00",
+      "event": "model.error",
+      "run_id": "71b3efea-ef15-4db6-badb-27a90fb7e5da",
+      "agent_role": "aggregator",
+      "actual_provider": "gemini",
+      "model_used": "gemini-3.5-flash",
+      "error_type": "TruncatedModelResponse"
+    }
+  ],
+  "cleanup": {
+    "created_sessions": 1,
+    "revoked_sessions": 1,
+    "credential_values_in_artifact": false,
+    "raw_logs_or_model_messages_in_artifact": false,
+    "full_answer_or_prompts_in_artifact": false
+  },
+  "limits": [
+    "Automated reviewed status does not prove historical accuracy.",
+    "This run did not exercise account, catalog, map or admin endpoints absent from the backend.",
+    "No extra manual retry, Judge-only child run or additional generation was initiated by this evidence audit."
+  ]
+}

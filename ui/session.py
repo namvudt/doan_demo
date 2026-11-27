@@ -51,6 +51,7 @@ def clear_history(state):
     state["history_view"] = "current"
     state["saved_runs"] = {}
     state["feedback_store"] = {}
+    state["answered_clarifications"] = {}
     for key in list(state):
         if key.startswith(("feedback_widget_", "note_widget_", "saved_widget_")):
             state.pop(key, None)
@@ -69,5 +70,5 @@ def save_feedback(state, run_id):
 
 def prune_session(state):
     kept = {item["result"]["run_id"] for item in state.get("history", [])}
-    for name in ("saved_runs", "feedback_store"):
+    for name in ("saved_runs", "feedback_store", "answered_clarifications"):
         state[name] = {key: value for key, value in state.get(name, {}).items() if key in kept}

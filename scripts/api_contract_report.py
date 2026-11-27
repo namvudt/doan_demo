@@ -24,7 +24,16 @@ from PIL import Image
 from starlette.routing import compile_path
 
 ROOT = Path(__file__).resolve().parents[1]
-SENSITIVE = {"access_token", "authorization", "x-bootstrap-token", "api_key", "password"}
+SENSITIVE = {
+    "access_token",
+    "refresh_token",
+    "authorization",
+    "x-bootstrap-token",
+    "api_key",
+    "password",
+    "current_password",
+    "new_password",
+}
 
 
 def redact(value):
@@ -90,7 +99,9 @@ class Reporter:
         response = self.request(method, path, **kwargs)
         elapsed = round((time.perf_counter() - started) * 1000, 2)
         content_type = response.headers.get("content-type", "")
-        if "application/json" in content_type:
+        if response.status_code == 204:
+            payload = {}
+        elif "application/json" in content_type:
             payload = response.json()
         elif "text/event-stream" in content_type:
             payload = {"frames": sse_frames(response.text)}
@@ -144,6 +155,7 @@ class Reporter:
                 for key in (
                     "content-type",
                     "x-request-id",
+                    "x-backend-build",
                     "location",
                     "content-disposition",
                     "x-accel-buffering",
@@ -171,7 +183,7 @@ class Reporter:
         raise AssertionError("Worker completion timeout")
 
 
-def exercise(report, start_worker, bootstrap, operations_token):
+def exercise(report, start_worker, bootstrap, operations_token, *, database_url):
     call = report.call
     call(
         "Tiến trình API hoạt động",
@@ -218,6 +230,92 @@ def exercise(report, start_worker, bootstrap, operations_token):
     )
     auth = {"Authorization": "Bearer " + session_a["access_token"]}
     other = {"Authorization": "Bearer " + session_b["access_token"]}
+    catalog_path = "/api/v1/heritages/contract-report-site"
+    editorial = "/api/v1/operations/heritages"
+    operator = {"Authorization": "Bearer " + operations_token}
+    catalog_body = {
+        "heritage_id": "contract-report-site",
+        "slug": "contract-report-site",
+        "name": "Catalog contract fixture",
+        "category": "monument",
+        "content_status": "published",
+        "illustrative": True,
+        "summary": "Isolated HTTP fixture, not verified historical data.",
+        "location": {
+            "latitude": 21.0287,
+            "longitude": 105.8522,
+            "verification_status": "illustrative",
+        },
+        "media": [
+            {
+                "media_id": "contract-report-photo",
+                "storage_key": "contract-fixture.jpg",
+                "alt": "Synthetic image used for API contract testing",
+            }
+        ],
+    }
+    call("Guest cannot publish catalog", "POST", editorial, 401, headers=auth, json=catalog_body)
+    _, heritage = call(
+        "Operator publishes catalog fixture",
+        "POST",
+        editorial,
+        201,
+        headers=operator,
+        json=catalog_body,
+    )
+    call(
+        "Published catalog is public",
+        "GET",
+        "/api/v1/heritages",
+        check=lambda p: require(p["total"] == 1 and len(p["items"]) == 1, "Catalog missing"),
+    )
+    call(
+        "Published detail retains opaque ID",
+        "GET",
+        catalog_path,
+        check=lambda p: require(p["heritage_id"] == heritage["heritage_id"], "Catalog ID changed"),
+    )
+    photo_path = heritage["media"][0]["url"]
+    call("Catalog image decodes", "GET", photo_path)
+    call(
+        "Catalog import requires guest session",
+        "POST",
+        photo_path.replace("/content", "/assets"),
+        401,
+    )
+    _, imported = call(
+        "Catalog image becomes owned asset",
+        "POST",
+        photo_path.replace("/content", "/assets"),
+        201,
+        headers=auth,
+    )
+    call("Imported image stays private", "GET", imported["content_url"], 404, headers=other)
+    _, updated = call(
+        "Operator replaces catalog at expected revision",
+        "PUT",
+        editorial + "/contract-report-site",
+        headers=operator,
+        json={**catalog_body, "summary": "Updated fixture", "version": 1},
+        check=lambda p: require(p["version"] == 2, "Catalog revision did not advance"),
+    )
+    call(
+        "Stale catalog revision rejected",
+        "PUT",
+        editorial + "/contract-report-site",
+        409,
+        headers=operator,
+        json={**catalog_body, "version": 1},
+    )
+    call(
+        "Withdraw catalog fixture",
+        "PUT",
+        editorial + "/contract-report-site",
+        headers=operator,
+        json={**catalog_body, "content_status": "draft", "version": updated["version"]},
+    )
+    call("Withdrawn detail is private", "GET", catalog_path, 404)
+    call("Withdrawn media is private", "GET", photo_path, 404)
     call("Preflight requires a session", "POST", "/api/v1/preflight", 401, json={})
     call(
         "Preflight checks mandatory roles without generation",
@@ -549,6 +647,31 @@ def exercise(report, start_worker, bootstrap, operations_token):
             "SSE replay duplicated/missed events",
         ),
     )
+    call(
+        "Evidence contract on legacy result",
+        "GET",
+        base + "/evidence",
+        headers=auth,
+        check=lambda p: require(
+            p["result_schema_version"] == 1 and p["claims"] == [], "Legacy adapter failed"
+        ),
+    )
+    call("Unknown image region", "GET", base + "/regions/unknown/image", 404, headers=auth)
+    call(
+        "No pending clarification",
+        "GET",
+        base + "/clarification",
+        headers=auth,
+        check=lambda p: require(p["clarification"] is None, "Unexpected clarification"),
+    )
+    call(
+        "Legacy profile cannot continue clarification",
+        "POST",
+        base + "/clarification",
+        409,
+        headers={**auth, "Idempotency-Key": "clarification-legacy"},
+        json={"clarification_id": "not-pending", "revision": 1, "answer": "DEMO"},
+    )
     _, result = call(
         "Kết quả cuối và nguồn",
         "GET",
@@ -741,6 +864,9 @@ def exercise(report, start_worker, bootstrap, operations_token):
         headers=auth,
         check=lambda p: require(p == result, "Original result was overwritten"),
     )
+    from scripts.product_contract_cases import exercise_product
+
+    product_summary = exercise_product(report, bootstrap, operations_token, database_url)
     call("Thu hồi token phiên A", "DELETE", "/api/v1/sessions/me", 204, headers=auth)
     return {
         "primary_run_id": identifier,
@@ -749,6 +875,7 @@ def exercise(report, start_worker, bootstrap, operations_token):
         "source_count": len(result["sources"]),
         "model_calls": 5,
         "paid_model_calls": 0,
+        **product_summary,
     }
 
 
@@ -896,6 +1023,9 @@ def main():
         probe.bind(("127.0.0.1", args.port))
     work = ROOT / ".api-demo" / ("contract-" + uuid4().hex)
     work.mkdir(parents=True)
+    media = work / "catalog-media"
+    media.mkdir()
+    Image.new("RGB", (40, 30), "green").save(media / "contract-fixture.jpg")
     bootstrap = secrets.token_urlsafe(32)
     operations_token = secrets.token_urlsafe(40)
     env = {
@@ -907,6 +1037,9 @@ def main():
         "API_EMBEDDED_WORKER": "false",
         "DATABASE_URL": "sqlite:///" + (work / "api.sqlite").as_posix(),
         "API_DATA_DIR": str(work / "assets"),
+        "API_CATALOG_MEDIA_DIR": str(media),
+        "HERITAGE_CONFIG": str(ROOT / "config/default.yaml"),
+        "HERITAGE_BUILD_REVISION": "contract-report",
         "API_BOOTSTRAP_TOKEN": bootstrap,
         "API_OPERATIONS_TOKEN": operations_token,
         "API_LOG_DIR": str(work / "logs"),
@@ -946,7 +1079,13 @@ def main():
             else:
                 raise AssertionError("Managed demo API startup timed out")
             report = Reporter(client)
-            summary = exercise(report, lambda: launch("api.worker"), bootstrap, operations_token)
+            summary = exercise(
+                report,
+                lambda: launch("api.worker"),
+                bootstrap,
+                operations_token,
+                database_url=env["DATABASE_URL"],
+            )
             records = [
                 json.loads(line)
                 for path in (work / "logs").glob("*.jsonl")

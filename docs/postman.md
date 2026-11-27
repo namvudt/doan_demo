@@ -1,166 +1,146 @@
 # Import và thử API bằng Postman
 
-Bộ JSON gồm **33 HTTP operations**, **36 requests** (thêm SSE replay, result kèm
-intermediate và export Markdown). Có body mẫu, query parameters, auth, script tự
-lưu token/ID và kiểm tra HTTP status. Mẫu không chứa credential hoặc ID của phiên
-đã chạy trên máy người phát triển.
+Bộ JSON hiện có **81 HTTP operations / 84 requests**. Ba request bổ sung là
+SSE replay, result kèm intermediate và export Markdown. Collection được sinh
+từ OpenAPI và có test đối chiếu toàn bộ method/path, query, auth và cờ cho phép
+ghi. Template không chứa password, token hoặc ID của dữ liệu đã chạy.
 
-## 1. Import file
+## Import và chọn server
 
-Trong Postman Desktop, chọn **Import → Files**:
+Trong Postman Desktop, Import các file sau rồi chọn environment:
 
-1. [heritage-vqa.postman_collection.json](../postman/heritage-vqa.postman_collection.json).
-2. Chọn một environment:
-   - [Demo](../postman/heritage-vqa-demo.postman_environment.json): `http://127.0.0.1:8001`.
-   - [Local API](../postman/heritage-vqa-local.postman_environment.json): `http://127.0.0.1:8000`.
+- [Collection](../postman/heritage-vqa.postman_collection.json).
+- [Demo](../postman/heritage-vqa-demo.postman_environment.json): `http://127.0.0.1:8001`.
+- [Local API](../postman/heritage-vqa-local.postman_environment.json): `http://127.0.0.1:8000`.
 
-Chọn environment vừa import ở góc trên bên phải. Collection tên **Heritage VQA -
-Complete API** xuất hiện trong Collections. Không cần import cả hai environment
-cùng lúc; có thể import cả hai để chuyển server bằng environment selector.
+`base_url` là origin, không thêm `/api/v1`. Đọc Capabilities và Readiness trước
+khi thử thao tác. `/api/v1` là tiền tố HTTP; Swagger và `X-Backend-Build` nhận
+diện bản phần mềm đang phục vụ. Các key model/LangSmith thuộc cấu hình server.
+Chỉ nhập token vào biến secret của Postman, không có tiền tố `Bearer`; không
+đưa environment đang chứa credential vào Git.
 
-Schema OpenAPI có sẵn tại `/openapi.json`. Khi cần file để sinh client, chạy
-`uv run --locked python -m scripts.export_postman --include-openapi` để tạo
-`postman/heritage-vqa.openapi.json` local. Schema có thể sinh lại nên không commit;
-collection ở bước 1 đã có đủ workflow và scripts để thử toàn bộ API.
+## Mặc định và cờ cho phép
 
-## 2. Chạy backend demo
+Model calls, đăng ký tài khoản, chỉnh sửa nguồn, duyệt/xuất bản, upload media,
+đổi role và thao tác xóa đều mặc định tắt. Request thiếu ID/token phụ thuộc
+được bỏ qua. Có thể đọc catalog và tạo phiên khách mà không tạo tài khoản
+hoặc công bố dữ liệu.
 
-Từ thư mục `doan_demo`:
+| Biến | Khi nào bật hoặc điền |
+| --- | --- |
+| `enable_model_calls` | Cho phép tạo run demo hoặc kiểm tra quyền chạy live trước mutation |
+| `allow_live_model_calls`, `live_model_consent` | Cả hai phải `true` mới cho phép model live có thể tính phí |
+| `run_lifecycle_actions` | Cancel/retry/review/clarification/resume và teardown phiên khách |
+| `enable_accounts` | Đăng ký, đăng nhập, refresh hoặc logout tài khoản |
+| `enable_account_updates` | Sửa profile hoặc password |
+| `enable_role_changes` | Gán role bằng operations hoặc admin token; đăng ký không tự cấp role |
+| `enable_conversation_writes` | Tạo/sửa/xóa hội thoại hoặc quên memory |
+| `enable_favorite_writes` | Thêm/xóa yêu thích di tích của tài khoản |
+| `enable_catalog_writes`, `catalog_write_body` | POST/PUT catalog; body đầy đủ, PUT có version hiện tại |
+| `enable_editorial_writes` | Tạo phiên bản nguồn hoặc sửa cấu trúc biên tập |
+| `enable_remote_ingest` | Tải URL thuộc allowlist vào draft |
+| `enable_source_review` | Gửi tuyên bố duyệt sau khi đã đọc và đối chiếu nguồn |
+| `enable_source_publish` | Xuất bản phiên bản đã được duyệt |
+| `enable_media_writes` | Upload/thay/xóa ảnh catalog bằng file được chọn |
+| `enable_destructive_actions` | Bắt buộc riêng cho DELETE, archive và withdraw |
 
-```powershell
-uv run --locked python -m scripts.serve_api --demo --port 8001
-```
+Mọi request tạo công việc model đọc lại capabilities bằng `pm.sendRequest`
+trước khi gửi. Request dừng nếu không xác minh được chế độ hoặc thiếu hai cờ
+đồng ý live. Các tác vụ folder 10/14 còn cần `run_lifecycle_actions=true`.
+Tham chiếu: [sendRequest](https://learning.postman.com/docs/tests-and-scripts/write-scripts/postman-sandbox-reference/pm-send-request),
+[skipRequest](https://learning.postman.com/docs/tests-and-scripts/write-scripts/postman-sandbox-reference/pm-execution).
 
-Demo chạy LangGraph với model/nguồn mô phỏng, không gọi Gemini hoặc GPU. Giữ
-terminal mở và chọn environment **Heritage VQA - Demo**. Với server đã triển
-khai, đổi `base_url` sang địa chỉ server, không thêm `/api/v1` vào cuối.
-
-## 3. Cách nhanh: Run Collection
-
-Chọn collection → **Run** → chạy một iteration theo thứ tự mặc định. Có thể giữ
-delay 0 vì request chờ run đã tự có khoảng nghỉ khi cần polling.
+## Các folder
 
 | Folder | Nội dung |
 | --- | --- |
-| 01 System | Liveness/readiness, capabilities, danh sách ảnh mẫu |
-| 02 Session | Cấp phiên, tự lưu `access_token` và `session_id` |
-| 03 Assets | Tạo asset từ mẫu, lưu `asset_id`, đọc metadata/PNG; upload tùy chọn |
-| 04 Workflow | Danh sách giai đoạn, sơ đồ và preflight credential/model |
-| 05 Runs | Tạo run, lưu `run_id`/request ID/trace ID, list và polling trạng thái |
-| 06 Events | Lịch sử JSON, SSE, SSE replay với Last-Event-ID |
-| 07 Results | Kết quả, intermediate, sources, steps, model usage, JSON/Markdown export |
-| 08 Feedback | Bookmark, POST/PUT/GET feedback |
-| 09 Operations | Prometheus metrics bằng token vận hành riêng |
-| 10 Lifecycle actions | Hủy, đánh giá lại riêng Judge, retry, xóa asset và thu hồi phiên; mặc định bỏ qua |
+| 01 System / Catalog | Health, capabilities, ảnh mẫu, di tích, ảnh, context và nguồn công bố |
+| 02 Session | Cấp/đọc phiên khách, giữ riêng với session tài khoản |
+| 03 Assets | Asset từ sample, PNG, upload và nhập ảnh catalog tùy chọn |
+| 04 Workflow | Sơ đồ/giai đoạn và preflight metadata model |
+| 05–08 | Run, SSE, bằng chứng, crop, kết quả, feedback và bookmark run |
+| 09 Operations | Metrics và POST/PUT catalog |
+| 10 Lifecycle | Clarification, cancel, Judge-only review, retry, xóa asset tùy chọn |
+| 11 Accounts | Register/login/refresh, profile/password, gán role admin/operations |
+| 12 Conversations | Hội thoại, lượt chat, memory và yêu thích di tích |
+| 13 Editorial | Nguồn/phiên bản, review/publish/withdraw, binding, audit, media và archive |
+| 14 Recovery | Checkpoint đã hoàn tất, resume WorkerLost, soft-delete run |
+| 15 Session teardown | Thu hồi session tài khoản/khách, chạy cuối |
 
-Upload được bỏ qua khi `enable_upload=false`; API vẫn được thử bằng ảnh mẫu.
-Operations được bỏ qua nếu `operations_token` trống. Folder 10 được bỏ qua khi
-`run_lifecycle_actions=false`. Đây là các request đầy đủ trong collection; chỉ
-cần cấu hình các biến tương ứng để chạy chúng.
+## Run, evidence và phục hồi
 
-`GET run` trong folder 05 tự lặp bằng `pm.execution.setNextRequest()` khi chạy
-Runner/Newman. Mặc định nghỉ 1 giây, tối đa 120 lượt polling. Hết ngân sách hoặc
-run thất bại/hủy thì có assertion báo lỗi và dừng chuỗi request. Tăng
-`poll_max_attempts` nếu server/model thực tế cần lâu hơn.
+Tạo session khách → tạo asset từ sample → đặt `enable_model_calls=true` → Create
+run. Script lưu `access_token`, `asset_id`, `run_id`, request ID và khóa
+idempotency. `bootstrap_token` chỉ dùng khi server yêu cầu cấp phiên bằng bootstrap.
 
-## 4. Bấm Send từng API
+`focus_box`, `location_hint`, `run_heritage_id`, `run_conversation_id` là giá trị
+JSON, mặc định `null`. Ví dụ hint:
+`{"name":"Chùa Hương","provenance":"user"}`. ID trong body dùng JSON string
+`"UUID hoặc ID di tích"`. Chọn di tích vẫn là ngữ cảnh chưa xác minh.
 
-Gọi theo thứ tự: **Create session → Create asset from sample → Create run**.
-Các script tự lưu ID vào environment nên không cần sao chép thủ công. Sau đó
-gọi status, events, steps hoặc result tùy mục đích.
+Profile `hanoi-evidence` trả nhận diện, claim/evidence, vùng ảnh và clarification.
+GET evidence lưu `region_id`; GET clarification lưu ID/revision. Điền
+`clarification_answer` hoặc `selected_candidate`, bật model/lifecycle rồi gửi
+POST clarification. Run con lưu ở `clarification_run_id`, giữ câu hỏi/parent.
+`awaiting_input` kết thúc một đoạn polling/SSE.
 
-Khi bấm **Send** riêng lẻ, `setNextRequest()` không tự gửi lại request; bạn có
-thể bấm Send tiếp cho status hoặc dùng Runner. Result chưa sẵn sàng trả 409.
-Readiness trả 503 khi chưa có worker/DB hoạt động; test của request này chấp nhận
-200/503 để bạn đọc được trạng thái, không coi 503 là server đã sẵn sàng.
+Runner/Newman polling có khoảng nghỉ và giới hạn lượt. Khi Send riêng lẻ,
+`setNextRequest` không tự gửi tiếp; bấm status lại hoặc dùng Runner. Kết quả chưa
+sẵn sàng trả 409; readiness 503 thể hiện DB/worker chưa sẵn sàng. SSE theo giai
+đoạn, chưa stream từng token đáp án.
 
-`Idempotency-Key` được tạo bằng GUID và giữ nguyên khi gửi lại Create run. Muốn
-tạo run mới với cùng ảnh/câu hỏi, xóa giá trị `idempotency_key` trước khi Send.
-Đổi body nhưng dùng key cũ có thể trả 409. Khi cấp phiên mới, script xóa token/ID
-cũ và tạo ngữ cảnh mới cho workflow. Đổi sang asset khác không tự tạo run mới.
+Đổi input dùng khóa idempotency mới. Retry và review có khóa riêng; review chỉ
+gọi Judge và dùng artifact parent. Resume chỉ bật khi GET recovery trả
+`can_resume=true`, dùng `resume_idempotency_key` riêng. Không tự resume run đã
+thành công. Teardown phiên khách cần cả lifecycle và destructive flags.
 
-## 5. Những biến cần biết
+## Tài khoản, hội thoại và biên tập
 
-| Biến | Giá trị/cách dùng |
-| --- | --- |
-| `base_url` | URL gốc, không có `/api/v1`; có thể đổi sang server |
-| `bootstrap_token` | `API_BOOTSTRAP_TOKEN` của server, chỉ cần khi cấp phiên bị yêu cầu bootstrap |
-| `operations_token` | `API_OPERATIONS_TOKEN`, riêng cho metrics, không thay guest token |
-| `access_token`, `session_id`, `asset_id`, `run_id` | Tự lưu từ response |
-| `sample_id` | Mặc định `chua_mot_cot`; xem danh sách ở folder 01 |
-| `question`, `audience`, `profile` | Câu hỏi; audience `tourist`/`student`, profile `default` |
-| `include_draft` | `true` để xem bản nháp tổng hợp trên events/steps |
-| `include_intermediate` | `true` để kèm intermediate trong result/export; có request result riêng luôn bật |
-| `history_after` | Cursor lịch sử JSON, tự cập nhật; đặt `0` để đọc lại từ đầu |
-| `sse_after` | Cursor SSE, mặc định `0` |
-| `last_event_id` | Tự lưu ID cuối sau stream; dùng trong request replay, đặt ID nhỏ hơn để xem phát lại |
-| `poll_interval_ms`, `poll_max_attempts` | Khoảng nghỉ và số lượt polling trong Runner |
-| `feedback_rating`, `feedback_note`, `bookmark_saved` | Feedback và bookmark mẫu |
-| `enable_upload` | Bật `true` sau khi chọn file trong Body → form-data của request Upload |
-| `run_lifecycle_actions` | Bật `true` để gửi các request folder 10 |
-| `delete_asset_id` | Asset muốn xóa; để trống thì dùng asset hiện tại, có thể nhận 409 nếu đã gắn run |
-| `retry_run_id` | Run con trả về từ Retry, không ghi đè run chính |
-| `review_run_id` | Run con đánh giá lại riêng Judge; dùng `review_idempotency_key` riêng |
+Điền `account_email`, `display_name`, `account_password` rồi bật
+`enable_accounts`. Password và refresh/access token là secret. Login/refresh lưu
+`account_access_token`; `/users/me` và favorites dùng token này. Run/conversation
+dùng `access_token`: chủ động đặt biến đó bằng account access token hiện tại
+nếu muốn làm việc dưới tài khoản. Refresh xoay token; cập nhật token sở hữu
+đang dùng sau khi refresh.
 
-Nhập token vào biến môi trường của Postman, không thêm tiền tố `Bearer`.
-Collection tự gắn Authorization; bootstrap chỉ gắn vào request cấp phiên.
-Câu hỏi/feedback/session label được JSON-encode trong pre-request script để dấu
-ngoặc kép hoặc xuống dòng không làm hỏng body. API key Gemini/LangSmith thuộc
-backend, không cần điền vào Postman.
+Hội thoại có version cho chỉnh sửa đồng thời. Memory mặc định tắt, có giới hạn
+và được gắn là ngữ cảnh chưa xác minh. Yêu thích di tích khác bookmark run.
+Xóa hội thoại không tự xóa run; run có soft-delete và retention riêng.
 
-## 6. Quan sát streaming
+Editorial dùng `editor_access_token` hoặc `operations_token` qua biến cục bộ
+`editorial_token`. Role tài khoản được kiểm tra ở DB. Endpoint gán role dùng
+`admin_access_token` hoặc operations token qua `role_token`, cùng cờ
+`enable_role_changes`; editor không có quyền gán role.
 
-Sau Create run, có thể mở **Stream stages SSE** trong tab khác ngay khi run đang
-chạy. Postman hiển thị các sự kiện; kết nối đóng khi run terminal và phát hết
-events. Các test/post-response script xử lý response sau khi stream đóng.
+Nguồn mới luôn vào draft. `source_id`, `version_id`, `source_version` được lưu
+sau thao tác. Khi đã đọc/đối chiếu, điền
+`source_review_attestation=reviewed_against_source` và `review_note`, bật
+`enable_source_review`. Xuất bản cần thêm `enable_source_publish`. Việc này
+ghi nhận quy trình review, không chứng minh độ chính xác nhận diện hoặc lịch sử.
 
-Runner đặt SSE sau request polling nên thường đọc lại lịch sử của run đã xong;
-đây là cách tránh một stream dài chặn chuỗi test. Xem realtime bằng Send SSE khi
-run còn running. Native API hiện stream theo giai đoạn, chưa stream từng token
-của câu trả lời model trong workflow chính.
+Media upload cần chọn JPEG/PNG/WebP trong Body → form-data và version catalog
+hiện tại. Không tự đặt multipart Content-Type để Postman tạo boundary. DELETE
+run/media/conversation dùng ID riêng, mặc định rỗng: `delete_run_id`,
+`delete_media_id`, `delete_conversation_id`; archive dùng `archive_heritage_id`.
+Chọn ID/version chủ động trước khi bật cờ xóa. Bulk purge và duyệt bộ gold là
+công cụ CLI; collection không tự purge hoặc chấm chất lượng từ kết quả demo.
 
-Request **Replay SSE using Last-Event-ID** gửi cursor đã lưu. Nếu cursor bằng ID
-cuối thì response không có event mới là hợp lệ. Ngắt stream không hủy run;
-muốn hủy dùng Cancel trong folder 10.
-
-## 7. Lifecycle và upload
-
-Upload: mở request **Upload image - optional**, chọn Body → form-data → `file`
-→ Select Files; đặt `enable_upload=true`, rồi Send. Response 201 thay `asset_id`
-bằng ảnh mới; tạo một run mới khi muốn xử lý ảnh này. Không tự gắn Content-Type
-multipart để Postman tự sinh boundary.
-
-Folder 10 cần `run_lifecycle_actions=true`. Cancel run đã hoàn tất trả lại trạng
-thái hiện tại; Retry chỉ chấp nhận run terminal. Retry lưu `retry_run_id`, có
-`retry_idempotency_key` riêng. Xóa ảnh đã dùng trong run trả 409, ảnh chưa dùng
-trả 204. **Revoke session chạy cuối**: token mất hiệu lực, hãy tạo phiên mới để
-tiếp tục thử. Muốn xem run retry, thay `run_id` bằng `retry_run_id` và đợi kết quả
-trước khi thu hồi phiên. Chế độ live gọi model thực tế theo cấu hình backend.
-
-## 8. Tạo lại JSON và kiểm tra
+## Tạo lại và kiểm tra
 
 ```powershell
 uv run --locked python -m scripts.export_postman
 uv run --locked pytest tests/test_postman_export.py
+uv run --locked python -m scripts.api_contract_report --port 18091
 ```
 
-Generator kiểm tra danh sách operation khớp OpenAPI trước khi xuất, giúp phát
-hiện API mới chưa được bổ sung. Có test đối chiếu JSON commit với contract hiện
-tại. Các file mẫu chỉ có credential rỗng; không xuất token từ `.env` vào artifact.
+Generator yêu cầu method/path khớp OpenAPI hoàn toàn. Runner HTTP tạo
+SQLite/API/worker tạm riêng và tự dừng tiến trình sở hữu. Accounts/sources là
+fixture tổng hợp, không phải người dùng hoặc tư liệu/gold được nghiệm thu.
+Recovery endpoint dùng WorkerLost tổng hợp trong DB tạm, không được tính là thử
+kill worker thật. Không gửi vào API phục vụ UI hoặc gọi model thật.
 
-Collection hiện tại được test đối chiếu toàn bộ **33 operations / 36 requests**
-với OpenAPI. Runner HTTP độc lập `uv run --locked python -m scripts.api_contract_report`
-đã kiểm tra **82/82 case**, phủ **33/33 operations**, bao gồm preflight và review
-chỉ gọi Judge. Kết quả local ở `reports/api-contract/results.md` và `results.json`.
-Không gọi model trả phí, không dùng server live.
-
-Preflight nằm trong folder 04. Review nằm trong folder 10, cần
-`run_lifecycle_actions=true`, lưu `review_run_id` và `review_idempotency_key` riêng.
-Để xem kết quả review, gán `run_id=review_run_id`, reset `history_after=0`,
-`sse_after=0`, `last_event_id=0`, sau đó gọi request Wait for run và folder 06–07
-trước khi Revoke session. Review dùng draft/nguồn đã lưu; không tự lấy nguồn mới.
-
-Nguồn định dạng và workflow:
-[Postman schemas](https://schema.postman.com/),
-[Collection Runner workflows](https://learning.postman.com/v11/docs/tests-and-scripts/running-collections/building-workflows/),
-[SSE support](https://blog.postman.com/support-for-server-sent-events/).
+Report mặc định ở `reports/api-contract/results.json` và `results.md`, bị Git
+bỏ qua; token/password được che. Kết quả kiểm chứng của nhánh tách được ghi ở
+[BACKEND_ISOLATION.md](BACKEND_ISOLATION.md), không dùng lại số liệu của deployment
+local trước đó. Chạy exporter/tests không phải một lượt chạy collection trong
+ứng dụng Postman Desktop.

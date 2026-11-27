@@ -123,7 +123,7 @@ class FakeLLM:
         pass
 
     def get_status(self):
-        return {"ready": True, "roles": {}, "description": "mock"}
+        return {"ready": True, "roles": {}, "missing_roles": [], "description": "mock"}
 
     def call_llm(self, **kwargs):
         role = kwargs.get("agent_role", "general")
@@ -139,6 +139,12 @@ class FakeLLM:
             self.calls.append(record)
             self.history.append(kwargs)
         answer = self.behavior(role, kwargs) if self.behavior else None
+        if answer is None and self.config.accuracy.enabled:
+            from api.demo import evidence_demo_response
+
+            result = evidence_demo_response(kwargs.get("response_schema"), kwargs.get("prompt", ""))
+            if result is not None:
+                answer = json.dumps(result)
         if answer is None:
             if role == "coordinator":
                 answer = json.dumps(

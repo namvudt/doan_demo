@@ -101,7 +101,10 @@ def test_comparison_has_no_fixed_verdict_and_uses_same_graph(photo, fake_search)
     assert result["verdict"] is None
     assert result["evaluation_status"] == "not_evaluated"
     assert len(result["rows"]) == 3
-    assert result["rows"][1]["metadata"]["has_tools"] is False
+    assert result["rows"][1]["metadata"]["has_tools"] is True
+    assert any(
+        c["tool"] == "retrieve_heritage" for c in result["rows"][1]["metadata"]["tool_calls"]
+    )
     assert result["rows"][2]["run"]["status"] == "reviewed"
 
 

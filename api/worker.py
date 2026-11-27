@@ -6,11 +6,11 @@ import threading
 import time
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from api.models import Asset, ModelAttempt, Run, SessionToken, WorkerHeartbeat
 from api.settings import Settings
-from api.store import TERMINAL, append_event, locked_run
+from api.store import SEGMENT_END, TERMINAL, append_event, locked_run
 from core.model_errors import failure_info
 from core.runtime_logging import RateLimitedLog, configure_logging, log_context, log_event
 from workflow.service import RunCancelled
@@ -25,6 +25,7 @@ class Worker:
         self.heartbeat_thread = None
         self.active = None
         self.outage_logs = RateLimitedLog()
+        self.last_cleanup = time.monotonic()
 
     def renew_heartbeat(self, session):
         # Acquire the writer/row lock before sampling time: waiting for a busy
@@ -96,10 +97,28 @@ class Worker:
                     or (run.lease_expires_at or float("inf")) >= time.time()
                 ):
                     continue
-                run.execution_status = "cancelled" if run.cancel_requested else "failed"
-                run.error_type = "WorkerLost"
-                run.finished_at = time.time()
+                from api.recovery import checkpoint_nodes
+
+                owner = session.get(SessionToken, run.owner_id)
+                recover = (
+                    self.runtime.settings.durable_checkpoints
+                    and not run.cancel_requested
+                    and not run.deleted_at
+                    and owner is not None
+                    and not owner.revoked
+                    and owner.expires_at > time.time()
+                    and run.recovery_count < self.runtime.settings.max_recoveries
+                    and bool(checkpoint_nodes(self.runtime.db, run.id))
+                )
+                run.execution_status = (
+                    "queued" if recover else "cancelled" if run.cancel_requested else "failed"
+                )
+                run.error_type = None if recover else "WorkerLost"
+                run.finished_at = None if recover else time.time()
+                if recover:
+                    run.recovery_count += 1
                 run.worker_token = None
+                run.lease_expires_at = None
                 append_event(
                     session,
                     run,
@@ -108,6 +127,7 @@ class Worker:
                         "run_id": run.id,
                         "execution_status": run.execution_status,
                         "error_type": "WorkerLost",
+                        "recovery_count": run.recovery_count,
                     },
                 )
                 session.execute(
@@ -148,7 +168,7 @@ class Worker:
                     .values(
                         execution_status="running",
                         worker_token=token,
-                        started_at=time.time(),
+                        started_at=func.coalesce(Run.started_at, time.time()),
                         lease_expires_at=time.time() + self.runtime.settings.lease_seconds,
                     )
                 )
@@ -175,13 +195,21 @@ class Worker:
                 or run.worker_token != token
                 or run.cancel_requested
                 or run.execution_status in TERMINAL
+                or run.deleted_at
+                or (run.lease_expires_at or 0) <= time.time()
             ):
                 raise RunCancelled("Run cancellation or lease loss")
 
     def persist(self, identifier, token, event):
         with self.runtime.db.session() as session:
             run = locked_run(session, identifier)
-            if run.worker_token != token or run.execution_status in TERMINAL:
+            if (
+                run is None
+                or run.worker_token != token
+                or run.execution_status in TERMINAL
+                or run.deleted_at
+                or (run.lease_expires_at or 0) <= time.time()
+            ):
                 raise RunCancelled("Lease lost")
             if run.cancel_requested:
                 raise RunCancelled("Cancellation requested")
@@ -190,9 +218,20 @@ class Worker:
             if event.kind == "completed":
                 run.result = event.result.model_dump(mode="json")
                 run.result_status = event.result.status
-                run.execution_status = "failed" if event.result.status == "failed" else "succeeded"
+                run.execution_status = (
+                    "awaiting_input"
+                    if event.result.clarification
+                    else "failed"
+                    if event.result.status == "failed"
+                    else "succeeded"
+                )
                 run.error_type = "WorkflowFailed" if event.result.status == "failed" else None
                 run.finished_at = time.time()
+                run.worker_token = None
+                run.lease_expires_at = None
+                from api.conversations import sync_conversation_result
+
+                sync_conversation_result(session, run)
                 append_event(
                     session,
                     run,
@@ -233,7 +272,12 @@ class Worker:
         }
         with self.runtime.db.session() as session:
             run = locked_run(session, identifier)
-            if run is None or run.worker_token != token or run.execution_status in TERMINAL:
+            if (
+                run is None
+                or run.worker_token != token
+                or run.execution_status in TERMINAL
+                or (run.lease_expires_at or 0) <= time.time()
+            ):
                 return
             self.renew_heartbeat(session)
             run.execution_status = (
@@ -268,6 +312,16 @@ class Worker:
         )
 
     def process_one(self):
+        interval = self.runtime.settings.retention_cleanup_interval_seconds
+        if interval and time.monotonic() - self.last_cleanup >= interval:
+            from api.lifecycle import purge_data
+
+            try:
+                result = purge_data(self.runtime, apply=True)
+                log_event("retention.completed", **result)
+            except Exception as error:
+                self.outage_logs.emit("retention.failed", error=error)
+            self.last_cleanup = time.monotonic()
         claimed = self.claim()
         if not claimed:
             return False
@@ -293,7 +347,16 @@ class Worker:
                 path = self.runtime.asset_path(asset.storage_key)
             service = self.runtime.service(run)
             with self.runtime.tracing_context(run.model_mode):
-                if run.run_kind == "review":
+                if run.run_kind == "clarification":
+                    parent = self.runtime.store.get_run(run.parent_run_id, run.owner_id)
+                    stream = service.continue_stream(
+                        path.read_bytes(),
+                        parent.result,
+                        run.input_context,
+                        run_id=run.id,
+                        cancel_check=lambda: self.cancellation_check(run.id, token),
+                    )
+                elif run.run_kind == "review":
                     parent = self.runtime.store.get_run(run.parent_run_id, run.owner_id)
                     stream = service.review_stream(
                         path.read_bytes(),
@@ -308,6 +371,8 @@ class Worker:
                         run.audience,
                         run_id=run.id,
                         cancel_check=lambda: self.cancellation_check(run.id, token),
+                        focus_box=(run.input_context or {}).get("focus_box"),
+                        location_hint=(run.input_context or {}).get("location_hint"),
                     )
                 try:
                     for event in stream:
@@ -317,7 +382,7 @@ class Worker:
             # A faulty adapter must not leave a permanently running job.
             with self.runtime.db.session() as session:
                 current = session.get(Run, run.id)
-                if current.execution_status not in TERMINAL:
+                if current.execution_status not in SEGMENT_END:
                     raise RuntimeError("Missing workflow result")
         except Exception as exc:
             self.finish_error(run.id, token, exc)

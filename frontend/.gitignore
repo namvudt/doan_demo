@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.local
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Earlier diagnostic captures; final delivery screenshots remain tracked.
+artifacts/screenshots/catalog-images-checked.png
+artifacts/screenshots/heritages-desktop.png
+artifacts/screenshots/image-error-checked.png
+artifacts/screenshots/map-desktop-checked.png
+artifacts/screenshots/map-mobile-checked.png
+artifacts/screenshots/map-mobile.png

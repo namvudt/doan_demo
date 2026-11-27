@@ -55,11 +55,14 @@ class AggregatorAgent:
         generation_findings=None,
         audience="tourist",
     ):
+        system = AGGREGATOR_SYSTEM_PROMPT
+        if self.llm.config.accuracy.enabled:
+            system += f"\nBản nháp tối đa {self.llm.config.accuracy.intermediate_max_chars} ký tự, mỗi ý một câu, không lặp lại dữ liệu. Không phiên đọc Hán–Nôm; không suy đồng/loại gỗ/đá vôi từ ảnh. Chỉ nêu những thuộc tính đó khi có nguồn nói rõ. Không thêm phần giới thiệu chung hoặc lời mời du lịch."
         return self.llm.call_llm(
             prompt=self._prompt(
                 query, visual_findings, knowledge_findings, generation_findings, audience
             ),
-            system_instruction=AGGREGATOR_SYSTEM_PROMPT,
+            system_instruction=system,
             agent_role="aggregator",
         )
 

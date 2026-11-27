@@ -34,6 +34,10 @@ def image_bytes(image: Image.Image) -> bytes:
     return output.getvalue()
 
 
-def fingerprint(data: bytes, query: str, audience: str, config_hash: str) -> str:
+def fingerprint(
+    data: bytes, query: str, audience: str, config_hash: str, *, location_hint=None
+) -> str:
     payload = [hashlib.sha256(data).hexdigest(), query.strip(), audience, config_hash]
+    if location_hint:
+        payload.append(location_hint)
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()

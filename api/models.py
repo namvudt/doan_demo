@@ -3,6 +3,7 @@
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Float,
     ForeignKey,
     Index,
@@ -59,10 +60,15 @@ class Run(Base):
     audience: Mapped[str] = mapped_column(String(20))
     profile: Mapped[str] = mapped_column(String(30))
     model_mode: Mapped[str] = mapped_column(String(10))
-    run_kind: Mapped[str] = mapped_column(String(10), default="full", server_default="full")
+    # SQLite ignores VARCHAR widths. Retain its legacy declaration to avoid rebuilding
+    # a referenced table; PostgreSQL needs the wider column for "clarification".
+    run_kind: Mapped[str] = mapped_column(
+        String(20).with_variant(String(10), "sqlite"), default="full", server_default="full"
+    )
     execution_status: Mapped[str] = mapped_column(String(25), index=True)
     result_status: Mapped[str | None] = mapped_column(String(30))
     config_snapshot: Mapped[dict] = mapped_column(Payload)
+    input_context: Mapped[dict | None] = mapped_column(Payload)
     request_hash: Mapped[str] = mapped_column(String(64))
     idempotency_key: Mapped[str | None] = mapped_column(String(128))
     result: Mapped[dict | None] = mapped_column(Payload)
@@ -75,6 +81,8 @@ class Run(Base):
     finished_at: Mapped[float | None] = mapped_column(Float)
     worker_token: Mapped[str | None] = mapped_column(String(36))
     lease_expires_at: Mapped[float | None] = mapped_column(Float)
+    deleted_at: Mapped[float | None] = mapped_column(Float, index=True)
+    recovery_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
 class RunEventRecord(Base):
@@ -116,3 +124,87 @@ class ModelAttempt(Base):
     error_type: Mapped[str | None] = mapped_column(String(80))
     usage: Mapped[dict | None] = mapped_column(Payload)
     diagnostics: Mapped[dict | None] = mapped_column(Payload)
+
+
+class HeritageSite(Base):
+    __tablename__ = "heritage_sites"
+    __table_args__ = (
+        CheckConstraint("content_status IN ('draft', 'published')", name="ck_heritage_status"),
+        CheckConstraint("version > 0", name="ck_heritage_version"),
+        Index("ix_heritage_catalog_public", "content_status", "province", "category"),
+    )
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(160), unique=True)
+    name: Mapped[str] = mapped_column(String(240))
+    province: Mapped[str] = mapped_column(String(120))
+    address: Mapped[str] = mapped_column(String(500))
+    category: Mapped[str] = mapped_column(String(30))
+    period: Mapped[str] = mapped_column(String(240))
+    summary: Mapped[str] = mapped_column(Text)
+    tags: Mapped[list] = mapped_column(Payload)
+    search_text: Mapped[str] = mapped_column(Text)
+    content_status: Mapped[str] = mapped_column(String(20))
+    illustrative: Mapped[bool] = mapped_column(Boolean)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[float] = mapped_column(Float)
+
+
+class HeritageSiteInformation(Base):
+    __tablename__ = "heritage_site_information"
+    __table_args__ = (
+        CheckConstraint(
+            "(latitude IS NULL AND longitude IS NULL AND verification_status IS NULL) OR "
+            "(latitude IS NOT NULL AND longitude IS NOT NULL AND latitude BETWEEN -90 AND 90 "
+            "AND longitude BETWEEN -180 AND 180 AND verification_status IS NOT NULL AND verification_status "
+            "IN ('illustrative', 'unverified', 'verified'))",
+            name="ck_heritage_location",
+        ),
+    )
+    heritage_id: Mapped[str] = mapped_column(
+        ForeignKey("heritage_sites.id", ondelete="CASCADE"), primary_key=True
+    )
+    historical_information: Mapped[str] = mapped_column(Text)
+    cultural_information: Mapped[str] = mapped_column(Text)
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
+    verification_status: Mapped[str | None] = mapped_column(String(20))
+    verification_note: Mapped[str] = mapped_column(Text)
+    source_id: Mapped[str | None] = mapped_column(String(100))
+
+
+class HeritageSiteMedia(Base):
+    __tablename__ = "heritage_site_media"
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    heritage_id: Mapped[str] = mapped_column(
+        ForeignKey("heritage_sites.id", ondelete="CASCADE"), index=True
+    )
+    storage_key: Mapped[str] = mapped_column(String(220))
+    alt: Mapped[str] = mapped_column(String(500))
+    caption: Mapped[str] = mapped_column(Text)
+    verified: Mapped[bool] = mapped_column(Boolean)
+    position: Mapped[int] = mapped_column(Integer)
+
+
+class HeritageContentSource(Base):
+    __tablename__ = "heritage_content_sources"
+    __table_args__ = (
+        CheckConstraint("index_status = 'not_indexed'", name="ck_catalog_source_not_ingested"),
+    )
+    id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    heritage_id: Mapped[str] = mapped_column(
+        ForeignKey("heritage_sites.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(300))
+    publisher: Mapped[str] = mapped_column(String(240))
+    url: Mapped[str] = mapped_column(String(2048))
+    kind: Mapped[str] = mapped_column(String(30))
+    summary: Mapped[str] = mapped_column(Text)
+    verified: Mapped[bool] = mapped_column(Boolean)
+    verification_note: Mapped[str] = mapped_column(Text)
+    index_status: Mapped[str] = mapped_column(String(20))
+    position: Mapped[int] = mapped_column(Integer)
+
+
+# Register domain models for Alembic and schema-aware operators.
+from api import content_models, product_models, recovery_models  # noqa: E402,F401

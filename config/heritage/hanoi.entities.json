@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "region": "Hà Nội",
+  "annotation_status": "draft",
+  "note": "Candidate labels only. No historical facts or gold answers; source review is required before research evaluation.",
+  "entities": [
+    {
+      "entity_id": "hanoi:van-mieu",
+      "name": "Văn Miếu – Quốc Tử Giám",
+      "aliases": [
+        "Văn Miếu",
+        "Văn Miếu Quốc Tử Giám"
+      ],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:khue-van-cac",
+      "name": "Khuê Văn Các",
+      "aliases": [
+        "Gác Khuê Văn"
+      ],
+      "parent_id": "hanoi:van-mieu",
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:hoang-thanh",
+      "name": "Hoàng thành Thăng Long",
+      "aliases": [
+        "Hoàng Thành Thăng Long"
+      ],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:doan-mon",
+      "name": "Đoan Môn",
+      "aliases": [],
+      "parent_id": "hanoi:hoang-thanh",
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:chua-mot-cot",
+      "name": "Chùa Một Cột",
+      "aliases": [],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:den-ngoc-son",
+      "name": "Đền Ngọc Sơn",
+      "aliases": [],
+      "localities": ["Hồ Hoàn Kiếm", "Hồ Gươm", "Hoàn Kiếm", "Hà Nội"],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:cau-the-huc",
+      "name": "Cầu Thê Húc",
+      "aliases": [],
+      "parent_id": "hanoi:den-ngoc-son",
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:thap-rua",
+      "name": "Tháp Rùa",
+      "aliases": [],
+      "localities": ["Hồ Hoàn Kiếm", "Hồ Gươm", "Hoàn Kiếm", "Hà Nội"],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:chua-tran-quoc",
+      "name": "Chùa Trấn Quốc",
+      "aliases": [],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:den-quan-thanh",
+      "name": "Đền Quán Thánh",
+      "aliases": [],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:chua-huong",
+      "name": "Quần thể Chùa Hương",
+      "aliases": [
+        "Chùa Hương",
+        "Quần thể danh thắng Chùa Hương",
+        "Quần thể Hương Sơn",
+        "Khu di tích và danh thắng Hương Sơn"
+      ],
+      "localities": ["Hương Sơn", "Mỹ Đức", "Hà Nội"],
+      "parent_id": null,
+      "annotation_status": "draft"
+    },
+    {
+      "entity_id": "hanoi:chua-thien-tru",
+      "name": "Chùa Thiên Trù",
+      "aliases": ["Thiên Trù"],
+      "parent_id": "hanoi:chua-huong",
+      "annotation_status": "draft",
+      "source_refs": ["https://hanoigo.hanoi.gov.vn/place/quan-the-huong-son-chua-huong-ctv-sa2nx5"]
+    },
+    {
+      "entity_id": "hanoi:co-loa",
+      "name": "Khu di tích Cổ Loa",
+      "aliases": [
+        "Cổ Loa",
+        "Thành Cổ Loa"
+      ],
+      "parent_id": null,
+      "annotation_status": "draft"
+    }
+  ]
+}

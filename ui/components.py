@@ -188,6 +188,33 @@ def render_sources(result):
         st.caption("Chưa có tên địa điểm để tạo liên kết bản đồ.")
 
 
+def render_recognition(result, image_data=None):
+    if recognition := result.get("recognition"):
+        recognition_labels = {
+            "probable": "Nhận diện có cơ sở · mức khả năng",
+            "recognized": "Đã nhận diện tự động theo bằng chứng ảnh",
+            "ambiguous": "Còn nhiều ứng viên cần phân biệt",
+            "unrecognized": "Chưa xác định được công trình từ ảnh",
+        }
+        st.markdown("**" + recognition_labels[recognition["status"]] + "**")
+        if recognition.get("name"):
+            st.write(recognition["name"])
+        with st.expander("Cơ sở nhận diện và giới hạn"):
+            st.write(recognition.get("explanation", ""))
+            refs = set(recognition.get("evidence_ids", []))
+            for entry in result.get("evidence", []):
+                if entry["evidence_id"] in refs:
+                    st.write("• " + entry["text"])
+                    if image_data and entry.get("box"):
+                        from core.tools import crop_root
+
+                        st.image(crop_root(image_data, entry["box"]))
+            st.caption("Mức nhận diện ảnh tách biệt với kiểm chứng các thông tin lịch sử bên dưới.")
+    if hint := result.get("location_hint"):
+        provenance = "nhãn ảnh mẫu" if hint["provenance"] == "sample_label" else "người dùng"
+        st.caption(f"Gợi ý từ {provenance}: {hint['name']} · chưa được kiểm chứng.")
+
+
 def render_quality(result):
     st.subheader("Đánh giá tự động")
     st.caption(
@@ -253,10 +280,11 @@ def render_quality(result):
             st.dataframe(rows, hide_index=True, width="stretch")
 
 
-def render_result(result, *, show_stages=True, show_draft=False, history=False):
+def render_result(result, *, show_stages=True, show_draft=False, history=False, image_data=None):
     sources = collect_sources(result)
     st.subheader("Kết quả khám phá")
     st.caption(result["query"])
+    render_recognition(result, image_data)
     if result.get("run_kind") == "review":
         st.caption(
             f"Đánh giá lại từ lượt {result.get('parent_run_id')} · ảnh, bản nháp và nguồn được giữ nguyên."
@@ -272,7 +300,17 @@ def render_result(result, *, show_stages=True, show_draft=False, history=False):
         st.warning(f"Judge: {report['error_code']}. {hints.get(report.get('error_category'), '')}")
     if history:
         st.info("Đang xem một lượt trong lịch sử phiên. Việc xem lại không gọi model.")
-    if result["status"] == "reviewed":
+    if result.get("answer_status"):
+        labels = {
+            "answered": "Đã trả lời các phần được yêu cầu; kiểm chứng tự động có thể sai.",
+            "partial": "Trả lời một phần có căn cứ; các phần còn thiếu được nêu bên dưới.",
+            "needs_clarification": "Cần thêm thông tin; phần đã có căn cứ vẫn được giữ.",
+            "insufficient_evidence": "Chưa đủ bằng chứng để trả lời.",
+            "verification_unavailable": "Chưa hoàn tất kiểm chứng do lỗi kỹ thuật.",
+            "out_of_scope": "Ngoài phạm vi hỗ trợ.",
+        }
+        st.info(labels.get(result["answer_status"], result["answer_status"]))
+    elif result["status"] == "reviewed":
         st.success(STATUS_LABELS[result["status"]] + " · Hãy đối chiếu với nguồn tham khảo.")
     elif result["status"] == "failed":
         st.error(STATUS_LABELS[result["status"]] + " · Bạn có thể thử lại hoặc đổi ảnh.")
@@ -302,7 +340,9 @@ def render_result(result, *, show_stages=True, show_draft=False, history=False):
         ]
     )
     with overview:
-        if candidate := result.get("plan", {}).get("identified_monument"):
+        if not result.get("recognition") and (
+            candidate := result.get("plan", {}).get("identified_monument")
+        ):
             st.markdown(f"**Gợi ý nhận diện:** {candidate}")
             st.caption(
                 "Tên công trình là giả thuyết nhận diện; hãy đối chiếu ảnh và tư liệu bên dưới."
@@ -348,8 +388,61 @@ def render_result(result, *, show_stages=True, show_draft=False, history=False):
         else:
             st.caption("Bật “Hiển thị kết quả từng bước” trong thanh bên để xem báo cáo chi tiết.")
     with evidence:
+        registry = {e["evidence_id"]: e for e in result.get("evidence", [])}
+        verdicts = {
+            "supported": "Được hỗ trợ tự động",
+            "insufficient": "Chưa đủ căn cứ",
+            "contradicted": "Có bằng chứng phản bác",
+            "not_assessable": "Chưa đánh giá được",
+        }
+        for claim in result.get("claims", []):
+            with st.expander(
+                verdicts.get(claim["verdict"], claim["verdict"]) + " · " + claim["text"]
+            ):
+                if claim.get("explanation"):
+                    st.write(claim["explanation"])
+                gate_hints = {
+                    "han_nom_reading_unsupported": "Chức năng phiên đọc Hán–Nôm chưa được hỗ trợ; nội dung này không đưa vào câu trả lời.",
+                    "factual_attribute_requires_source": "Ảnh chưa đủ xác nhận thuộc tính vật liệu hoặc niên đại; cần tư liệu đối chiếu.",
+                    "source_entity_mismatch": "Bằng chứng thuộc công trình khác với công trình đang xét.",
+                    "source_entity_unresolved": "Chưa gắn được đoạn nguồn với đúng công trình.",
+                    "supporting_quote_missing": "Chưa có đoạn trích nguyên văn hỗ trợ nhận định.",
+                    "identity_unresolved": "Cần xác định rõ công trình trước khi kết luận.",
+                }
+                hints = list(
+                    dict.fromkeys(
+                        gate_hints[code]
+                        for code in claim.get("gate_errors", [])
+                        if code in gate_hints
+                    )
+                )
+                if hints:
+                    st.warning("\n\n".join(hints))
+                for evidence_id in claim.get("evidence_ids", []):
+                    entry = registry.get(evidence_id)
+                    if entry:
+                        st.caption("Bằng chứng " + entry["kind"])
+                        st.write(entry["text"])
+                        if image_data and entry.get("box"):
+                            from core.tools import crop_root
+
+                            st.image(
+                                crop_root(image_data, entry["box"]),
+                                caption="Vùng từ ảnh gốc đã chuẩn hóa",
+                            )
+                for quotation in claim.get("quotations", []):
+                    st.text(quotation["quote"])
         render_sources(result)
     with quality:
+        if result.get("result_schema_version", 1) >= 2:
+            st.caption(
+                "Trạng thái nhận định dựa trên model và kiểm tra registry/trích đoạn; chưa phải đánh giá chuẩn của chuyên gia."
+            )
+            quality_data = result.get("image_quality", {})
+            if quality_data:
+                st.write("Tín hiệu ảnh:", quality_data)
+            if result.get("tool_calls"):
+                st.dataframe(result["tool_calls"], hide_index=True, width="stretch")
         render_quality(result)
     with st.expander("Lưu báo cáo và phản hồi"):
         run_id = result["run_id"]
